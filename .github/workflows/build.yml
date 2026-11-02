@@ -1,0 +1,53 @@
+name: VGK 0.1 Build ISO
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'boot/**'
+      - 'include/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'Makefile'
+      - 'linker.ld'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Pobierz kod VGK
+        uses: actions/checkout@v4
+
+      - name: Zainstaluj narzędzia
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            gcc \
+            binutils \
+            make \
+            nasm \
+            grub-pc-bin \
+            grub-common \
+            xorriso \
+            mtools \
+            python3
+
+      - name: Zbuduj jądro
+        run: make clean all
+
+      - name: Uruchom testy
+        run: make test
+
+      - name: Utwórz obraz ISO
+        run: make iso
+
+      - name: Opublikuj ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: VGK-0.1-ISO
+          path: build/VGK-0.1.iso
+          if-no-files-found: error
