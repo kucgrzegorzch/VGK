@@ -16,7 +16,7 @@ jobs:
 
       - name: Rozpakuj źródła VGK
         run: |
-          unzip -o VGK-0.1-source-and-kernel.zip
+          unzip -o VGK-0.1-source.zip
 
       - name: Zainstaluj narzędzia
         run: |
