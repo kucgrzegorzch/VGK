@@ -29,6 +29,17 @@ Docelowa kolejność:
 
 Każdy etap musi ufać wyłącznie kluczowi publicznemu lub wynikowi sprawdzenia przekazanemu przez wcześniejszy, zaufany etap. Sam komunikat tekstowy ani nazwa pliku nie są dowodem autentyczności.
 
+## Własne obliczanie skrótu SHA-256
+
+Dodano przenośną implementację SHA-256 w języku C:
+- `boot/crypto/sha256.h` – interfejs;
+- `boot/crypto/sha256.c` – obliczanie skrótu;
+- `tests/test_sha256.c` – testy wektorów kontrolnych i podawania danych w częściach.
+
+Test jest uruchamiany jako część `make security-test`. Sprawdza między innymi znane wyniki dla pustego tekstu i tekstu `abc`. Kod został skompilowany lokalnie z ostrzeżeniami traktowanymi jako błędy, a testy zakończyły się powodzeniem.
+
+To jest wyłącznie funkcja obliczania skrótu. Nie weryfikuje podpisu Ed25519 i nie jest jeszcze podłączona do UEFI ani jądra. Sam skrót nie potwierdza, kto utworzył plik; potrzebny jest podpis zaufanego wykazu.
+
 ## Pierwsze narzędzie sprawdzające wydanie
 
 W repozytorium znajduje się `tools/sprawdz_wydanie.py`. Narzędzie sprawdza podpis Ed25519 wykazu JSON przy użyciu OpenSSL, a następnie porównuje rozmiar i skrót SHA-256 każdego wskazanego pliku. Odrzuca między innymi nieprawidłowy podpis, zmieniony wykaz, ścieżki wychodzące poza katalog wydania i dowiązania symboliczne.
