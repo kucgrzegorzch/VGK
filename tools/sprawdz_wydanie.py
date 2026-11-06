@@ -86,6 +86,8 @@ def verify_files(root: Path, manifest):
         if not isinstance(item, dict) or set(item) != {"path", "size", "sha256"}:
             raise VerificationError("każdy wpis musi zawierać wyłącznie path, size i sha256")
         relative = item["path"]
+        if not isinstance(relative, str) or not relative:
+            raise VerificationError("ścieżka pliku jest pusta lub nie jest tekstem")
         if relative in seen:
             raise VerificationError(f"powtórzona ścieżka: {relative}")
         seen.add(relative)
@@ -98,7 +100,14 @@ def verify_files(root: Path, manifest):
         actual_size = path.stat().st_size
         if actual_size != item["size"]:
             raise VerificationError(f"niezgodny rozmiar pliku: {relative}")
-        actual_digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        hasher = hashlib.sha256()
+        try:
+            with path.open("rb") as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    hasher.update(chunk)
+        except OSError as exc:
+            raise VerificationError(f"nie można odczytać pliku: {relative}: {exc}") from exc
+        actual_digest = hasher.hexdigest()
         if actual_digest != digest:
             raise VerificationError(f"niezgodna zawartość pliku: {relative}")
 
