@@ -55,6 +55,13 @@ class TrustedKeyGenerationTests(unittest.TestCase):
         self.assertFalse(self.public.exists())
         self.assertFalse(self.header.exists())
 
+    def test_preserves_old_predictable_temporary_path(self):
+        old_temp = self.header.with_suffix(self.header.suffix + ".tmp.der")
+        old_temp.write_bytes(b"keep this file")
+        result = self.run_generator()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(old_temp.read_bytes(), b"keep this file")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
