@@ -21,6 +21,8 @@ jobs:
         run: make clean uefi
       - name: Validate PE32+ EFI image
         run: make uefi-test
+      - name: Test UEFI file protocol layout
+        run: make uefi-abi-test
       - name: Test signed release verification
         run: make security-test
       - name: Publish EFI application artifact
