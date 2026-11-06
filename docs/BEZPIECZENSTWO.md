@@ -191,3 +191,10 @@ Parser wykazu połączono teraz z modułem SHA-256 przez funkcję `vgk_manifest_
 5. zamyka plik również po wykryciu błędu.
 
 Testy sprawdzają zarówno zgodny plik, jak i podmienioną zawartość oraz zamknięcie pliku po kontroli. To jest już wspólny interfejs kontroli podpisu wykazu i integralności plików, ale nadal nie jest podłączony do rzeczywistego odczytu partycji UEFI. Brakuje też wbudowanego, zaufanego klucza publicznego wydawcy i decyzji programu uruchamiającego o przerwaniu startu przy błędzie.
+
+
+## Podstawa dostępu do plików przez UEFI
+
+Dodano `boot/uefi/uefi_file.h` z deklaracjami interfejsu systemu plików UEFI oraz obsługi pliku. Uwzględnia ono układ struktur, kolejność funkcji, tryby otwierania i kontrole zgodności wykonywane podczas kompilacji. Test `make uefi-abi-test` sprawdza rozmiary struktur, położenia funkcji i stałe trybów.
+
+**Ograniczenie:** jest to podstawa zgodności z interfejsem oprogramowania układowego, a nie jeszcze działający odczyt nośnika. Program uruchamiający nie pobiera jeszcze interfejsu od oprogramowania układowego, nie otwiera partycji i nie wczytuje wykazu. Nie ma też jeszcze połączenia z weryfikacją podpisu. Następnym krokiem będzie uzyskanie właściwego uchwytu systemu plików, bezpieczne otwarcie plików tylko do odczytu, kontrola rozmiarów i pełna obsługa błędów.
