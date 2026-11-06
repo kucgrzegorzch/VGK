@@ -37,6 +37,28 @@ Testy uruchamia polecenie `make security-test`. Tworzą one tymczasowy klucz tes
 
 To narzędzie jest kontrolą po stronie komputera budującego lub sprawdzającego wydanie. Nie jest jeszcze zintegrowane z UEFI Stage 0 i nie blokuje startu zmodyfikowanego jądra.
 
+## Przygotowanie podpisanego wydania
+
+Do przygotowania wykazu służy `tools/przygotuj_wydanie.py`. Przykładowa kolejność dla osoby wydającej system:
+
+1. Utworzyć klucz Ed25519 poza repozytorium VGK, na zaufanym komputerze:
+   
+       openssl genpkey -algorithm Ed25519 -out vgk-klucz-prywatny.pem
+       openssl pkey -in vgk-klucz-prywatny.pem -pubout -out vgk-klucz-publiczny.pem
+       chmod 600 vgk-klucz-prywatny.pem
+
+2. Zachować klucz prywatny w bezpiecznym miejscu, najlepiej w kopii offline. Nie przesyłać go do GitHub, nie umieszczać w ISO ani w artefaktach budowania.
+3. Umieścić wyłącznie klucz publiczny w przyszłym, zaufanym mechanizmie uruchamiania VGK.
+4. Utworzyć wykaz i podpis, wskazując wszystkie pliki wydania, które mają być chronione, na przykład:
+
+       python3 tools/przygotuj_wydanie.py --root katalog-wydania --release VGK-0.2 --private-key vgk-klucz-prywatny.pem --manifest katalog-wydania/wykaz.json --signature katalog-wydania/wykaz.podpis boot/BOOTX64.EFI boot/vgk-kernel.elf
+
+5. Sprawdzić wynik narzędziem `tools/sprawdz_wydanie.py`, podając ten sam katalog, wykaz, podpis i odpowiadający klucz publiczny.
+
+Program przygotowujący wykaz nie nadpisuje istniejącego wykazu ani podpisu. Należy wybrać nowe ścieżki wyjściowe dla kolejnego wydania.
+
+**Uwaga:** powyższe polecenia opisują proces wydawcy. Klucz publiczny nie jest jeszcze osadzony w UEFI Stage 0, a mechanizm uruchamiania nie weryfikuje jeszcze tego podpisu. Nie należy używać przykładowego procesu jako dowodu, że komputer blokuje podmienione jądro.
+
 ## Podpisy i wykaz plików
 
 Oficjalne wydanie będzie zawierało wykaz obejmujący co najmniej:
