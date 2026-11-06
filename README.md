@@ -74,3 +74,5 @@ Moduł sprawdzania integralności plików w języku C (`boot/crypto/integrity.c`
 W katalogu `boot/crypto/` znajduje się również interfejs weryfikacji podpisów Ed25519. Wykorzystuje on zachowaną bibliotekę Monocypher 4.0.3 (licencja BSD-2-Clause lub CC0-1.0); pochodzenie i warunki licencji opisano w `boot/crypto/monocypher/POCHODZENIE.md`. Test wektora RFC 8032 uruchamia `make ed25519-test`. Weryfikator nie jest jeszcze podłączony do programu UEFI ani nie blokuje startu.
 
 Dodano także parser podpisanego wykazu plików VGK (format VGKM) w języku C. Sprawdza podpis przed odczytaniem wpisów i odrzuca niebezpieczne lub powtórzone ścieżki. Test: `make manifest-test`. Moduł nie jest jeszcze połączony z programem UEFI.
+
+Podpisany wykaz VGK można już przekazać do wspólnej kontroli plików: funkcja `vgk_manifest_verify_files` sprawdza skróty plików wskazanych w podpisanym wykazie, korzystając z funkcji odczytu dostarczonej przez przyszłą obsługę systemu plików. Test obejmuje również wykrycie podmienionej zawartości. Integracja z rzeczywistym odczytem nośnika UEFI jest kolejnym etapem.
