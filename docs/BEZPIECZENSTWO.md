@@ -29,7 +29,15 @@ Docelowa kolejność:
 
 Każdy etap musi ufać wyłącznie kluczowi publicznemu lub wynikowi sprawdzenia przekazanemu przez wcześniejszy, zaufany etap. Sam komunikat tekstowy ani nazwa pliku nie są dowodem autentyczności.
 
-## Pierwsze narzędzie sprawdzające wydanie\n\nW repozytorium znajduje się `tools/sprawdz_wydanie.py`. Narzędzie sprawdza podpis Ed25519 wykazu JSON przy użyciu OpenSSL, a następnie porównuje rozmiar i skrót SHA-256 każdego wskazanego pliku. Odrzuca między innymi nieprawidłowy podpis, zmieniony wykaz, ścieżki wychodzące poza katalog wydania i dowiązania symboliczne.\n\nTesty uruchamia polecenie `make security-test`. Tworzą one tymczasowy klucz testowy, sprawdzają poprawne wydanie, zmianę pliku o niezmienionym rozmiarze, zmianę wykazu i próbę wyjścia ścieżką poza katalog. Klucz testowy jest wyłącznie do testów i nie może być używany do podpisywania oficjalnych wydań.\n\nTo narzędzie jest kontrolą po stronie komputera budującego lub sprawdzającego wydanie. Nie jest jeszcze zintegrowane z UEFI Stage 0 i nie blokuje startu zmodyfikowanego jądra.\n\n## Podpisy i wykaz plików
+## Pierwsze narzędzie sprawdzające wydanie
+
+W repozytorium znajduje się `tools/sprawdz_wydanie.py`. Narzędzie sprawdza podpis Ed25519 wykazu JSON przy użyciu OpenSSL, a następnie porównuje rozmiar i skrót SHA-256 każdego wskazanego pliku. Odrzuca między innymi nieprawidłowy podpis, zmieniony wykaz, ścieżki wychodzące poza katalog wydania i dowiązania symboliczne.
+
+Testy uruchamia polecenie `make security-test`. Tworzą one tymczasowy klucz testowy, sprawdzają poprawne wydanie, zmianę pliku o niezmienionym rozmiarze, zmianę wykazu, błędny typ ścieżki i próbę wyjścia ścieżką poza katalog. Klucz testowy jest wyłącznie do testów i nie może być używany do podpisywania oficjalnych wydań.
+
+To narzędzie jest kontrolą po stronie komputera budującego lub sprawdzającego wydanie. Nie jest jeszcze zintegrowane z UEFI Stage 0 i nie blokuje startu zmodyfikowanego jądra.
+
+## Podpisy i wykaz plików
 
 Oficjalne wydanie będzie zawierało wykaz obejmujący co najmniej:
 - nazwę i wersję wydania;
