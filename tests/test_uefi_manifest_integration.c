@@ -15,6 +15,7 @@ static const uint8_t expected_digest[32] = {
 static const uint8_t good_file[] = "abc";
 static const uint8_t changed_file[] = "abd";
 static const uint8_t *active_bytes = good_file;
+static const uint8_t *kernel_bytes = good_file;
 static size_t active_size = sizeof(good_file) - 1U;
 static uint64_t active_offset;
 static unsigned open_count;
@@ -47,7 +48,7 @@ static VGK_EFI_STATUS VGK_EFIAPI mock_open(
         return UINT64_C(0x8000000000000002);
 
     if (path_is(path, "\\boot\\kernel.elf")) {
-        active_bytes = good_file;
+        active_bytes = kernel_bytes;
         active_size = sizeof(good_file) - 1U;
     } else if (path_is(path, "\\EFI\\VGK\\VGKM")) {
         active_bytes = volume_manifest;
@@ -145,7 +146,7 @@ int main(void)
     if (open_count != 1U || close_count != 1U)
         ++failures;
 
-    active_bytes = changed_file;
+    kernel_bytes = changed_file;
     if (vgk_uefi_verify_manifest_buffer(
             &root, encoded, encoded_size, signature, public_key)
             != VGK_MANIFEST_FILE_INTEGRITY_ERROR)
@@ -155,7 +156,7 @@ int main(void)
 
     memcpy(altered_signature, signature, sizeof(signature));
     altered_signature[0] ^= 1U;
-    active_bytes = good_file;
+    kernel_bytes = good_file;
     if (vgk_uefi_verify_manifest_buffer(
             &root, encoded, encoded_size, altered_signature, public_key)
             != VGK_MANIFEST_BAD_SIGNATURE)
