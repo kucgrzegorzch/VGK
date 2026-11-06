@@ -152,3 +152,16 @@ Dodano moduł:
 Porównanie 32-bajtowych skrótów wykonuje się bez kończenia pętli po pierwszej różnicy. Odczyt pliku odbywa się porcjami, z kontrolą rozmiaru i błędów źródła danych. Testy są uruchamiane przez `make integrity-test`, a także jako część `make security-test`.
 
 Moduł nie otwiera samodzielnie plików i nie ufa nazwie pliku: otrzymuje funkcję odczytu od przyszłego programu uruchamiającego. Nie sprawdza podpisu wydawcy, dopóki zaufany skrót nie zostanie dostarczony z wiarygodnego, podpisanego wykazu. Nie jest jeszcze podłączony do UEFI ani jądra VGK.
+
+## Weryfikacja podpisów Ed25519 w języku C
+
+Dodano interfejs VGK:
+- `boot/crypto/ed25519.h` – publiczny interfejs weryfikacji;
+- `boot/crypto/ed25519.c` – połączenie interfejsu VGK z biblioteką kryptograficzną;
+- `tests/test_ed25519.c` – testy wektora Ed25519 z dokumentu RFC 8032 oraz przypadków błędnych.
+
+Do obliczeń wykorzystano istniejącą bibliotekę Monocypher 4.0.3, a nie nowy, pisany od zera algorytm. Zachowano jej pliki źródłowe i licencję w `boot/crypto/monocypher/`; pochodzenie opisuje `boot/crypto/monocypher/POCHODZENIE.md`. Biblioteka jest udostępniana na licencji BSD-2-Clause lub CC0-1.0, zgodnie z zachowanymi nagłówkami źródłowymi.
+
+Interfejs VGK przyjmuje klucz publiczny o długości 32 bajtów, wiadomość i podpis o długości 64 bajtów. Nie potrzebuje klucza prywatnego do sprawdzania. Zwraca osobny wynik dla poprawnego podpisu, niepoprawnego podpisu i błędnych argumentów. Testy obejmują poprawny wektor RFC 8032, zmieniony podpis, zmieniony klucz publiczny i błędne argumenty. Uruchamia je `make ed25519-test`; test jest także częścią `make security-test`.
+
+**Ograniczenie:** moduł jest na razie sprawdzany jako program testowy. Nie został jeszcze włączony do programu UEFI, nie ma osadzonego klucza publicznego wydawcy i nie blokuje jeszcze uruchomienia podmienionego jądra. Dopiero po podłączeniu do zaufanego wykazu i programu uruchamiającego będzie mógł pełnić tę funkcję.
