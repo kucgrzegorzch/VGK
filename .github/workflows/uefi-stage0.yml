@@ -16,11 +16,13 @@ jobs:
       - name: Install build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang lld python3
+          sudo apt-get install -y clang lld python3 openssl
       - name: Build native UEFI application
         run: make clean uefi
       - name: Validate PE32+ EFI image
         run: make uefi-test
+      - name: Test signed release verification
+        run: make security-test
       - name: Publish EFI application artifact
         uses: actions/upload-artifact@v4
         with:
