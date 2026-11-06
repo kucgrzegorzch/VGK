@@ -9,7 +9,7 @@ LLD_LINK := lld-link
 UEFI_CFLAGS := --target=x86_64-pc-win32-coff -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -fshort-wchar -fno-stack-protector -fno-builtin -mno-red-zone
 UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machine:x64
 
-.PHONY: all clean iso check-tools test uefi uefi-test
+.PHONY: all clean iso check-tools test uefi uefi-test security-test
 all: build/vgk-kernel.elf
 
 test: build/vgk-kernel.elf
@@ -37,6 +37,9 @@ uefi: build/BOOTX64.EFI
 
 uefi-test: build/BOOTX64.EFI
 	python3 tests/check_uefi_image.py build/BOOTX64.EFI
+
+security-test:
+	python3 -m unittest discover -s tests -p 'test_sprawdz_wydanie.py' -v
 
 check-tools:
 	@command -v grub-mkrescue >/dev/null || (echo "Missing tool: grub-mkrescue"; exit 1)
