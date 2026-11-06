@@ -108,6 +108,21 @@ class ReleaseVerificationTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("dowiązanie", result.stderr)
 
+    def test_rejects_missing_file(self):
+        self.payload.unlink()
+        result = self.run_verifier()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("brak pliku", result.stderr)
+
+    def test_rejects_duplicate_json_keys(self):
+        self.manifest.write_text(
+            '{"format_version":1,"format_version":1,"release":"VGK-test-1","files":[]}',
+            encoding="utf-8",
+        )
+        result = self.run_verifier()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("powtórzone pole JSON", result.stderr)
+
     def test_rejects_path_traversal(self):
         data = json.loads(self.manifest.read_text(encoding="utf-8"))
         data["files"][0]["path"] = "../poza.txt"
