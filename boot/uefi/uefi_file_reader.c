@@ -120,3 +120,59 @@ void vgk_uefi_manifest_close_file(
     if (file != 0 && file->close != 0)
         (void)file->close(file);
 }
+
+
+int vgk_uefi_read_file_bounded(
+    VGK_EFI_FILE_PROTOCOL *root_directory,
+    const uint8_t *path,
+    uint16_t path_length,
+    uint8_t *buffer,
+    size_t capacity,
+    size_t *file_size)
+{
+    VGK_INTEGRITY_READ read = 0;
+    void *file_context = 0;
+    size_t total = 0;
+    int result = -1;
+
+    if (root_directory == 0 || buffer == 0 || capacity == 0 ||
+        file_size == 0)
+        return -1;
+
+    *file_size = 0;
+    if (vgk_uefi_manifest_open_file(root_directory, path, path_length,
+                                    &read, &file_context) != 0)
+        return -1;
+
+    while (total < capacity) {
+        size_t received = 0;
+        if (read(file_context, (uint64_t)total, buffer + total,
+                 capacity - total, &received) != 0)
+            goto done;
+        if (received > capacity - total)
+            goto done;
+        if (received == 0) {
+            *file_size = total;
+            result = 0;
+            goto done;
+        }
+        total += received;
+    }
+
+    /* Capacity is full: probe one byte to distinguish exact fit from overflow. */
+    {
+        uint8_t extra;
+        size_t received = 0;
+        if (read(file_context, (uint64_t)total, &extra, 1U, &received) != 0)
+            goto done;
+        if (received != 0)
+            goto done;
+    }
+
+    *file_size = total;
+    result = 0;
+
+done:
+    vgk_uefi_manifest_close_file(root_directory, file_context);
+    return result;
+}
