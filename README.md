@@ -68,3 +68,5 @@ Repozytorium zawiera workflow GitHub Actions, który buduje historyczny prototyp
 ## Mechanizm Bezpieczeństwa i Zaufania
 
 Opisano go w [dokumentacji bezpieczeństwa](docs/BEZPIECZENSTWO.md). Repozytorium zawiera pomocnicze narzędzia do przygotowania i sprawdzania podpisanego wykazu plików (`tools/przygotuj_wydanie.py`, `tools/sprawdz_wydanie.py`); testy uruchamia `make security-test`. Zawiera też własną implementację obliczania SHA-256 (`boot/crypto/sha256.c`), sprawdzaną w ramach tych testów. Program nie jest jeszcze włączony do mechanizmu uruchamiania VGK i nie zapewnia ochrony podczas startu.
+
+Moduł sprawdzania integralności plików w języku C (`boot/crypto/integrity.c`) umożliwia porównanie skrótu SHA-256 danych w pamięci lub pliku odczytywanego porcjami. Testy uruchamiają `make integrity-test` oraz `make security-test`. Moduł nie jest jeszcze podłączony do programu uruchamiania i sam nie potwierdza autora pliku — wymaga zaufanego skrótu z podpisanego wykazu.
