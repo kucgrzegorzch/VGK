@@ -57,6 +57,9 @@ uefi-manifest-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi -Iboot/crypto -Iboot/crypto/monocypher boot/crypto/sha256.c boot/crypto/integrity.c boot/crypto/manifest.c boot/crypto/ed25519.c boot/crypto/monocypher/monocypher.c boot/crypto/monocypher/monocypher-ed25519.c boot/uefi/uefi_file_reader.c tests/test_uefi_manifest_integration.c -o build/test_uefi_manifest_integration
 	./build/test_uefi_manifest_integration
 
+vgkm-test: | build
+	PYTHONPATH=tools python3 -m unittest discover -s tests -p 'test_vgkm.py' -v
+
 security-test: vgkm-test sha256-test integrity-test ed25519-test manifest-test uefi-manifest-test
 	python3 -m unittest discover -s tests -p 'test_sprawdz_wydanie.py' -v
 
