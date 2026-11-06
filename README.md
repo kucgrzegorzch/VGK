@@ -1,6 +1,6 @@
 # VGK 0.1 – własne jądro x86-64 (prototyp)
 
-VGK jest eksperymentalnym projektem niezależnego systemu operacyjnego. Ten etap zawiera własny, freestanding kernel ELF64 uruchamiany przez bootloader zgodny z Multiboot2. Nie jest to jeszcze kompletny system operacyjny.
+VGK jest eksperymentalnym projektem niezależnego systemu operacyjnego. Ten etap zawiera własny, freestanding kernel ELF64. Historyczny prototyp 0.1 był uruchamiany przez bootloader zgodny z Multiboot2; docelowy mechanizm uruchamiania VGK jest rozwijany niezależnie. Nie jest to jeszcze kompletny system operacyjny.
 
 ## Stan funkcji
 
@@ -10,11 +10,23 @@ VGK jest eksperymentalnym projektem niezależnego systemu operacyjnego. Ten etap
 - [x] Komunikat startowy na ekranie VGA oraz porcie szeregowym COM1
 - [x] Statyczna kontrola ELF64 i nagłówka Multiboot2 (`make test`)
 - [x] Lokalna kompilacja sprawdzona GCC i Clang (Clang może wypisać nieszkodliwe ostrzeżenie o fladze asemblera)
-- [ ] Parsowanie mapy pamięci Multiboot2 i własny allocator
+- [ ] Parsowanie mapy pamięci i własny allocator
 - [ ] IDT, wyjątki i przerwania
-- [ ] Sterowniki urządzeń i VGK Guardian
+- [ ] Sterowniki urządzeń
+- [ ] System Naprawczy – planowany moduł diagnostyki, wykrywania usterek i bezpiecznego przywracania sprawności systemu
 - [ ] Pulpit, instalator i obsługa aplikacji
 - [ ] Potwierdzony test uruchomienia w emulatorze lub na fizycznym komputerze
+
+## System Naprawczy
+
+System Naprawczy będzie odrębnym modułem VGK. Jego zadaniem będzie:
+- kontrolowanie podstawowych elementów systemu i wykrywanie nieprawidłowości;
+- diagnozowanie problemów z jądrem, pamięcią i sterownikami;
+- zapisywanie raportu diagnostycznego;
+- podejmowanie napraw automatycznych wyłącznie wtedy, gdy można je wykonać bezpiecznie;
+- uruchamianie procedury odzyskiwania lub proszenie użytkownika o zgodę, gdy naprawa może zmienić dane.
+
+Moduł jest na etapie projektu. Powyższe funkcje nie są jeszcze zaimplementowane ani przetestowane.
 
 ## Kompilacja
 
@@ -27,7 +39,7 @@ make test
 
 ## Obraz ISO
 
-Do utworzenia BIOS-owego ISO potrzebne są dodatkowo `grub-mkrescue`, GRUB dla platformy PC, `xorriso` i `mtools`.
+Stara ścieżka tworzenia prototypowego BIOS-owego ISO korzysta z GRUB/Multiboot2. Nie jest to docelowy mechanizm uruchamiania VGK.
 
 ```sh
 make iso
@@ -35,15 +47,15 @@ make iso
 
 Plik wynikowy: `build/VGK-0.1.iso`.
 
-Repozytorium zawiera workflow GitHub Actions, który po wysłaniu zmian buduje jądro, uruchamia test statyczny, tworzy ISO i publikuje je jako artefakt o nazwie `VGK-0.1-ISO`. Ten artefakt będzie dostępny w zakładce Actions po poprawnym wykonaniu workflow.
+Repozytorium zawiera workflow GitHub Actions, który buduje historyczny prototyp, uruchamia test statyczny, tworzy ISO i publikuje je jako artefakt o nazwie `VGK-0.1-ISO`. Ten artefakt będzie dostępny w zakładce Actions po poprawnym wykonaniu workflow.
 
 ## Ważne ograniczenia prototypu
 
-- Obecny boot path wymaga procesora x86-64 i bootloadera Multiboot2.
-- Konfiguracja ISO jest przeznaczona na start BIOS/Legacy; start UEFI/GOP nie jest jeszcze zaimplementowany.
+- Historyczny boot path wymaga procesora x86-64 i bootloadera Multiboot2.
+- Konfiguracja starego ISO jest przeznaczona na start BIOS/Legacy; start UEFI/GOP nie jest jeszcze potwierdzony.
 - Wczesny ekran używa klasycznej pamięci tekstowej VGA.
 - Mapa stron obejmuje obecnie tylko pierwsze 1 GiB przestrzeni fizycznej.
-- Zarządzanie pamięcią, sterowniki, bezpieczeństwo, Guardian, SafeCore, desktop i aplikacje nie są jeszcze zaimplementowane.
+- Zarządzanie pamięcią, sterowniki, bezpieczeństwo, System Naprawczy, SafeCore, pulpit i aplikacje nie są jeszcze zaimplementowane.
 - Test `make test` sprawdza strukturę pliku, a nie uruchomienie jądra.
 
 ## Kontrola poprawki GDT (2026-11-02)
