@@ -25,6 +25,8 @@ jobs:
         run: make uefi-abi-test
       - name: Test UEFI boot service layout
         run: make uefi-services-abi-test
+      - name: Test UEFI file reader adapter
+        run: make uefi-reader-test
       - name: Test signed release verification
         run: make security-test
       - name: Publish EFI application artifact
