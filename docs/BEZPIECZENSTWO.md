@@ -198,3 +198,12 @@ Testy sprawdzają zarówno zgodny plik, jak i podmienioną zawartość oraz zamk
 Dodano `boot/uefi/uefi_file.h` z deklaracjami interfejsu systemu plików UEFI oraz obsługi pliku. Uwzględnia ono układ struktur, kolejność funkcji, tryby otwierania i kontrole zgodności wykonywane podczas kompilacji. Test `make uefi-abi-test` sprawdza rozmiary struktur, położenia funkcji i stałe trybów.
 
 **Ograniczenie:** jest to podstawa zgodności z interfejsem oprogramowania układowego, a nie jeszcze działający odczyt nośnika. Program uruchamiający nie pobiera jeszcze interfejsu od oprogramowania układowego, nie otwiera partycji i nie wczytuje wykazu. Nie ma też jeszcze połączenia z weryfikacją podpisu. Następnym krokiem będzie uzyskanie właściwego uchwytu systemu plików, bezpieczne otwarcie plików tylko do odczytu, kontrola rozmiarów i pełna obsługa błędów.
+
+
+## Adapter odczytu plików UEFI – postęp i ograniczenia
+
+Dodano adapter `boot/uefi/uefi_file_reader.c`, który realizuje funkcje otwierania, odczytu od wskazanego przesunięcia i zamykania plików przez protokół plików UEFI. Adapter odrzuca niebezpieczne ścieżki względne i przekształca separator katalogów na format wymagany przez UEFI. Może dostarczyć funkcję odczytu do `vgk_manifest_verify_files`.
+
+Automatyczny test łączy parser podpisanego wykazu VGKM, adapter UEFI i obliczanie SHA-256. Sprawdza plik poprawny, krótkie odczyty i wykrycie zmienionej zawartości. Test korzysta z atrap interfejsów firmware i tymczasowego klucza testowego utworzonego wyłącznie w pamięci testu; nie jest to klucz oficjalnego wydawcy. Wyniki testów nie dowodzą jeszcze działania na fizycznym komputerze.
+
+**Ograniczenie bezpieczeństwa:** adapter jest zbudowany jako część programu EFI, lecz obecna funkcja startowa nie wywołuje jeszcze pełnej kontroli podpisanego wykazu. W programie startowym nie ma jeszcze osadzonego autentycznego klucza publicznego wydawcy ani decyzji blokującej uruchomienie jądra po błędzie weryfikacji. Do czasu wykonania tych etapów VGK nie zapewnia jeszcze ochrony uruchamianego jądra przed podmianą.
