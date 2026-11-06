@@ -180,3 +180,14 @@ Parser odrzuca ścieżki bezwzględne, elementy `.` i `..`, puste elementy, nied
 Test uruchamia `make manifest-test` i jest częścią `make security-test`.
 
 **Ograniczenie:** parser jest na razie osobnym modułem testowym. Nie odczytuje jeszcze plików z partycji, nie porównuje ich skrótów automatycznie i nie jest podłączony do programu UEFI. Format VGKM jest formatem projektu na tym etapie i może zostać zmieniony przed pierwszym oficjalnym wydaniem.
+
+### Sprawdzanie plików według podpisanego wykazu
+
+Parser wykazu połączono teraz z modułem SHA-256 przez funkcję `vgk_manifest_verify_files`. Program uruchamiający przekazuje jej własną funkcję otwierania pliku z nośnika oraz funkcję zamykania uchwytu. Dla każdego wpisu mechanizm:
+1. pobiera bezpieczną ścieżkę z wcześniej sprawdzonego wykazu;
+2. otwiera wskazany plik przez funkcję dostarczoną przez obsługę systemu plików;
+3. odczytuje go porcjami i oblicza SHA-256;
+4. porównuje wynik z podpisanym wykazem;
+5. zamyka plik również po wykryciu błędu.
+
+Testy sprawdzają zarówno zgodny plik, jak i podmienioną zawartość oraz zamknięcie pliku po kontroli. To jest już wspólny interfejs kontroli podpisu wykazu i integralności plików, ale nadal nie jest podłączony do rzeczywistego odczytu partycji UEFI. Brakuje też wbudowanego, zaufanego klucza publicznego wydawcy i decyzji programu uruchamiającego o przerwaniu startu przy błędzie.
