@@ -3,11 +3,22 @@
 
 #include "uefi_file.h"
 #include "uefi_services.h"
+#include "uefi_release_verify.h"
 
 #if defined(__x86_64__)
 #define EFIAPI __attribute__((ms_abi))
 #else
 #error "VGK UEFI Stage 0 requires x86-64"
+#endif
+
+#if defined(__has_include)
+#  if __has_include("vgk_trusted_public_key.h")
+#    include "vgk_trusted_public_key.h"
+#    define VGK_HAS_TRUSTED_PUBLIC_KEY 1
+#  endif
+#endif
+#ifndef VGK_HAS_TRUSTED_PUBLIC_KEY
+#define VGK_HAS_TRUSTED_PUBLIC_KEY 0
 #endif
 
 typedef uint16_t CHAR16;
@@ -61,6 +72,7 @@ _Static_assert(sizeof(EFI_SYSTEM_TABLE) == 120,
 #define EFI_SUCCESS UINT64_C(0)
 #define EFI_INVALID_PARAMETER UINT64_C(0x8000000000000002)
 #define EFI_LOAD_ERROR UINT64_C(0x8000000000000001)
+#define EFI_SECURITY_VIOLATION UINT64_C(0x800000000000001A)
 #define EFI_ERROR(status) (((status) & UINT64_C(0x8000000000000000)) != 0)
 
 static const VGK_EFI_GUID loaded_image_guid = {
@@ -73,6 +85,10 @@ static const VGK_EFI_GUID simple_file_system_guid = {
     {0x8E, 0x39, 0x00, 0xA0, 0xC9, 0x69, 0x72, 0x3B}
 };
 
+/* Static storage avoids placing a 64 KiB manifest on the firmware stack. */
+static uint8_t manifest_buffer[VGK_MANIFEST_MAX_SIZE];
+static uint8_t signature_buffer[VGK_RELEASE_SIGNATURE_SIZE];
+
 static void print_text(EFI_SYSTEM_TABLE *system_table, CHAR16 *message)
 {
     if (system_table != 0 && system_table->con_out != 0 &&
@@ -81,85 +97,50 @@ static void print_text(EFI_SYSTEM_TABLE *system_table, CHAR16 *message)
     }
 }
 
-/*
- * Read two bytes from the EFI application on the same firmware volume.
- * This is a deliberately small first proof of real file access. It does not
- * yet load or execute the VGK kernel and does not authenticate the file.
- */
-static EFI_STATUS check_boot_volume(EFI_SYSTEM_TABLE *system_table,
-                                    VGK_EFI_HANDLE image_handle)
+static EFI_STATUS open_boot_volume(
+    EFI_SYSTEM_TABLE *system_table,
+    VGK_EFI_HANDLE image_handle,
+    VGK_EFI_FILE_PROTOCOL **root_out)
 {
     VGK_EFI_LOADED_IMAGE_PROTOCOL *loaded_image = 0;
     VGK_EFI_SIMPLE_FILE_SYSTEM_PROTOCOL *file_system = 0;
     VGK_EFI_FILE_PROTOCOL *root = 0;
-    VGK_EFI_FILE_PROTOCOL *image_file = 0;
     EFI_STATUS status;
-    uint8_t signature[2] = {0, 0};
-    VGK_EFI_UINTN signature_size = sizeof(signature);
-    static VGK_EFI_CHAR16 self_path[] = {
-        '\\', 'E','F','I','\\','B','O','O','T','\\',
-        'B','O','O','T','X','6','4','.','E','F','I', 0
-    };
+
+    if (root_out == 0)
+        return EFI_INVALID_PARAMETER;
+    *root_out = 0;
 
     if (system_table == 0 || system_table->boot_services == 0 ||
         system_table->boot_services->handle_protocol == 0 ||
-        image_handle == 0) {
+        image_handle == 0)
         return EFI_INVALID_PARAMETER;
-    }
 
     status = system_table->boot_services->handle_protocol(
         image_handle, &loaded_image_guid, (void **)&loaded_image);
-    if (EFI_ERROR(status)) {
+    if (EFI_ERROR(status))
         return status;
-    }
-    if (loaded_image == 0 || loaded_image->device_handle == 0) {
+    if (loaded_image == 0 || loaded_image->device_handle == 0)
         return EFI_LOAD_ERROR;
-    }
 
     status = system_table->boot_services->handle_protocol(
         loaded_image->device_handle, &simple_file_system_guid,
         (void **)&file_system);
-    if (EFI_ERROR(status)) {
+    if (EFI_ERROR(status))
         return status;
-    }
-    if (file_system == 0 || file_system->open_volume == 0) {
+    if (file_system == 0 || file_system->open_volume == 0)
         return EFI_LOAD_ERROR;
-    }
 
     status = file_system->open_volume(file_system, &root);
-    if (EFI_ERROR(status)) {
+    if (EFI_ERROR(status))
         return status;
-    }
     if (root == 0 || root->open == 0 || root->close == 0) {
-        if (root != 0 && root->close != 0) {
+        if (root != 0 && root->close != 0)
             (void)root->close(root);
-        }
         return EFI_LOAD_ERROR;
     }
 
-    status = root->open(root, &image_file, self_path,
-                        VGK_EFI_FILE_MODE_READ, 0);
-    (void)root->close(root);
-    if (EFI_ERROR(status)) {
-        return status;
-    }
-    if (image_file == 0 || image_file->read == 0 || image_file->close == 0) {
-        if (image_file != 0 && image_file->close != 0) {
-            (void)image_file->close(image_file);
-        }
-        return EFI_LOAD_ERROR;
-    }
-
-    status = image_file->read(image_file, &signature_size, signature);
-    (void)image_file->close(image_file);
-    if (EFI_ERROR(status)) {
-        return status;
-    }
-    if (signature_size != sizeof(signature) ||
-        signature[0] != 'M' || signature[1] != 'Z') {
-        return EFI_LOAD_ERROR;
-    }
-
+    *root_out = root;
     return EFI_SUCCESS;
 }
 
@@ -168,30 +149,59 @@ EFI_STATUS EFIAPI efi_main(void *image_handle, EFI_SYSTEM_TABLE *system_table)
     static CHAR16 banner[] = {
         'V','G','K',' ','w','l','a','s','n','y',' ','m','e','c','h','a','n','i','z','m',
         ' ','u','r','u','c','h','a','m','i','a','n','i','a','\r','\n',
-        'P','o','d','s','t','a','w','o','w','e',' ','w','e','j','s','c','i','e',' ',
-        'U','E','F','I',' ','d','z','i','a','l','a','.','\r','\n',0
+        'S','p','r','a','w','d','z','a','n','i','e',' ','z','a','u','f','a','n','i','a',
+        ' ','p','r','z','e','d',' ','d','a','l','s','z','y','m',' ','s','t','a','r','t','e','m','.',
+        '\r','\n',0
     };
-    static CHAR16 volume_ok[] = {
-        'O','d','c','z','y','t',' ','p','l','i','k','u',' ','z',' ','n','o','s','n','i','k','a',
-        ' ','p','o','w','i','o','d','l',' ','s','i','e','.','\r','\n',0
+    static CHAR16 no_key[] = {
+        'B','R','A','K',' ','K','L','U','C','Z','A',' ','Z','A','U','F','A','N','I','A','.',
+        ' ','S','t','a','r','t',' ','z','a','b','l','o','k','o','w','a','n','y','.',
+        '\r','\n',0
     };
-    static CHAR16 volume_error[] = {
-        'N','i','e',' ','u','d','a','l','o',' ','o','d','c','z','y','t','a','c',' ',
-        'p','l','i','k','u',' ','z',' ','n','o','s','n','i','k','a','.','\r','\n',0
+    static CHAR16 verify_error[] = {
+        'N','I','E','P','O','P','R','A','W','N','Y',' ','P','O','D','P','I','S',' ',
+        'L','U','B',' ','P','L','I','K','I','.',' ','S','t','a','r','t',' ','p','r','z','e','r','w','a','n','y','.',
+        '\r','\n',0
     };
+    static CHAR16 verified[] = {
+        'P','o','d','p','i','s',' ','i',' ','p','l','i','k','i',' ','w','y','d','a','n','i','a',
+        ' ','s','p','r','a','w','d','z','o','n','e','.','\r','\n',
+        'J','a','d','r','o',' ','n','i','e',' ','j','e','s','z','c','z','e',' ','j','e','s','t',' ',
+        'u','r','u','c','h','a','m','i','a','n','e','.','\r','\n',0
+    };
+
+    VGK_EFI_FILE_PROTOCOL *root = 0;
+    EFI_STATUS status;
 
     if (system_table == 0 || system_table->con_out == 0 ||
-        system_table->con_out->output_string == 0) {
+        system_table->con_out->output_string == 0)
         return EFI_INVALID_PARAMETER;
-    }
 
     print_text(system_table, banner);
-    EFI_STATUS status = check_boot_volume(system_table, image_handle);
-    if (EFI_ERROR(status)) {
-        print_text(system_table, volume_error);
+    status = open_boot_volume(system_table, image_handle, &root);
+    if (EFI_ERROR(status))
         return status;
-    }
 
-    print_text(system_table, volume_ok);
-    return EFI_SUCCESS;
+#if VGK_HAS_TRUSTED_PUBLIC_KEY
+    {
+        static const uint8_t trusted_public_key[32] =
+            VGK_TRUSTED_PUBLIC_KEY_INITIALIZER;
+        size_t manifest_size = 0;
+        VGK_MANIFEST_RESULT result = vgk_uefi_load_and_verify_release(
+            root, manifest_buffer, sizeof(manifest_buffer), &manifest_size,
+            signature_buffer, trusted_public_key);
+        (void)manifest_size;
+        (void)root->close(root);
+        if (result != VGK_MANIFEST_OK) {
+            print_text(system_table, verify_error);
+            return EFI_SECURITY_VIOLATION;
+        }
+        print_text(system_table, verified);
+        return EFI_SUCCESS;
+    }
+#else
+    (void)root->close(root);
+    print_text(system_table, no_key);
+    return EFI_SECURITY_VIOLATION;
+#endif
 }
