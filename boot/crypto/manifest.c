@@ -23,8 +23,7 @@ static int safe_relative_path(const uint8_t *path, uint16_t length)
 
     if (path == 0 || length == 0 || length > VGK_MANIFEST_MAX_PATH)
         return 0;
-    if (path[0] == '/' || path[length - 1] == '/' ||
-        path[0] == '.' && (length == 1 || path[1] == '/' ))
+    if (path[0] == '/' || path[length - 1] == '/')
         return 0;
 
     for (uint16_t i = 0; i <= length; ++i) {
