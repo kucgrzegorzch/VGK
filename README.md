@@ -67,4 +67,4 @@ Repozytorium zawiera workflow GitHub Actions, który buduje historyczny prototyp
 
 ## Mechanizm Bezpieczeństwa i Zaufania
 
-Opisano go w [dokumentacji bezpieczeństwa](docs/BEZPIECZENSTWO.md). Repozytorium zawiera pierwszy pomocniczy program sprawdzający podpisany wykaz i skróty plików (`tools/sprawdz_wydanie.py`); testy uruchamia `make security-test`. Program nie jest jeszcze włączony do mechanizmu uruchamiania VGK i nie zapewnia ochrony podczas startu.
+Opisano go w [dokumentacji bezpieczeństwa](docs/BEZPIECZENSTWO.md). Repozytorium zawiera pomocnicze narzędzia do przygotowania i sprawdzania podpisanego wykazu plików (`tools/przygotuj_wydanie.py`, `tools/sprawdz_wydanie.py`); testy uruchamia `make security-test`. Program nie jest jeszcze włączony do mechanizmu uruchamiania VGK i nie zapewnia ochrony podczas startu.
