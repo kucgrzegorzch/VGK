@@ -86,8 +86,10 @@ static const VGK_EFI_GUID simple_file_system_guid = {
 };
 
 /* Static storage avoids placing a 64 KiB manifest on the firmware stack. */
+#if VGK_HAS_TRUSTED_PUBLIC_KEY
 static uint8_t manifest_buffer[VGK_MANIFEST_MAX_SIZE];
 static uint8_t signature_buffer[VGK_RELEASE_SIGNATURE_SIZE];
+#endif
 
 static void print_text(EFI_SYSTEM_TABLE *system_table, CHAR16 *message)
 {
