@@ -72,3 +72,5 @@ Opisano go w [dokumentacji bezpieczeństwa](docs/BEZPIECZENSTWO.md). Repozytoriu
 Moduł sprawdzania integralności plików w języku C (`boot/crypto/integrity.c`) umożliwia porównanie skrótu SHA-256 danych w pamięci lub pliku odczytywanego porcjami. Testy uruchamiają `make integrity-test` oraz `make security-test`. Moduł nie jest jeszcze podłączony do programu uruchamiania i sam nie potwierdza autora pliku — wymaga zaufanego skrótu z podpisanego wykazu.
 
 W katalogu `boot/crypto/` znajduje się również interfejs weryfikacji podpisów Ed25519. Wykorzystuje on zachowaną bibliotekę Monocypher 4.0.3 (licencja BSD-2-Clause lub CC0-1.0); pochodzenie i warunki licencji opisano w `boot/crypto/monocypher/POCHODZENIE.md`. Test wektora RFC 8032 uruchamia `make ed25519-test`. Weryfikator nie jest jeszcze podłączony do programu UEFI ani nie blokuje startu.
+
+Dodano także parser podpisanego wykazu plików VGK (format VGKM) w języku C. Sprawdza podpis przed odczytaniem wpisów i odrzuca niebezpieczne lub powtórzone ścieżki. Test: `make manifest-test`. Moduł nie jest jeszcze połączony z programem UEFI.
