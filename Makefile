@@ -54,7 +54,7 @@ ed25519-test: | build
 	./build/test_ed25519
 
 manifest-test: | build
-	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/crypto -Iboot/crypto/monocypher boot/crypto/sha256.c boot/crypto/monocypher/monocypher.c boot/crypto/monocypher/monocypher-ed25519.c boot/crypto/ed25519.c boot/crypto/manifest.c tests/test_manifest.c -o build/test_manifest
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/crypto -Iboot/crypto/monocypher boot/crypto/sha256.c boot/crypto/integrity.c boot/crypto/monocypher/monocypher.c boot/crypto/monocypher/monocypher-ed25519.c boot/crypto/ed25519.c boot/crypto/manifest.c tests/test_manifest.c -o build/test_manifest
 	./build/test_manifest
 
 check-tools:
