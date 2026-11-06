@@ -3,8 +3,7 @@
 #include <stddef.h>
 #include <string.h>
 
-#include "manifest.h"
-#include "uefi_file_reader.h"
+#include "uefi_release_verify.h"
 #include "monocypher/monocypher-ed25519.h"
 
 static const uint8_t expected_digest[32] = {
@@ -100,9 +99,9 @@ int main(void)
 {
     uint8_t seed[32] = {7};
     uint8_t secret_key[64], public_key[32], signature[64];
+    uint8_t altered_signature[64];
     uint8_t encoded[128];
     size_t encoded_size;
-    VGK_MANIFEST manifest;
     int failures = 0;
 
     root.open = mock_open;
@@ -114,31 +113,37 @@ int main(void)
     encoded_size = make_manifest(encoded);
     crypto_ed25519_sign(signature, secret_key, encoded, encoded_size);
 
-    if (vgk_manifest_open(&manifest, encoded, encoded_size,
-                          public_key, signature) != VGK_MANIFEST_OK)
-        ++failures;
-
-    if (vgk_manifest_verify_files(&manifest,
-            vgk_uefi_manifest_open_file,
-            vgk_uefi_manifest_close_file, &root) != VGK_MANIFEST_OK)
+    if (vgk_uefi_verify_manifest_buffer(
+            &root, encoded, encoded_size, signature, public_key)
+            != VGK_MANIFEST_OK)
         ++failures;
     if (open_count != 1U || close_count != 1U)
         ++failures;
 
     active_bytes = changed_file;
-    if (vgk_manifest_verify_files(&manifest,
-            vgk_uefi_manifest_open_file,
-            vgk_uefi_manifest_close_file, &root) !=
-            VGK_MANIFEST_FILE_INTEGRITY_ERROR)
+    if (vgk_uefi_verify_manifest_buffer(
+            &root, encoded, encoded_size, signature, public_key)
+            != VGK_MANIFEST_FILE_INTEGRITY_ERROR)
         ++failures;
     if (open_count != 2U || close_count != 2U)
         ++failures;
 
+    memcpy(altered_signature, signature, sizeof(signature));
+    altered_signature[0] ^= 1U;
+    active_bytes = good_file;
+    if (vgk_uefi_verify_manifest_buffer(
+            &root, encoded, encoded_size, altered_signature, public_key)
+            != VGK_MANIFEST_BAD_SIGNATURE)
+        ++failures;
+    /* A bad signature must be rejected before opening any listed file. */
+    if (open_count != 2U || close_count != 2U)
+        ++failures;
+
     if (failures != 0) {
-        fprintf(stderr, "BLAD: integracja wykazu z odczytem UEFI (%d)\n",
+        fprintf(stderr, "BLAD: integracja podpisu, wykazu i odczytu UEFI (%d)\n",
                 failures);
         return 1;
     }
-    puts("OK: podpisany wykaz i odczyt UEFI współpracują; podmiana wykryta.");
+    puts("OK: UEFI odrzuca zly podpis i wykrywa podmieniony plik.");
     return 0;
 }
