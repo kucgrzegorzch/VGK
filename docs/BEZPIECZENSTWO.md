@@ -42,7 +42,7 @@ To jest wyłącznie funkcja obliczania skrótu. Nie weryfikuje podpisu Ed25519 i
 
 ## Pierwsze narzędzie sprawdzające wydanie
 
-W repozytorium znajduje się `tools/sprawdz_wydanie.py`. Narzędzie sprawdza podpis Ed25519 wykazu JSON przy użyciu OpenSSL, a następnie porównuje rozmiar i skrót SHA-256 każdego wskazanego pliku. Odrzuca między innymi nieprawidłowy podpis, zmieniony wykaz, ścieżki wychodzące poza katalog wydania i dowiązania symboliczne.
+W repozytorium znajduje się `tools/sprawdz_wydanie.py`. Narzędzie sprawdza podpis Ed25519 binarnego wykazu VGKM przy użyciu OpenSSL, a następnie porównuje rozmiar i skrót SHA-256 każdego wskazanego pliku. Odrzuca między innymi nieprawidłowy podpis, zmieniony wykaz, ścieżki wychodzące poza katalog wydania i dowiązania symboliczne.
 
 Testy uruchamia polecenie `make security-test`. Tworzą one tymczasowy klucz testowy, sprawdzają poprawne wydanie, zmianę pliku o niezmienionym rozmiarze, zmianę wykazu, uszkodzony podpis, błędny typ ścieżki, próbę wyjścia poza katalog i dowiązanie symboliczne. Klucz testowy jest wyłącznie do testów i nie może być używany do podpisywania oficjalnych wydań.
 
@@ -50,25 +50,25 @@ To narzędzie jest kontrolą po stronie komputera budującego lub sprawdzająceg
 
 ## Przygotowanie podpisanego wydania
 
-Do przygotowania wykazu służy `tools/przygotuj_wydanie.py`. Przykładowa kolejność dla osoby wydającej system:
+Do przygotowania wykazu służy narzędzie tools/przygotuj_wydanie.py. Przykładowa kolejność dla osoby wydającej system:
 
-1. Utworzyć klucz Ed25519 poza repozytorium VGK, na zaufanym komputerze:
-   
-       openssl genpkey -algorithm Ed25519 -out vgk-klucz-prywatny.pem
-       openssl pkey -in vgk-klucz-prywatny.pem -pubout -out vgk-klucz-publiczny.pem
-       chmod 600 vgk-klucz-prywatny.pem
+1. Wygenerować parę kluczy na zaufanym komputerze, poza repozytorium VGK:
 
-2. Zachować klucz prywatny w bezpiecznym miejscu, najlepiej w kopii offline. Nie przesyłać go do GitHub, nie umieszczać w ISO ani w artefaktach budowania.
-3. Umieścić wyłącznie klucz publiczny w przyszłym, zaufanym mechanizmie uruchamiania VGK.
+       python3 tools/przygotuj_klucz_zaufania.py --private-key vgk-klucz-prywatny.pem --public-key vgk-klucz-publiczny.pem --header vgk-klucz-publiczny.h
+
+   Narzędzie tworzy klucz prywatny z uprawnieniami ograniczonymi do właściciela, klucz publiczny i nagłówek C zawierający wyłącznie klucz publiczny. Nie nadpisuje istniejących plików.
+
+2. Zachować klucz prywatny w bezpiecznym miejscu, najlepiej w dwóch kopiach offline. Nie przesyłać go do GitHub, nie umieszczać w ISO ani w artefaktach budowania. Nie wysyłać go do pomocy technicznej ani do rozmowy.
+3. Klucz publiczny i nagłówek zawierający wyłącznie klucz publiczny można przekazać do projektu w celu osadzenia klucza w mechanizmie uruchamiania. Przed użyciem trzeba niezależnie potwierdzić, że klucz jest właściwy.
 4. Utworzyć wykaz i podpis, wskazując wszystkie pliki wydania, które mają być chronione, na przykład:
 
-       python3 tools/przygotuj_wydanie.py --root katalog-wydania --release VGK-0.2 --private-key vgk-klucz-prywatny.pem --manifest katalog-wydania/wykaz.json --signature katalog-wydania/wykaz.podpis boot/BOOTX64.EFI boot/vgk-kernel.elf
+       python3 tools/przygotuj_wydanie.py --root katalog-wydania --release VGK-0.2 --private-key vgk-klucz-prywatny.pem --manifest katalog-wydania/VGKM --signature katalog-wydania/VGKM.sig boot/BOOTX64.EFI boot/vgk-kernel.elf
 
-5. Sprawdzić wynik narzędziem `tools/sprawdz_wydanie.py`, podając ten sam katalog, wykaz, podpis i odpowiadający klucz publiczny.
+5. Sprawdzić wynik narzędziem tools/sprawdz_wydanie.py, podając ten sam katalog, wykaz, podpis i odpowiadający klucz publiczny.
 
 Program przygotowujący wykaz nie nadpisuje istniejącego wykazu ani podpisu. Należy wybrać nowe ścieżki wyjściowe dla kolejnego wydania.
 
-**Uwaga:** powyższe polecenia opisują proces wydawcy. Klucz publiczny nie jest jeszcze osadzony w UEFI Stage 0, a mechanizm uruchamiania nie weryfikuje jeszcze tego podpisu. Nie należy używać przykładowego procesu jako dowodu, że komputer blokuje podmienione jądro.
+**Uwaga:** klucz publiczny nie jest jeszcze osadzony w UEFI Stage 0, a mechanizm uruchamiania nie weryfikuje jeszcze podpisu. Nie należy traktować przykładowego procesu jako dowodu, że komputer blokuje podmienione jądro.
 
 ## Podpisy i wykaz plików
 
@@ -198,3 +198,10 @@ Testy sprawdzają zarówno zgodny plik, jak i podmienioną zawartość oraz zamk
 Dodano `boot/uefi/uefi_file.h` z deklaracjami interfejsu systemu plików UEFI oraz obsługi pliku. Uwzględnia ono układ struktur, kolejność funkcji, tryby otwierania i kontrole zgodności wykonywane podczas kompilacji. Test `make uefi-abi-test` sprawdza rozmiary struktur, położenia funkcji i stałe trybów.
 
 **Ograniczenie:** jest to podstawa zgodności z interfejsem oprogramowania układowego, a nie jeszcze działający odczyt nośnika. Program uruchamiający nie pobiera jeszcze interfejsu od oprogramowania układowego, nie otwiera partycji i nie wczytuje wykazu. Nie ma też jeszcze połączenia z weryfikacją podpisu. Następnym krokiem będzie uzyskanie właściwego uchwytu systemu plików, bezpieczne otwarcie plików tylko do odczytu, kontrola rozmiarów i pełna obsługa błędów.
+
+
+## Przygotowanie klucza zaufania wydawcy
+
+Dodano narzędzie tools/przygotuj_klucz_zaufania.py. Tworzy ono parę Ed25519 poza repozytorium, ogranicza uprawnienia pliku prywatnego do właściciela i przygotowuje nagłówek C zawierający wyłącznie 32-bajtowy klucz publiczny. Narzędzie odmawia nadpisania istniejących plików. Testy tests/test_klucz_zaufania.py sprawdzają uprawnienia, zgodność klucza w nagłówku z kluczem PEM oraz odmowę nadpisania.
+
+Klucz prywatny jest własnością wydawcy i nigdy nie może trafić do repozytorium, obrazu ISO, artefaktów budowania ani rozmowy. Do osadzenia w programie startowym wystarczy klucz publiczny. Nie wygenerowano w repozytorium klucza produkcyjnego ani nie wpisano fikcyjnego klucza. Do czasu otrzymania i niezależnego potwierdzenia klucza publicznego rzeczywista weryfikacja podczas startu pozostaje wyłączona.
