@@ -91,6 +91,23 @@ class ReleaseVerificationTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("ścieżka pliku", result.stderr)
 
+    def test_rejects_tampered_signature(self):
+        signature = bytearray(self.signature.read_bytes())
+        signature[0] ^= 1
+        self.signature.write_bytes(signature)
+        result = self.run_verifier()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("podpis wykazu", result.stderr)
+
+    def test_rejects_symlinked_file(self):
+        self.payload.unlink()
+        outside = self.base / "outside.bin"
+        outside.write_bytes(b"VGK test kernel" + bytes([0]))
+        self.payload.symlink_to(outside)
+        result = self.run_verifier()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("dowiązanie", result.stderr)
+
     def test_rejects_path_traversal(self):
         data = json.loads(self.manifest.read_text(encoding="utf-8"))
         data["files"][0]["path"] = "../poza.txt"
