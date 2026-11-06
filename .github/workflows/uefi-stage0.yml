@@ -1,0 +1,29 @@
+name: VGK Native UEFI Stage 0
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  uefi-stage0:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld python3
+      - name: Build native UEFI application
+        run: make clean uefi
+      - name: Validate PE32+ EFI image
+        run: make uefi-test
+      - name: Publish EFI application artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VGK-Native-UEFI-Stage0
+          path: build/BOOTX64.EFI
+          if-no-files-found: error
