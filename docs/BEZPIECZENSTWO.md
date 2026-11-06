@@ -89,12 +89,14 @@ Nie wolno przedstawiać samego udanego budowania programu jako dowodu skutecznej
 
 ## Kolejność realizacji
 
-1. Ustalić format wykazu zaufania i format podpisu.
-2. Dodać sprawdzanie podpisu i skrótów do własnego mechanizmu uruchamiania UEFI.
-3. Odmówić uruchomienia jądra przy błędzie weryfikacji.
-4. Przekazać jądru wynik sprawdzenia w wersjonowanej strukturze informacji startowych.
-5. Rozszerzyć kontrolę na sterowniki i pliki systemowe.
-6. Dodać dziennik zdarzeń oraz procedurę bezpiecznego odzyskiwania.
-7. Przetestować przypadki: plik poprawny, plik zmieniony, brak wykazu, błędny podpis, nieznany klucz, starsze wydanie i uszkodzony nośnik.
+1. Dokończyć i zweryfikować narzędzie sprawdzające podpisane wydanie.
+2. Ustalić bezpieczny sposób wbudowania klucza publicznego wydawcy w mechanizm uruchamiania.
+3. Dodać sprawdzanie podpisu i skrótów do własnego mechanizmu uruchamiania UEFI.
+4. Odmówić uruchomienia jądra przy błędzie weryfikacji.
+5. Przekazać jądru wynik sprawdzenia w wersjonowanej strukturze informacji startowych.
+6. Rozszerzyć kontrolę na sterowniki i pliki systemowe.
+7. Dodać dziennik zdarzeń oraz procedurę bezpiecznego odzyskiwania.
+8. Przetestować przypadki: plik poprawny, plik zmieniony, brak wykazu, błędny podpis, nieznany klucz, starsze wydanie i uszkodzony nośnik.
 
-Na obecnym etapie VGK ma jedynie własny punkt wejścia UEFI Stage 0. Weryfikacja podpisów, ładowanie jądra i opisane reakcje pozostają pracami do wykonania.
+Na obecnym etapie VGK ma własny punkt wejścia UEFI Stage 0 oraz pomocnicze narzędzie do sprawdzania podpisanego wydania. Sam mechanizm startowy nie sprawdza jeszcze podpisu ani nie ładuje jądra.
+
