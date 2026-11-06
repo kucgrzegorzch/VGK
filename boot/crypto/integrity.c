@@ -58,6 +58,19 @@ VGK_INTEGRITY_RESULT vgk_verify_reader_sha256(
     }
 
     vgk_sha256_finish(&hash, actual);
-    return digest_equal_constant_time(actual, expected_digest)
-        ? VGK_INTEGRITY_OK : VGK_INTEGRITY_HASH_MISMATCH;
+    if (!digest_equal_constant_time(actual, expected_digest))
+        return VGK_INTEGRITY_HASH_MISMATCH;
+
+    /*
+     * The manifest authenticates the exact file size as well as its digest.
+     * Probe one byte past the declared end so an appended payload is rejected.
+     */
+    size_t trailing_bytes = 0;
+    if (read(context, expected_size, buffer, 1U, &trailing_bytes) != 0 ||
+        trailing_bytes > 1U)
+        return VGK_INTEGRITY_READ_ERROR;
+    if (trailing_bytes != 0)
+        return VGK_INTEGRITY_HASH_MISMATCH;
+
+    return VGK_INTEGRITY_OK;
 }
