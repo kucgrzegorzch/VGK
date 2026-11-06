@@ -58,3 +58,12 @@ w pamięci i przekazanie mu sterowania pozostają kolejnymi etapami.
 Testy układu struktur usług UEFI są uruchamiane osobno w automatycznym
 sprawdzaniu. Pełny test działania tej ścieżki wymaga jeszcze uruchomienia
 obrazu w maszynie wirtualnej z oprogramowaniem UEFI oraz testu na sprzęcie.
+
+
+## Adapter odczytu plików UEFI – stan po testach
+
+Dodano `boot/uefi/uefi_file_reader.c` i plik nagłówkowy. Adapter łączy funkcje otwierania i zamykania plików UEFI z interfejsem odczytu wymaganym przez mechanizm sprawdzania integralności. Bezpieczne ścieżki względne są zamieniane na ścieżki UEFI, a próby użycia elementów `..`, pustych elementów lub niedozwolonych znaków są odrzucane. Odczyt wykorzystuje `SetPosition` i `Read`, dzięki czemu może pobierać kolejne fragmenty pliku.
+
+Testy z atrapą interfejsu firmware sprawdzają konwersję ścieżki, odczyt z przesunięcia, krótkie odczyty, zamknięcie pliku oraz odrzucenie próby wyjścia poza katalog. Osobny test łączy adapter z podpisanym wykazem VGKM i SHA-256: poprawny plik przechodzi kontrolę, a zmieniona zawartość zostaje wykryta. Testy są uruchamiane przez `make uefi-reader-test` i `make uefi-manifest-test`, a także w automatycznym sprawdzaniu repozytorium.
+
+**Ważne ograniczenie:** adapter jest dołączany do programu EFI i przechodzi testy z atrapą firmware, ale funkcja `efi_main` nie uruchamia jeszcze pełnej weryfikacji wykazu. Nie ma jeszcze zaufanego klucza publicznego wydawcy w programie startowym. Aktualny komunikat o odczycie woluminu sprawdza tylko dwa bajty sygnatury pliku EFI. Nie wolno więc jeszcze traktować tej ścieżki jako aktywnej ochrony jądra przed podmianą.
