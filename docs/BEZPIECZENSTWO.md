@@ -141,3 +141,14 @@ Nie wolno przedstawiać samego udanego budowania programu jako dowodu skutecznej
 
 Na obecnym etapie VGK ma własny punkt wejścia UEFI Stage 0 oraz pomocnicze narzędzie do sprawdzania podpisanego wydania. Sam mechanizm startowy nie sprawdza jeszcze podpisu ani nie ładuje jądra.
 
+
+## Sprawdzanie integralności plików w języku C
+
+Dodano moduł:
+- `boot/crypto/integrity.h` – wspólny interfejs i kody wyniku;
+- `boot/crypto/integrity.c` – sprawdzanie skrótu całego bufora lub pliku czytanego porcjami;
+- `tests/test_integrity.c` – testy poprawnego pliku, zmienionej zawartości, błędnego oczekiwanego skrótu, nieprawidłowego argumentu, krótkich odczytów i błędu odczytu.
+
+Porównanie 32-bajtowych skrótów wykonuje się bez kończenia pętli po pierwszej różnicy. Odczyt pliku odbywa się porcjami, z kontrolą rozmiaru i błędów źródła danych. Testy są uruchamiane przez `make integrity-test`, a także jako część `make security-test`.
+
+Moduł nie otwiera samodzielnie plików i nie ufa nazwie pliku: otrzymuje funkcję odczytu od przyszłego programu uruchamiającego. Nie sprawdza podpisu wydawcy, dopóki zaufany skrót nie zostanie dostarczony z wiarygodnego, podpisanego wykazu. Nie jest jeszcze podłączony do UEFI ani jądra VGK.
