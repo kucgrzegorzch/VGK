@@ -67,3 +67,6 @@ Dodano moduł `boot/uefi/uefi_release_verify.c`. Łączy on parser podpisanego w
 Moduł przyjmuje jawny klucz zaufany jako argument. Nie tworzy klucza, nie pobiera go z niepewnego nośnika i nie zawiera fikcyjnego klucza produkcyjnego. Test integracyjny sprawdza trzy przypadki: poprawny podpis i plik, zmienioną zawartość pliku oraz błędny podpis. Przy błędnym podpisie żaden plik z wykazu nie jest otwierany.
 
 **Ważne ograniczenie:** funkcja sprawdzająca jest już dostępna i dołączona do programu EFI, ale funkcja `efi_main` jeszcze jej nie wywołuje. Program startowy nie wczytuje jeszcze plików wykazu i podpisu, nie ma osadzonego potwierdzonego klucza publicznego i nie ładuje jądra. Nie jest to jeszcze działający, zabezpieczony łańcuch uruchamiania. Kolejnym krokiem jest bezpieczne wczytanie wykazu i podpisu z woluminu, osadzenie klucza publicznego właściciela oraz wymuszenie przerwania startu przy każdej niezgodności.
+
+
+Weryfikacja odczytu sprawdza również dokładny rozmiar: po sprawdzeniu skrótu próbuje odczytać jeden bajt za zadeklarowanym końcem pliku. Wykrywa to zarówno zbyt krótki plik, jak i dodatkowe dane dopisane na końcu. Dodano test tej drugiej sytuacji.
