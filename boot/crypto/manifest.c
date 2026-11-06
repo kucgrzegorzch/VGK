@@ -48,15 +48,22 @@ static int safe_relative_path(const uint8_t *path, uint16_t length)
     return 1;
 }
 
-static int paths_equal(const VGK_MANIFEST_ENTRY *a,
-                       const VGK_MANIFEST_ENTRY *b)
+static int paths_compare(const VGK_MANIFEST_ENTRY *a,
+                         const VGK_MANIFEST_ENTRY *b)
 {
-    if (a->path_length != b->path_length)
-        return 0;
-    for (uint16_t i = 0; i < a->path_length; ++i)
-        if (a->path[i] != b->path[i])
-            return 0;
-    return 1;
+    uint16_t common = a->path_length < b->path_length
+        ? a->path_length : b->path_length;
+    for (uint16_t i = 0; i < common; ++i) {
+        if (a->path[i] < b->path[i])
+            return -1;
+        if (a->path[i] > b->path[i])
+            return 1;
+    }
+    if (a->path_length < b->path_length)
+        return -1;
+    if (a->path_length > b->path_length)
+        return 1;
+    return 0;
 }
 
 VGK_MANIFEST_RESULT vgk_manifest_get(
@@ -147,9 +154,14 @@ VGK_MANIFEST_RESULT vgk_manifest_open(
                 manifest->encoded = 0;
                 return VGK_MANIFEST_BAD_FORMAT;
             }
-            if (paths_equal(&current, &previous)) {
+            int order = paths_compare(&previous, &current);
+            if (order == 0) {
                 manifest->encoded = 0;
                 return VGK_MANIFEST_DUPLICATE_PATH;
+            }
+            if (order > 0) {
+                manifest->encoded = 0;
+                return VGK_MANIFEST_BAD_FORMAT;
             }
         }
     }

@@ -9,7 +9,7 @@ LLD_LINK := lld-link
 UEFI_CFLAGS := --target=x86_64-pc-win32-coff -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -fshort-wchar -fno-stack-protector -fno-builtin -mno-red-zone
 UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machine:x64
 
-.PHONY: all clean iso check-tools test uefi uefi-test uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test sha256-test integrity-test ed25519-test manifest-test
+.PHONY: all clean iso check-tools test uefi uefi-test uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test vgkm-test sha256-test integrity-test ed25519-test manifest-test
 all: build/vgk-kernel.elf
 
 test: build/vgk-kernel.elf
@@ -57,7 +57,10 @@ uefi-manifest-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi -Iboot/crypto -Iboot/crypto/monocypher boot/crypto/sha256.c boot/crypto/integrity.c boot/crypto/manifest.c boot/crypto/ed25519.c boot/crypto/monocypher/monocypher.c boot/crypto/monocypher/monocypher-ed25519.c boot/uefi/uefi_file_reader.c tests/test_uefi_manifest_integration.c -o build/test_uefi_manifest_integration
 	./build/test_uefi_manifest_integration
 
-security-test: sha256-test integrity-test ed25519-test manifest-test uefi-manifest-test
+vgkm-test: | build
+	PYTHONPATH=tools python3 -m unittest discover -s tests -p 'test_vgkm.py' -v
+
+security-test: vgkm-test sha256-test integrity-test ed25519-test manifest-test uefi-manifest-test
 	python3 -m unittest discover -s tests -p 'test_sprawdz_wydanie.py' -v
 
 sha256-test: | build

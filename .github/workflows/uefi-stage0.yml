@@ -29,6 +29,8 @@ jobs:
         run: make uefi-reader-test
       - name: Test signed manifest through UEFI reader
         run: make uefi-manifest-test
+      - name: Test binary VGKM format
+        run: make vgkm-test
       - name: Test signed release verification
         run: make security-test
       - name: Publish EFI application artifact

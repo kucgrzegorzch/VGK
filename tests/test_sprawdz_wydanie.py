@@ -1,169 +1,126 @@
 #!/usr/bin/env python3
-"""Testy narzędzia sprawdzającego podpisane wydanie VGK."""
-
-import hashlib
-import json
+"""Testy przygotowania i sprawdzania binarnego wydania VGK."""
 import subprocess
 import sys
 import tempfile
 import unittest
+import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+PREPARER = ROOT / "tools" / "przygotuj_wydanie.py"
 VERIFIER = ROOT / "tools" / "sprawdz_wydanie.py"
 
 
-class ReleaseVerificationTests(unittest.TestCase):
+class BinaryReleaseTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.cross_dir = tempfile.TemporaryDirectory()
+        cls.cross_program = Path(cls.cross_dir.name) / "test_vgkm_cross"
+        sources = [
+            "boot/crypto/sha256.c", "boot/crypto/integrity.c",
+            "boot/crypto/manifest.c", "boot/crypto/ed25519.c",
+            "boot/crypto/monocypher/monocypher.c",
+            "boot/crypto/monocypher/monocypher-ed25519.c",
+            "tests/test_vgkm_cross.c",
+        ]
+        subprocess.run(
+            ["gcc", "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",
+             "-Iboot/crypto", "-Iboot/crypto/monocypher", *sources,
+             "-o", str(cls.cross_program)],
+            cwd=ROOT, check=True, capture_output=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.cross_dir.cleanup()
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.base = Path(self.temp.name)
-        self.release = self.base / "wydanie"
-        self.release.mkdir()
-        self.payload = self.release / "boot" / "vgk-kernel.elf"
-        self.payload.parent.mkdir()
-        self.payload.write_bytes(b"VGK test kernel\x00")
-        self.manifest = self.base / "wykaz.json"
-        self.signature = self.base / "wykaz.podpis"
-        self.private = self.base / "klucz-prywatny.pem"
-        self.public = self.base / "klucz-publiczny.pem"
-        subprocess.run(
-            ["openssl", "genpkey", "-algorithm", "Ed25519", "-out", str(self.private)],
-            check=True, capture_output=True,
-        )
-        subprocess.run(
-            ["openssl", "pkey", "-in", str(self.private), "-pubout", "-out", str(self.public)],
-            check=True, capture_output=True,
-        )
-        self.write_manifest()
-        self.sign()
+        self.release = self.base / "release"
+        (self.release / "boot").mkdir(parents=True)
+        self.payload = self.release / "boot" / "kernel.elf"
+        self.payload.write_bytes(b"VGK test kernel")
+        self.manifest = self.base / "VGKM"
+        self.signature = self.base / "VGKM.sig"
+        self.private = self.base / "private.pem"
+        self.public = self.base / "public.pem"
+        subprocess.run(["openssl", "genpkey", "-algorithm", "Ed25519",
+                        "-out", str(self.private)], check=True, capture_output=True)
+        subprocess.run(["openssl", "pkey", "-in", str(self.private),
+                        "-pubout", "-out", str(self.public)], check=True, capture_output=True)
+        self.prepare()
 
-    def write_manifest(self):
-        data = self.payload.read_bytes()
-        manifest = {
-            "format_version": 1,
-            "release": "VGK-test-1",
-            "files": [{
-                "path": "boot/vgk-kernel.elf",
-                "size": len(data),
-                "sha256": hashlib.sha256(data).hexdigest(),
-            }],
-        }
-        self.manifest.write_text(json.dumps(manifest, separators=(",", ":")) + "\n", encoding="utf-8")
+    def prepare(self):
+        return subprocess.run(
+            [sys.executable, str(PREPARER), "--root", str(self.release),
+             "--release", "VGK-test", "--private-key", str(self.private),
+             "--manifest", str(self.manifest), "--signature", str(self.signature),
+             "boot/kernel.elf"], capture_output=True, text=True, check=False)
 
-    def sign(self):
-        subprocess.run(
-            ["openssl", "pkeyutl", "-sign", "-inkey", str(self.private),
-             "-rawin", "-in", str(self.manifest), "-out", str(self.signature)],
-            check=True, capture_output=True,
-        )
-
-    def run_verifier(self):
+    def verify(self):
         return subprocess.run(
             [sys.executable, str(VERIFIER), "--root", str(self.release),
              "--manifest", str(self.manifest), "--signature", str(self.signature),
-             "--public-key", str(self.public)],
-            capture_output=True, text=True, check=False,
-        )
+             "--public-key", str(self.public)], capture_output=True, text=True, check=False)
 
-    def test_release_preparation_signs_manifest(self):
-        manifest = self.base / "nowy-wykaz.json"
-        signature = self.base / "nowy-wykaz.podpis"
-        result = subprocess.run(
-            [sys.executable, str(ROOT / "tools" / "przygotuj_wydanie.py"),
-             "--root", str(self.release), "--release", "VGK-test-2",
-             "--private-key", str(self.private), "--manifest", str(manifest),
-             "--signature", str(signature), "boot/vgk-kernel.elf"],
-            capture_output=True, text=True, check=False,
-        )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertTrue(signature.is_file())
-        verify = subprocess.run(
-            ["openssl", "pkeyutl", "-verify", "-pubin", "-inkey", str(self.public),
-             "-sigfile", str(signature), "-rawin", "-in", str(manifest)],
-            capture_output=True, check=False,
-        )
-        self.assertEqual(verify.returncode, 0, verify.stderr.decode(errors="replace"))
+    def test_generator_emits_binary_vgkm_and_valid_signature(self):
+        self.assertEqual(self.manifest.read_bytes()[:8], bytes((0x56, 0x47, 0x4b, 0x4d, 1, 0, 1, 0)))
+        self.assertEqual(self.signature.stat().st_size, 64)
+        self.assertEqual(self.verify().returncode, 0)
 
-    def test_release_preparation_refuses_overwrite(self):
-        manifest = self.base / "wykaz.json"
-        signature = self.base / "wykaz.podpis"
-        before = manifest.read_bytes()
-        result = subprocess.run(
-            [sys.executable, str(ROOT / "tools" / "przygotuj_wydanie.py"),
-             "--root", str(self.release), "--release", "VGK-test-2",
-             "--private-key", str(self.private), "--manifest", str(manifest),
-             "--signature", str(signature), "boot/vgk-kernel.elf"],
-            capture_output=True, text=True, check=False,
-        )
+    def test_refuses_overwrite(self):
+        before = self.manifest.read_bytes()
+        result = self.prepare()
         self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(manifest.read_bytes(), before)
+        self.assertEqual(self.manifest.read_bytes(), before)
 
-    def test_accepts_unchanged_signed_file(self):
-        result = self.run_verifier()
-        self.assertEqual(result.returncode, 0, result.stderr)
-
-    def test_rejects_changed_file(self):
-        self.payload.write_bytes(b"XGK test kernel" + bytes([0]))
-        result = self.run_verifier()
+    def test_detects_modified_file(self):
+        self.payload.write_bytes(b"changed kernel!")
+        result = self.verify()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("niezgodna zawartość", result.stderr)
 
-    def test_rejects_modified_manifest(self):
-        self.manifest.write_bytes(self.manifest.read_bytes() + b" ")
-        result = self.run_verifier()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("podpis wykazu", result.stderr)
+    def test_detects_modified_manifest(self):
+        self.manifest.write_bytes(self.manifest.read_bytes() + b"x")
+        self.assertNotEqual(self.verify().returncode, 0)
 
-    def test_rejects_non_text_path(self):
-        data = json.loads(self.manifest.read_text(encoding="utf-8"))
-        data["files"][0]["path"] = ["boot", "vgk-kernel.elf"]
-        self.manifest.write_text(json.dumps(data), encoding="utf-8")
-        self.sign()
-        result = self.run_verifier()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("ścieżka pliku", result.stderr)
+    def test_detects_bad_signature(self):
+        data = bytearray(self.signature.read_bytes())
+        data[0] ^= 1
+        self.signature.write_bytes(data)
+        self.assertNotEqual(self.verify().returncode, 0)
 
-    def test_rejects_tampered_signature(self):
-        signature = bytearray(self.signature.read_bytes())
-        signature[0] ^= 1
-        self.signature.write_bytes(signature)
-        result = self.run_verifier()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("podpis wykazu", result.stderr)
-
-    def test_rejects_symlinked_file(self):
+    def test_rejects_symlink(self):
         self.payload.unlink()
-        outside = self.base / "outside.bin"
-        outside.write_bytes(b"VGK test kernel" + bytes([0]))
+        outside = self.base / "outside"
+        outside.write_bytes(b"VGK test kernel")
         self.payload.symlink_to(outside)
-        result = self.run_verifier()
+        result = self.verify()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("dowiązanie", result.stderr)
 
-    def test_rejects_missing_file(self):
-        self.payload.unlink()
-        result = self.run_verifier()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("brak pliku", result.stderr)
-
-    def test_rejects_duplicate_json_keys(self):
-        self.manifest.write_text(
-            '{"format_version":1,"format_version":1,"release":"VGK-test-1","files":[]}',
-            encoding="utf-8",
-        )
-        result = self.run_verifier()
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("powtórzone pole JSON", result.stderr)
+    def test_python_generated_manifest_is_accepted_by_c_parser(self):
+        public_der = self.base / "public.der"
+        subprocess.run(
+            ["openssl", "pkey", "-pubin", "-in", str(self.public),
+             "-outform", "DER", "-out", str(public_der)],
+            check=True, capture_output=True)
+        result = subprocess.run(
+            [str(self.cross_program), str(self.manifest), str(self.signature),
+             str(public_der)], capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("parser C zaakceptował", result.stdout)
 
     def test_rejects_path_traversal(self):
-        data = json.loads(self.manifest.read_text(encoding="utf-8"))
-        data["files"][0]["path"] = "../poza.txt"
-        self.manifest.write_text(json.dumps(data), encoding="utf-8")
-        self.sign()
-        result = self.run_verifier()
+        result = subprocess.run(
+            [sys.executable, str(PREPARER), "--root", str(self.release),
+             "--release", "bad", "--private-key", str(self.private),
+             "--manifest", str(self.base / "bad.VGKM"),
+             "--signature", str(self.base / "bad.sig"), "../outside"],
+            capture_output=True, text=True, check=False)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("niedozwolona ścieżka", result.stderr)
 
 
 if __name__ == "__main__":

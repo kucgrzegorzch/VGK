@@ -138,6 +138,22 @@ int main(void)
         vgk_manifest_open(&manifest, encoded, length, public_key, signature),
         VGK_MANIFEST_BAD_FORMAT);
 
+    {
+        uint8_t first[128], second[128];
+        size_t first_length = make_manifest(first, "z.efi");
+        size_t second_length = make_manifest(second, "a.efi");
+        memcpy(encoded, first, 8U);
+        encoded[6] = 2U;
+        encoded[7] = 0U;
+        memcpy(encoded + 8U, first + 8U, first_length - 8U);
+        memcpy(encoded + first_length, second + 8U, second_length - 8U);
+        length = first_length + second_length - 8U;
+        crypto_ed25519_sign(signature, secret_key, encoded, length);
+        failures += check("nieuporządkowane ścieżki",
+            vgk_manifest_open(&manifest, encoded, length, public_key, signature),
+            VGK_MANIFEST_BAD_FORMAT);
+    }
+
     length = make_manifest(encoded, "boot/kernel.elf");
     encoded[length++] = 0;
     crypto_ed25519_sign(signature, secret_key, encoded, length);
