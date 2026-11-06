@@ -33,6 +33,45 @@ static size_t make_manifest(uint8_t *out, const char *path)
     return size;
 }
 
+
+typedef struct {
+    const uint8_t *bytes;
+    size_t length;
+    int closed;
+} TEST_FILE;
+
+static int test_file_read(void *opaque, uint64_t offset, uint8_t *buffer,
+                          size_t capacity, size_t *bytes_read)
+{
+    TEST_FILE *file = (TEST_FILE *)opaque;
+    if (offset > file->length) return -1;
+    size_t left = file->length - (size_t)offset;
+    size_t count = left < capacity ? left : capacity;
+    if (count > 1U) count = 1U;
+    if (count != 0) memcpy(buffer, file->bytes + (size_t)offset, count);
+    *bytes_read = count;
+    return 0;
+}
+
+static int test_open_file(void *opaque, const uint8_t *path, uint16_t path_length,
+                          VGK_INTEGRITY_READ *read, void **file_context)
+{
+    TEST_FILE *file = (TEST_FILE *)opaque;
+    static const char expected_path[] = "boot/kernel.elf";
+    if (path_length != sizeof(expected_path) - 1U ||
+        memcmp(path, expected_path, sizeof(expected_path) - 1U) != 0)
+        return -1;
+    *read = test_file_read;
+    *file_context = file;
+    return 0;
+}
+
+static void test_close_file(void *opaque, void *file_context)
+{
+    (void)opaque;
+    ((TEST_FILE *)file_context)->closed += 1;
+}
+
 int main(void)
 {
     uint8_t seed[32] = {1};
@@ -51,6 +90,29 @@ int main(void)
         VGK_MANIFEST_OK);
     failures += check("odczyt wpisu",
         vgk_manifest_get(&manifest, 0, &entry), VGK_MANIFEST_OK);
+
+    TEST_FILE test_file = {
+        .bytes = (const uint8_t *)"abc",
+        .length = 3,
+        .closed = 0
+    };
+    failures += check("sprawdzenie pliku zgodnego z wykazem",
+        vgk_manifest_verify_files(&manifest, test_open_file,
+                                  test_close_file, &test_file),
+        VGK_MANIFEST_OK);
+    if (test_file.closed != 1) {
+        fputs("BLAD: plik nie zostal zamkniety po sprawdzeniu\\n", stderr);
+        ++failures;
+    }
+    test_file.bytes = (const uint8_t *)"abd";
+    failures += check("wykrycie podmienionego pliku",
+        vgk_manifest_verify_files(&manifest, test_open_file,
+                                  test_close_file, &test_file),
+        VGK_MANIFEST_FILE_INTEGRITY_ERROR);
+    if (test_file.closed != 2) {
+        fputs("BLAD: plik nie zostal zamkniety po bledzie\\n", stderr);
+        ++failures;
+    }
     if (entry.path_length != strlen("boot/kernel.elf") ||
         memcmp(entry.path, "boot/kernel.elf", entry.path_length) != 0 ||
         entry.file_size != 3U) {
