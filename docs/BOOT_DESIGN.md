@@ -31,3 +31,12 @@ The output is build/BOOTX64.EFI. The image is intended to be copied to a FAT-for
 Stage 0 is only a firmware-entry proof. It does not load the kernel, exit firmware boot services, implement BIOS boot, or produce a bootable VGK OS. A successful CI build proves only that the EFI executable is structurally valid. QEMU/OVMF and physical-machine tests remain separate milestones.
 
 BOOTX64.EFI is the conventional removable-media UEFI filename, not a third-party bootloader.
+
+## ABI layout safeguards
+
+The Stage 0 source now contains compile-time assertions for the UEFI
+`CHAR16` width, EFI table-header size, key `EFI_SYSTEM_TABLE` offsets and
+size, and the text-output protocol function offset. These checks catch
+accidental C structure-layout changes during compilation. They do not prove
+that firmware execution works; that still requires a successful build and
+QEMU/OVMF or physical-firmware test.
