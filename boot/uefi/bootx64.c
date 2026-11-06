@@ -153,11 +153,7 @@ EFI_STATUS EFIAPI efi_main(void *image_handle, EFI_SYSTEM_TABLE *system_table)
         ' ','p','r','z','e','d',' ','d','a','l','s','z','y','m',' ','s','t','a','r','t','e','m','.',
         '\r','\n',0
     };
-    static CHAR16 no_key[] = {
-        'B','R','A','K',' ','K','L','U','C','Z','A',' ','Z','A','U','F','A','N','I','A','.',
-        ' ','S','t','a','r','t',' ','z','a','b','l','o','k','o','w','a','n','y','.',
-        '\r','\n',0
-    };
+#if VGK_HAS_TRUSTED_PUBLIC_KEY
     static CHAR16 verify_error[] = {
         'N','I','E','P','O','P','R','A','W','N','Y',' ','P','O','D','P','I','S',' ',
         'L','U','B',' ','P','L','I','K','I','.',' ','S','t','a','r','t',' ','p','r','z','e','r','w','a','n','y','.',
@@ -169,6 +165,13 @@ EFI_STATUS EFIAPI efi_main(void *image_handle, EFI_SYSTEM_TABLE *system_table)
         'J','a','d','r','o',' ','n','i','e',' ','j','e','s','z','c','z','e',' ','j','e','s','t',' ',
         'u','r','u','c','h','a','m','i','a','n','e','.','\r','\n',0
     };
+#else
+    static CHAR16 no_key[] = {
+        'B','R','A','K',' ','K','L','U','C','Z','A',' ','Z','A','U','F','A','N','I','A','.',
+        ' ','S','t','a','r','t',' ','z','a','b','l','o','k','o','w','a','n','y','.',
+        '\r','\n',0
+    };
+#endif
 
     VGK_EFI_FILE_PROTOCOL *root = 0;
     EFI_STATUS status;
