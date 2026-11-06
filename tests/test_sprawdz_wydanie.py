@@ -82,6 +82,15 @@ class ReleaseVerificationTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("podpis wykazu", result.stderr)
 
+    def test_rejects_non_text_path(self):
+        data = json.loads(self.manifest.read_text(encoding="utf-8"))
+        data["files"][0]["path"] = ["boot", "vgk-kernel.elf"]
+        self.manifest.write_text(json.dumps(data), encoding="utf-8")
+        self.sign()
+        result = self.run_verifier()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("ścieżka pliku", result.stderr)
+
     def test_rejects_path_traversal(self):
         data = json.loads(self.manifest.read_text(encoding="utf-8"))
         data["files"][0]["path"] = "../poza.txt"
