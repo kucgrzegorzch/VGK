@@ -1,8 +1,6 @@
 #include "integrity.h"
 #include "sha256.h"
 
-#include <string.h>
-
 static int digest_equal_constant_time(const uint8_t left[32], const uint8_t right[32])
 {
     uint8_t difference = 0;
