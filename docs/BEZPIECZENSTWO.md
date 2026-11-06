@@ -205,3 +205,19 @@ Dodano `boot/uefi/uefi_file.h` z deklaracjami interfejsu systemu plików UEFI or
 Dodano narzędzie tools/przygotuj_klucz_zaufania.py. Tworzy ono parę Ed25519 poza repozytorium, ogranicza uprawnienia pliku prywatnego do właściciela i przygotowuje nagłówek C zawierający wyłącznie 32-bajtowy klucz publiczny. Narzędzie odmawia nadpisania istniejących plików. Testy tests/test_klucz_zaufania.py sprawdzają uprawnienia, zgodność klucza w nagłówku z kluczem PEM oraz odmowę nadpisania.
 
 Klucz prywatny jest własnością wydawcy i nigdy nie może trafić do repozytorium, obrazu ISO, artefaktów budowania ani rozmowy. Do osadzenia w programie startowym wystarczy klucz publiczny. Nie wygenerowano w repozytorium klucza produkcyjnego ani nie wpisano fikcyjnego klucza. Do czasu otrzymania i niezależnego potwierdzenia klucza publicznego rzeczywista weryfikacja podczas startu pozostaje wyłączona.
+
+
+## Połączenie weryfikacji z odczytem UEFI – aktualny etap
+
+Dodano `boot/uefi/uefi_release_verify.c`, który łączy:
+- sprawdzenie podpisu Ed25519 wykazu VGKM;
+- kontrolę formatu i ścieżek wykazu;
+- odczyt wskazanych plików przez adapter protokołu plików UEFI;
+- obliczenie SHA-256 i wykrycie podmienionej zawartości.
+
+Moduł jest dołączony do budowanego programu EFI. Test integracyjny sprawdza poprawne wydanie, podmieniony plik oraz błędny podpis. Przy błędnym podpisie kontrola kończy się przed otwarciem jakiegokolwiek pliku z wykazu.
+
+**To nadal nie oznacza aktywnej ochrony podczas startu.** Funkcja `efi_main` nie wywołuje jeszcze tego modułu. Program nie wczytuje jeszcze wykazu VGKM i podpisu z nośnika, nie zawiera potwierdzonego klucza publicznego wydawcy i nie ładuje jądra. Funkcja jest przygotowanym i testowanym połączeniem składników, a nie ukończonym łańcuchem zaufania.
+
+
+Kontrola integralności sprawdza nie tylko SHA-256, lecz także dokładny rozmiar pliku. Po odczytaniu zadeklarowanej liczby bajtów wykonuje próbny odczyt jednego dodatkowego bajtu; jeśli istnieje, plik jest odrzucany. Test obejmuje próbę dopisania danych na końcu.

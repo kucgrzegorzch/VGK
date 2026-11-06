@@ -1,6 +1,20 @@
 #include "sha256.h"
 
-#include <string.h>
+/* Small freestanding byte helpers: the UEFI build has no C library. */
+static void copy_bytes(void *destination, const void *source, size_t length)
+{
+    uint8_t *out = (uint8_t *)destination;
+    const uint8_t *in = (const uint8_t *)source;
+    for (size_t i = 0; i < length; ++i)
+        out[i] = in[i];
+}
+
+static void set_bytes(void *destination, uint8_t value, size_t length)
+{
+    uint8_t *out = (uint8_t *)destination;
+    for (size_t i = 0; i < length; ++i)
+        out[i] = value;
+}
 
 static const uint32_t round_constants[64] = {
     0x428a2f98U,0x71374491U,0xb5c0fbcfU,0xe9b5dba5U,
@@ -80,7 +94,7 @@ void vgk_sha256_init(VGK_SHA256_CONTEXT *context)
         0x6a09e667U,0xbb67ae85U,0x3c6ef372U,0xa54ff53aU,
         0x510e527fU,0x9b05688cU,0x1f83d9abU,0x5be0cd19U
     };
-    memcpy(context->state, initial, sizeof(initial));
+    copy_bytes(context->state, initial, sizeof(initial));
     context->bit_count=0;
     context->block_used=0;
 }
@@ -93,7 +107,7 @@ void vgk_sha256_update(VGK_SHA256_CONTEXT *context, const void *data, size_t len
     while (length != 0) {
         size_t available=64U-context->block_used;
         size_t take=length<available?length:available;
-        memcpy(context->block+context->block_used,input,take);
+        copy_bytes(context->block+context->block_used,input,take);
         context->block_used+=take; input+=take; length-=take;
         if (context->block_used==64U) {
             transform(context,context->block);
@@ -107,16 +121,16 @@ void vgk_sha256_finish(VGK_SHA256_CONTEXT *context, uint8_t digest[32])
     uint64_t original_bits=context->bit_count;
     context->block[context->block_used++]=0x80U;
     if (context->block_used>56U) {
-        memset(context->block+context->block_used,0,64U-context->block_used);
+        set_bytes(context->block+context->block_used,0,64U-context->block_used);
         transform(context,context->block);
         context->block_used=0;
     }
-    memset(context->block+context->block_used,0,56U-context->block_used);
+    set_bytes(context->block+context->block_used,0,56U-context->block_used);
     for (size_t i=0;i<8;++i)
         context->block[63U-i]=(uint8_t)(original_bits>>(i*8U));
     transform(context,context->block);
     for (size_t i=0;i<8;++i) write_be32(digest+i*4,context->state[i]);
-    memset(context,0,sizeof(*context));
+    set_bytes(context,0,sizeof(*context));
 }
 
 void vgk_sha256(const void *data, size_t length, uint8_t digest[32])

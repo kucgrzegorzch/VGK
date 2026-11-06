@@ -1,8 +1,6 @@
 #include "integrity.h"
 #include "sha256.h"
 
-#include <string.h>
-
 static int digest_equal_constant_time(const uint8_t left[32], const uint8_t right[32])
 {
     uint8_t difference = 0;
@@ -32,7 +30,7 @@ VGK_INTEGRITY_RESULT vgk_verify_reader_sha256(
     uint64_t expected_size,
     const uint8_t expected_digest[32])
 {
-    uint8_t buffer[4096];
+    uint8_t buffer[1024];
     uint8_t actual[32];
     uint64_t offset = 0;
     VGK_SHA256_CONTEXT hash;
@@ -60,6 +58,19 @@ VGK_INTEGRITY_RESULT vgk_verify_reader_sha256(
     }
 
     vgk_sha256_finish(&hash, actual);
-    return digest_equal_constant_time(actual, expected_digest)
-        ? VGK_INTEGRITY_OK : VGK_INTEGRITY_HASH_MISMATCH;
+    if (!digest_equal_constant_time(actual, expected_digest))
+        return VGK_INTEGRITY_HASH_MISMATCH;
+
+    /*
+     * The manifest authenticates the exact file size as well as its digest.
+     * Probe one byte past the declared end so an appended payload is rejected.
+     */
+    size_t trailing_bytes = 0;
+    if (read(context, expected_size, buffer, 1U, &trailing_bytes) != 0 ||
+        trailing_bytes > 1U)
+        return VGK_INTEGRITY_READ_ERROR;
+    if (trailing_bytes != 0)
+        return VGK_INTEGRITY_HASH_MISMATCH;
+
+    return VGK_INTEGRITY_OK;
 }

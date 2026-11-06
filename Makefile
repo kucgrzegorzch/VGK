@@ -8,6 +8,8 @@ CLANG   := clang
 LLD_LINK := lld-link
 UEFI_CFLAGS := --target=x86_64-pc-win32-coff -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -fshort-wchar -fno-stack-protector -fno-builtin -mno-red-zone
 UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machine:x64
+CRYPTO_DIR := boot/crypto
+MONOCYPHER_DIR := $(CRYPTO_DIR)/monocypher
 
 .PHONY: all clean iso check-tools test uefi uefi-test uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test
 all: build/vgk-kernel.elf
@@ -33,7 +35,28 @@ build/bootx64.obj: boot/uefi/bootx64.c boot/uefi/uefi_file.h boot/uefi/uefi_serv
 build/uefi_file_reader.obj: boot/uefi/uefi_file_reader.c boot/uefi/uefi_file_reader.h boot/uefi/uefi_file.h boot/crypto/manifest.h boot/crypto/integrity.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -Iboot/crypto -c $< -o $@
 
-build/BOOTX64.EFI: build/bootx64.obj build/uefi_file_reader.obj
+build/uefi_release_verify.obj: boot/uefi/uefi_release_verify.c boot/uefi/uefi_release_verify.h boot/uefi/uefi_file_reader.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -Iboot/crypto -c $< -o $@
+
+build/sha256.obj: $(CRYPTO_DIR)/sha256.c | build
+	$(CLANG) $(UEFI_CFLAGS) -I$(CRYPTO_DIR) -c $< -o $@
+
+build/integrity.obj: $(CRYPTO_DIR)/integrity.c | build
+	$(CLANG) $(UEFI_CFLAGS) -I$(CRYPTO_DIR) -c $< -o $@
+
+build/manifest.obj: $(CRYPTO_DIR)/manifest.c | build
+	$(CLANG) $(UEFI_CFLAGS) -I$(CRYPTO_DIR) -I$(MONOCYPHER_DIR) -c $< -o $@
+
+build/ed25519.obj: $(CRYPTO_DIR)/ed25519.c | build
+	$(CLANG) $(UEFI_CFLAGS) -I$(CRYPTO_DIR) -I$(MONOCYPHER_DIR) -c $< -o $@
+
+build/monocypher.obj: $(MONOCYPHER_DIR)/monocypher.c | build
+	$(CLANG) $(UEFI_CFLAGS) -I$(MONOCYPHER_DIR) -c $< -o $@
+
+build/monocypher_ed25519.obj: $(MONOCYPHER_DIR)/monocypher-ed25519.c | build
+	$(CLANG) $(UEFI_CFLAGS) -I$(MONOCYPHER_DIR) -c $< -o $@
+
+build/BOOTX64.EFI: build/bootx64.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
 	$(LLD_LINK) $(UEFI_LDFLAGS) /out:$@ $^
 
 uefi: build/BOOTX64.EFI
@@ -54,7 +77,7 @@ uefi-reader-test: | build
 	./build/test_uefi_file_reader
 
 uefi-manifest-test: | build
-	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi -Iboot/crypto -Iboot/crypto/monocypher boot/crypto/sha256.c boot/crypto/integrity.c boot/crypto/manifest.c boot/crypto/ed25519.c boot/crypto/monocypher/monocypher.c boot/crypto/monocypher/monocypher-ed25519.c boot/uefi/uefi_file_reader.c tests/test_uefi_manifest_integration.c -o build/test_uefi_manifest_integration
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi -Iboot/crypto -Iboot/crypto/monocypher boot/crypto/sha256.c boot/crypto/integrity.c boot/crypto/manifest.c boot/crypto/ed25519.c boot/crypto/monocypher/monocypher.c boot/crypto/monocypher/monocypher-ed25519.c boot/uefi/uefi_file_reader.c boot/uefi/uefi_release_verify.c tests/test_uefi_manifest_integration.c -o build/test_uefi_manifest_integration
 	./build/test_uefi_manifest_integration
 
 vgkm-test: | build
