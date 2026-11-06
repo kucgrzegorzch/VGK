@@ -20,29 +20,6 @@ static VGK_EFI_STATUS VGK_EFIAPI fake_set_position(
 {
     (void)self;
     current_offset = position;
-    {
-        uint8_t whole[sizeof(source_data) - 1U];
-        size_t whole_size = 0;
-        static const uint8_t path[] = "boot/data.bin";
-        max_read_chunk = 3U;
-        assert(vgk_uefi_read_file_bounded(
-            &fake_root, path, (uint16_t)(sizeof(path) - 1U),
-            whole, sizeof(whole), &whole_size) == 0);
-        assert(whole_size == sizeof(source_data) - 1U);
-        assert(memcmp(whole, source_data, whole_size) == 0);
-        assert(close_count == 2U);
-
-        {
-            uint8_t too_small[4];
-            size_t rejected_size = 99U;
-            assert(vgk_uefi_read_file_bounded(
-                &fake_root, path, (uint16_t)(sizeof(path) - 1U),
-                too_small, sizeof(too_small), &rejected_size) != 0);
-            assert(rejected_size == 0U);
-            assert(close_count == 3U);
-        }
-        max_read_chunk = (size_t)-1;
-    }
     return 0;
 }
 
@@ -57,7 +34,8 @@ static VGK_EFI_STATUS VGK_EFIAPI fake_read(
         return UINT64_C(0x8000000000000002);
     remaining = sizeof(source_data) - 1U - (size_t)current_offset;
     amount = *size < remaining ? (size_t)*size : remaining;
-    if (amount > max_read_chunk) amount = max_read_chunk;
+    if (amount > max_read_chunk)
+        amount = max_read_chunk;
     memcpy(buffer, source_data + current_offset, amount);
     *size = amount;
     current_offset += amount;
@@ -129,6 +107,30 @@ int main(void)
         &fake_root, traversal_path, (uint16_t)(sizeof(traversal_path) - 1U),
         &read, &file_context) != 0);
     assert(open_count == 1U);
+
+    {
+        uint8_t whole[sizeof(source_data) - 1U];
+        size_t whole_size = 0;
+        static const uint8_t path[] = "boot/data.bin";
+        max_read_chunk = 3U;
+        assert(vgk_uefi_read_file_bounded(
+            &fake_root, path, (uint16_t)(sizeof(path) - 1U),
+            whole, sizeof(whole), &whole_size) == 0);
+        assert(whole_size == sizeof(source_data) - 1U);
+        assert(memcmp(whole, source_data, whole_size) == 0);
+        assert(close_count == 2U);
+
+        {
+            uint8_t too_small[4];
+            size_t rejected_size = 99U;
+            assert(vgk_uefi_read_file_bounded(
+                &fake_root, path, (uint16_t)(sizeof(path) - 1U),
+                too_small, sizeof(too_small), &rejected_size) != 0);
+            assert(rejected_size == 0U);
+            assert(close_count == 3U);
+        }
+        max_read_chunk = (size_t)-1;
+    }
 
     return 0;
 }
