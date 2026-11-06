@@ -160,3 +160,41 @@ VGK_MANIFEST_RESULT vgk_manifest_open(
     }
     return VGK_MANIFEST_OK;
 }
+
+VGK_MANIFEST_RESULT vgk_manifest_verify_files(
+    const VGK_MANIFEST *manifest,
+    VGK_MANIFEST_OPEN_FILE open_file,
+    VGK_MANIFEST_CLOSE_FILE close_file,
+    void *filesystem_context)
+{
+    if (manifest == 0 || manifest->encoded == 0 ||
+        open_file == 0 || close_file == 0)
+        return VGK_MANIFEST_INVALID_ARGUMENT;
+
+    for (uint16_t i = 0; i < manifest->entry_count; ++i) {
+        VGK_MANIFEST_ENTRY entry;
+        VGK_INTEGRITY_READ read = 0;
+        void *file_context = 0;
+        VGK_INTEGRITY_RESULT integrity_result;
+
+        if (vgk_manifest_get(manifest, i, &entry) != VGK_MANIFEST_OK)
+            return VGK_MANIFEST_BAD_FORMAT;
+
+        if (open_file(filesystem_context, entry.path, entry.path_length,
+                      &read, &file_context) != 0 ||
+            read == 0 || file_context == 0) {
+            if (file_context != 0)
+                close_file(filesystem_context, file_context);
+            return VGK_MANIFEST_FILE_OPEN_ERROR;
+        }
+
+        integrity_result = vgk_verify_reader_sha256(
+            read, file_context, entry.file_size, entry.sha256);
+        close_file(filesystem_context, file_context);
+
+        if (integrity_result != VGK_INTEGRITY_OK)
+            return VGK_MANIFEST_FILE_INTEGRITY_ERROR;
+    }
+
+    return VGK_MANIFEST_OK;
+}
