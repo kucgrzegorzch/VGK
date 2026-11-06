@@ -165,3 +165,18 @@ Do obliczeń wykorzystano istniejącą bibliotekę Monocypher 4.0.3, a nie nowy,
 Interfejs VGK przyjmuje klucz publiczny o długości 32 bajtów, wiadomość i podpis o długości 64 bajtów. Nie potrzebuje klucza prywatnego do sprawdzania. Zwraca osobny wynik dla poprawnego podpisu, niepoprawnego podpisu i błędnych argumentów. Testy obejmują poprawny wektor RFC 8032, zmieniony podpis, zmieniony klucz publiczny i błędne argumenty. Uruchamia je `make ed25519-test`; test jest także częścią `make security-test`.
 
 **Ograniczenie:** moduł jest na razie sprawdzany jako program testowy. Nie został jeszcze włączony do programu UEFI, nie ma osadzonego klucza publicznego wydawcy i nie blokuje jeszcze uruchomienia podmienionego jądra. Dopiero po podłączeniu do zaufanego wykazu i programu uruchamiającego będzie mógł pełnić tę funkcję.
+
+## Podpisany wykaz plików – parser w języku C
+
+Dodano ścisły format binarny wykazu VGKM w wersji 1 oraz jego parser:
+- `boot/crypto/manifest.h` – struktury i kody wyniku;
+- `boot/crypto/manifest.c` – sprawdzenie podpisu Ed25519 przed interpretacją zawartości, kontrola formatu, limitów i ścieżek;
+- `tests/test_manifest.c` – testy poprawnego wykazu, zmienionej zawartości, ścieżki wychodzącej poza katalog, pustego elementu ścieżki i nadmiarowych danych.
+
+Wykaz zawiera nagłówek `VGKM`, wersję formatu, liczbę wpisów, a następnie wpisy z długością ścieżki, rozmiarem pliku, 32-bajtowym skrótem SHA-256 i ścieżką względną. Limit wynosi 128 wpisów, 240 bajtów na ścieżkę i 64 KiB na cały wykaz. Parser nie przydziela pamięci i zwraca odwołania do danych wejściowych.
+
+Parser odrzuca ścieżki bezwzględne, elementy `.` i `..`, puste elementy, niedozwolone znaki, powtórzone ścieżki, niezgodną liczbę danych oraz niepoprawny podpis. Podpis obejmuje wszystkie bajty wykazu.
+
+Test uruchamia `make manifest-test` i jest częścią `make security-test`.
+
+**Ograniczenie:** parser jest na razie osobnym modułem testowym. Nie odczytuje jeszcze plików z partycji, nie porównuje ich skrótów automatycznie i nie jest podłączony do programu UEFI. Format VGKM jest formatem projektu na tym etapie i może zostać zmieniony przed pierwszym oficjalnym wydaniem.
