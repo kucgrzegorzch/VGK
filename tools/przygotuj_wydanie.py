@@ -50,6 +50,10 @@ def main() -> int:
             raise SigningError("katalog wydania nie istnieje")
         if not args.release.strip():
             raise SigningError("nazwa wydania nie może być pusta")
+        if args.manifest.exists() or args.signature.exists():
+            raise SigningError("plik wykazu lub podpisu już istnieje; nie zostanie nadpisany")
+        if not args.private_key.is_file() or args.private_key.is_symlink():
+            raise SigningError("klucz prywatny nie istnieje lub nie jest zwykłym plikiem")
         entries = []
         seen = set()
         for relative in args.files:
