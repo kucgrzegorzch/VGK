@@ -4,6 +4,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -12,6 +13,27 @@ VERIFIER = ROOT / "tools" / "sprawdz_wydanie.py"
 
 
 class BinaryReleaseTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.cross_dir = tempfile.TemporaryDirectory()
+        cls.cross_program = Path(cls.cross_dir.name) / "test_vgkm_cross"
+        sources = [
+            "boot/crypto/sha256.c", "boot/crypto/integrity.c",
+            "boot/crypto/manifest.c", "boot/crypto/ed25519.c",
+            "boot/crypto/monocypher/monocypher.c",
+            "boot/crypto/monocypher/monocypher-ed25519.c",
+            "tests/test_vgkm_cross.c",
+        ]
+        subprocess.run(
+            ["gcc", "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",
+             "-Iboot/crypto", "-Iboot/crypto/monocypher", *sources,
+             "-o", str(cls.cross_program)],
+            cwd=ROOT, check=True, capture_output=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.cross_dir.cleanup()
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -78,6 +100,18 @@ class BinaryReleaseTests(unittest.TestCase):
         result = self.verify()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("dowiązanie", result.stderr)
+
+    def test_python_generated_manifest_is_accepted_by_c_parser(self):
+        public_der = self.base / "public.der"
+        subprocess.run(
+            ["openssl", "pkey", "-pubin", "-in", str(self.public),
+             "-outform", "DER", "-out", str(public_der)],
+            check=True, capture_output=True)
+        result = subprocess.run(
+            [str(self.cross_program), str(self.manifest), str(self.signature),
+             str(public_der)], capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("parser C zaakceptował", result.stdout)
 
     def test_rejects_path_traversal(self):
         result = subprocess.run(
