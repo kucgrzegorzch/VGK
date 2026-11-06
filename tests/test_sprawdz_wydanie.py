@@ -44,7 +44,7 @@ class BinaryReleaseTests(unittest.TestCase):
              "--public-key", str(self.public)], capture_output=True, text=True, check=False)
 
     def test_generator_emits_binary_vgkm_and_valid_signature(self):
-        self.assertEqual(self.manifest.read_bytes()[:8], b"VGKM\\x01\\x00\\x01\\x00")
+        self.assertEqual(self.manifest.read_bytes()[:8], bytes((0x56, 0x47, 0x4b, 0x4d, 1, 0, 1, 0)))
         self.assertEqual(self.signature.stat().st_size, 64)
         self.assertEqual(self.verify().returncode, 0)
 
