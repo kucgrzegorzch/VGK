@@ -218,3 +218,6 @@ Dodano `boot/uefi/uefi_release_verify.c`, który łączy:
 Moduł jest dołączony do budowanego programu EFI. Test integracyjny sprawdza poprawne wydanie, podmieniony plik oraz błędny podpis. Przy błędnym podpisie kontrola kończy się przed otwarciem jakiegokolwiek pliku z wykazu.
 
 **To nadal nie oznacza aktywnej ochrony podczas startu.** Funkcja `efi_main` nie wywołuje jeszcze tego modułu. Program nie wczytuje jeszcze wykazu VGKM i podpisu z nośnika, nie zawiera potwierdzonego klucza publicznego wydawcy i nie ładuje jądra. Funkcja jest przygotowanym i testowanym połączeniem składników, a nie ukończonym łańcuchem zaufania.
+
+
+Kontrola integralności sprawdza nie tylko SHA-256, lecz także dokładny rozmiar pliku. Po odczytaniu zadeklarowanej liczby bajtów wykonuje próbny odczyt jednego dodatkowego bajtu; jeśli istnieje, plik jest odrzucany. Test obejmuje próbę dopisania danych na końcu.
