@@ -64,3 +64,7 @@ Repozytorium zawiera workflow GitHub Actions, który buduje historyczny prototyp
 - Uproszczono flagi kompilacji pliku asemblerowego, aby Clang nie zgłaszał nieużywanego argumentu.
 - Po poprawce wykonano ponownie czystą kompilację i test `make test` przy użyciu GCC oraz Clang; oba zestawy zakończyły się powodzeniem.
 - Nadal wymagany jest test uruchomienia pod GRUB/QEMU; nie został wykonany w tym środowisku.
+
+## Mechanizm Bezpieczeństwa i Zaufania
+
+Projekt ochrony przed podmianą plików, obejmujący podpisy wydań, kontrolę integralności, sprawdzanie składników przed uruchomieniem i procedury odzyskiwania, opisano w [dokumentacji bezpieczeństwa](docs/BEZPIECZENSTWO.md). Jest to obecnie projekt architektury — funkcje te nie są jeszcze zaimplementowane.
