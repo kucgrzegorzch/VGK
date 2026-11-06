@@ -29,8 +29,8 @@ build/kernel.o: src/kernel.c | build
 build/vgk-kernel.elf: build/entry.o build/kernel.o linker.ld
 	$(LD) $(LDFLAGS) -o $@ build/entry.o build/kernel.o
 
-build/bootx64.obj: boot/uefi/bootx64.c boot/uefi/uefi_file.h boot/uefi/uefi_services.h | build
-	$(CLANG) $(UEFI_CFLAGS) -c $< -o $@
+build/bootx64.obj: boot/uefi/bootx64.c boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/crypto/manifest.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -Iboot/crypto -c $< -o $@
 
 build/uefi_file_reader.obj: boot/uefi/uefi_file_reader.c boot/uefi/uefi_file_reader.h boot/uefi/uefi_file.h boot/crypto/manifest.h boot/crypto/integrity.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -Iboot/crypto -c $< -o $@

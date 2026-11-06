@@ -70,3 +70,10 @@ Moduł przyjmuje jawny klucz zaufany jako argument. Nie tworzy klucza, nie pobie
 
 
 Weryfikacja odczytu sprawdza również dokładny rozmiar: po sprawdzeniu skrótu próbuje odczytać jeden bajt za zadeklarowanym końcem pliku. Wykrywa to zarówno zbyt krótki plik, jak i dodatkowe dane dopisane na końcu. Dodano test tej drugiej sytuacji.
+
+
+## Bramka zaufania w punkcie wejścia UEFI
+
+Punkt wejścia UEFI pobiera teraz uchwyt woluminu startowego i ma ścieżkę sprawdzania podpisanego wydania przed dalszym startem. Jeżeli w katalogu głównym źródeł znajduje się nagłówek `vgk_trusted_public_key.h` wygenerowany narzędziem przygotowania klucza, program używa zawartego w nim wyłącznie klucza publicznego i wywołuje kontrolę wykazu VGKM oraz plików. Przy braku nagłówka program jawnie odmawia dalszego startu; nie używa klucza testowego ani wartości zastępczej.
+
+Na tym etapie poprawna weryfikacja kończy się komunikatem diagnostycznym. Jądro nie jest jeszcze wczytywane ani uruchamiane. Samo zbudowanie programu EFI nie potwierdza działania na fizycznym komputerze; potrzebne są testy w środowisku UEFI i na sprzęcie. Klucz prywatny nigdy nie jest potrzebny programowi startowemu.
