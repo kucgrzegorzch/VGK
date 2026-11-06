@@ -71,7 +71,7 @@ class ReleaseVerificationTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_rejects_changed_file(self):
-        self.payload.write_bytes(b"XGK test kernel\\x00")
+        self.payload.write_bytes(b"XGK test kernel" + bytes([0]))
         result = self.run_verifier()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("niezgodna zawartość", result.stderr)
