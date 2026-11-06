@@ -9,7 +9,7 @@ LLD_LINK := lld-link
 UEFI_CFLAGS := --target=x86_64-pc-win32-coff -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -fshort-wchar -fno-stack-protector -fno-builtin -mno-red-zone
 UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machine:x64
 
-.PHONY: all clean iso check-tools test uefi uefi-test uefi-abi-test security-test sha256-test integrity-test ed25519-test manifest-test
+.PHONY: all clean iso check-tools test uefi uefi-test uefi-abi-test uefi-services-abi-test security-test sha256-test integrity-test ed25519-test manifest-test
 all: build/vgk-kernel.elf
 
 test: build/vgk-kernel.elf
@@ -27,7 +27,7 @@ build/kernel.o: src/kernel.c | build
 build/vgk-kernel.elf: build/entry.o build/kernel.o linker.ld
 	$(LD) $(LDFLAGS) -o $@ build/entry.o build/kernel.o
 
-build/bootx64.obj: boot/uefi/bootx64.c | build
+build/bootx64.obj: boot/uefi/bootx64.c boot/uefi/uefi_file.h boot/uefi/uefi_services.h | build
 	$(CLANG) $(UEFI_CFLAGS) -c $< -o $@
 
 build/BOOTX64.EFI: build/bootx64.obj
@@ -41,6 +41,10 @@ uefi-test: build/BOOTX64.EFI
 uefi-abi-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi tests/test_uefi_file_abi.c -o build/test_uefi_file_abi
 	./build/test_uefi_file_abi
+
+uefi-services-abi-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi tests/test_uefi_services_abi.c -o build/test_uefi_services_abi
+	./build/test_uefi_services_abi
 
 security-test: sha256-test integrity-test ed25519-test manifest-test
 	python3 -m unittest discover -s tests -p 'test_sprawdz_wydanie.py' -v

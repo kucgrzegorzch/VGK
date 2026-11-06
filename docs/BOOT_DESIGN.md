@@ -40,3 +40,21 @@ size, and the text-output protocol function offset. These checks catch
 accidental C structure-layout changes during compilation. They do not prove
 that firmware execution works; that still requires a successful build and
 QEMU/OVMF or physical-firmware test.
+
+
+## Pierwszy odczyt z nośnika UEFI
+
+Stage 0 pobiera teraz protokół załadowanego obrazu, z niego uchwyt urządzenia,
+a następnie protokół systemu plików UEFI. Otwiera główny katalog woluminu
+i odczytuje dwa bajty z własnego pliku `\\EFI\\BOOT\\BOOTX64.EFI`.
+Sprawdza sygnaturę `MZ` i zamyka oba uchwyty plików.
+
+To jest pierwszy rzeczywisty odczyt pliku z woluminu, a nie tylko deklaracja
+interfejsu. Testuje ścieżkę dostępu do nośnika, ale **nie jest jeszcze
+sprawdzaniem autentyczności**: sygnatura MZ potwierdza jedynie format pliku.
+Weryfikacja podpisu wydania, odczyt jądra VGK, jego bezpieczne umieszczenie
+w pamięci i przekazanie mu sterowania pozostają kolejnymi etapami.
+
+Testy układu struktur usług UEFI są uruchamiane osobno w automatycznym
+sprawdzaniu. Pełny test działania tej ścieżki wymaga jeszcze uruchomienia
+obrazu w maszynie wirtualnej z oprogramowaniem UEFI oraz testu na sprzęcie.
