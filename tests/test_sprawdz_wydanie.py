@@ -75,7 +75,7 @@ class BinaryReleaseTests(unittest.TestCase):
         outside = self.base / "outside"
         outside.write_bytes(b"VGK test kernel")
         self.payload.symlink_to(outside)
-        result = self.prepare()
+        result = self.verify()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("dowiązanie", result.stderr)
 
