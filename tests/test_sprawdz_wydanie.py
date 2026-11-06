@@ -66,6 +66,39 @@ class ReleaseVerificationTests(unittest.TestCase):
             capture_output=True, text=True, check=False,
         )
 
+    def test_release_preparation_signs_manifest(self):
+        manifest = self.base / "nowy-wykaz.json"
+        signature = self.base / "nowy-wykaz.podpis"
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "przygotuj_wydanie.py"),
+             "--root", str(self.release), "--release", "VGK-test-2",
+             "--private-key", str(self.private), "--manifest", str(manifest),
+             "--signature", str(signature), "boot/vgk-kernel.elf"],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(signature.is_file())
+        verify = subprocess.run(
+            ["openssl", "pkeyutl", "-verify", "-pubin", "-inkey", str(self.public),
+             "-sigfile", str(signature), "-rawin", "-in", str(manifest)],
+            capture_output=True, check=False,
+        )
+        self.assertEqual(verify.returncode, 0, verify.stderr.decode(errors="replace"))
+
+    def test_release_preparation_refuses_overwrite(self):
+        manifest = self.base / "wykaz.json"
+        signature = self.base / "wykaz.podpis"
+        before = manifest.read_bytes()
+        result = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "przygotuj_wydanie.py"),
+             "--root", str(self.release), "--release", "VGK-test-2",
+             "--private-key", str(self.private), "--manifest", str(manifest),
+             "--signature", str(signature), "boot/vgk-kernel.elf"],
+            capture_output=True, text=True, check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(manifest.read_bytes(), before)
+
     def test_accepts_unchanged_signed_file(self):
         result = self.run_verifier()
         self.assertEqual(result.returncode, 0, result.stderr)
