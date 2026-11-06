@@ -71,10 +71,10 @@ class ReleaseVerificationTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_rejects_changed_file(self):
-        self.payload.write_bytes(b"changed kernel")
+        self.payload.write_bytes(b"XGK test kernel\\x00")
         result = self.run_verifier()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("niezgodny rozmiar", result.stderr)
+        self.assertIn("niezgodna zawartość", result.stderr)
 
     def test_rejects_modified_manifest(self):
         self.manifest.write_bytes(self.manifest.read_bytes() + b" ")
