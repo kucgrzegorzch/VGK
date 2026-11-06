@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include <stdint.h>
 
 #if defined(__x86_64__)
@@ -44,6 +45,23 @@ typedef struct {
     uint64_t number_of_table_entries;
     void *configuration_table;
 } EFI_SYSTEM_TABLE;
+
+/*
+ * These checks protect the firmware ABI layout. A wrong offset here can make
+ * the loader call an unrelated firmware pointer instead of OutputString.
+ */
+_Static_assert(sizeof(CHAR16) == 2, "UEFI CHAR16 must be 16 bits");
+_Static_assert(sizeof(EFI_TABLE_HEADER) == 24, "unexpected EFI table header size");
+_Static_assert(offsetof(EFI_SYSTEM_TABLE, firmware_vendor) == 24,
+               "unexpected EFI_SYSTEM_TABLE firmware_vendor offset");
+_Static_assert(offsetof(EFI_SYSTEM_TABLE, con_out) == 64,
+               "unexpected EFI_SYSTEM_TABLE con_out offset");
+_Static_assert(offsetof(EFI_SYSTEM_TABLE, boot_services) == 96,
+               "unexpected EFI_SYSTEM_TABLE boot_services offset");
+_Static_assert(sizeof(EFI_SYSTEM_TABLE) == 120,
+               "unexpected EFI_SYSTEM_TABLE size");
+_Static_assert(offsetof(EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL, output_string) == 8,
+               "unexpected text-output protocol layout");
 
 #define EFI_SUCCESS UINT64_C(0)
 #define EFI_INVALID_PARAMETER UINT64_C(0x8000000000000002)
