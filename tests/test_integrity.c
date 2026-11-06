@@ -37,6 +37,7 @@ static int check(const char *name, VGK_INTEGRITY_RESULT actual,
 int main(void)
 {
     static const uint8_t content[] = "VGK chroni pliki przed podmiana";
+    static const uint8_t appended[] = "VGK chroni pliki przed podmiana!";
     uint8_t expected[32];
     uint8_t wrong[32];
     int failures = 0;
@@ -68,6 +69,14 @@ int main(void)
         vgk_verify_reader_sha256(memory_read, &reader, reader.length, expected),
         VGK_INTEGRITY_OK);
 
+    reader.data = appended;
+    reader.length = sizeof(appended) - 1;
+    failures += check("dodatkowe bajty za zadeklarowanym rozmiarem",
+        vgk_verify_reader_sha256(memory_read, &reader, sizeof(content) - 1, expected),
+        VGK_INTEGRITY_HASH_MISMATCH);
+
+    reader.data = content;
+    reader.length = sizeof(content) - 1;
     reader.fail = 1;
     failures += check("blad odczytu",
         vgk_verify_reader_sha256(memory_read, &reader, reader.length, expected),
