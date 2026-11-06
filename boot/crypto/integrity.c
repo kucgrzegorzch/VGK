@@ -30,7 +30,7 @@ VGK_INTEGRITY_RESULT vgk_verify_reader_sha256(
     uint64_t expected_size,
     const uint8_t expected_digest[32])
 {
-    uint8_t buffer[4096];
+    uint8_t buffer[1024];
     uint8_t actual[32];
     uint64_t offset = 0;
     VGK_SHA256_CONTEXT hash;
