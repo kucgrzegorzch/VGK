@@ -33,7 +33,7 @@ Każdy etap musi ufać wyłącznie kluczowi publicznemu lub wynikowi sprawdzenia
 
 W repozytorium znajduje się `tools/sprawdz_wydanie.py`. Narzędzie sprawdza podpis Ed25519 wykazu JSON przy użyciu OpenSSL, a następnie porównuje rozmiar i skrót SHA-256 każdego wskazanego pliku. Odrzuca między innymi nieprawidłowy podpis, zmieniony wykaz, ścieżki wychodzące poza katalog wydania i dowiązania symboliczne.
 
-Testy uruchamia polecenie `make security-test`. Tworzą one tymczasowy klucz testowy, sprawdzają poprawne wydanie, zmianę pliku o niezmienionym rozmiarze, zmianę wykazu, błędny typ ścieżki i próbę wyjścia ścieżką poza katalog. Klucz testowy jest wyłącznie do testów i nie może być używany do podpisywania oficjalnych wydań.
+Testy uruchamia polecenie `make security-test`. Tworzą one tymczasowy klucz testowy, sprawdzają poprawne wydanie, zmianę pliku o niezmienionym rozmiarze, zmianę wykazu, uszkodzony podpis, błędny typ ścieżki, próbę wyjścia poza katalog i dowiązanie symboliczne. Klucz testowy jest wyłącznie do testów i nie może być używany do podpisywania oficjalnych wydań.
 
 To narzędzie jest kontrolą po stronie komputera budującego lub sprawdzającego wydanie. Nie jest jeszcze zintegrowane z UEFI Stage 0 i nie blokuje startu zmodyfikowanego jądra.
 
