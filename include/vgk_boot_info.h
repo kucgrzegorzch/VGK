@@ -84,7 +84,10 @@ typedef struct {
 
 static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
 {
-    uint64_t entry_count;\n    uint64_t memory_map_end;\n    uint64_t kernel_end;\n    uint64_t framebuffer_end;
+    uint64_t entry_count;
+    uint64_t memory_map_end;
+    uint64_t kernel_end;
+    uint64_t framebuffer_end;
 
     if (info == NULL ||
         info->magic != VGK_BOOT_INFO_MAGIC ||
@@ -104,7 +107,14 @@ static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
         info->kernel_physical_base > UINT64_MAX - info->kernel_size)
         return 0;
 
-    memory_map_end = info->memory_map_address + info->memory_map_size;\n    kernel_end = info->kernel_physical_base + info->kernel_size;\n    if (memory_map_end <= info->memory_map_address ||\n        info->kernel_entry < info->kernel_physical_base ||\n        info->kernel_entry >= kernel_end)\n        return 0;\n\n    for (size_t i = 0; i < sizeof(info->reserved) / sizeof(info->reserved[0]); ++i) {
+    memory_map_end = info->memory_map_address + info->memory_map_size;
+    kernel_end = info->kernel_physical_base + info->kernel_size;
+    if (memory_map_end <= info->memory_map_address ||
+        info->kernel_entry < info->kernel_physical_base ||
+        info->kernel_entry >= kernel_end)
+        return 0;
+
+    for (size_t i = 0; i < sizeof(info->reserved) / sizeof(info->reserved[0]); ++i) {
         if (info->reserved[i] != 0)
             return 0;
     }
