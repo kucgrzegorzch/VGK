@@ -24,7 +24,7 @@ build/entry.o: boot/entry.asm | build
 	$(CC) $(ASFLAGS) -x assembler -c $< -o $@
 
 build/kernel.o: src/kernel.c | build
-	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 build/vgk-kernel.elf: build/entry.o build/kernel.o linker.ld
 	$(LD) $(LDFLAGS) -o $@ build/entry.o build/kernel.o
@@ -34,7 +34,7 @@ build/entry_native.o: boot/entry_native.S | build
 	$(CC) -m64 -ffreestanding -fno-pic -fno-pie -c $< -o $@
 
 build/kernel_native.o: src/kernel_native.c include/vgk_boot_info.h | build
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
 build/vgk-kernel-native.elf: build/entry_native.o build/kernel_native.o linker-native.ld
 	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/kernel_native.o
