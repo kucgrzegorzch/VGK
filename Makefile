@@ -91,6 +91,10 @@ uefi-services-abi-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi tests/test_uefi_services_abi.c -o build/test_uefi_services_abi
 	./build/test_uefi_services_abi
 
+uefi-memory-map-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude -Iboot/uefi boot/uefi/uefi_memory_map.c tests/test_uefi_memory_map.c -o build/test_uefi_memory_map
+	./build/test_uefi_memory_map
+
 uefi-reader-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi -Iboot/crypto tests/test_uefi_file_reader.c boot/uefi/uefi_file_reader.c -o build/test_uefi_file_reader
 	./build/test_uefi_file_reader
