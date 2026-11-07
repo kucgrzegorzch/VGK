@@ -41,6 +41,12 @@ jobs:
         run: make vgkm-test
       - name: Test signed release verification
         run: make security-test
+      - name: Store experimental native kernel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VGK-Native-Kernel-Experimental
+          path: build/vgk-kernel-native.elf
+          if-no-files-found: error
       - name: Publish EFI application artifact
         uses: actions/upload-artifact@v4
         with:
