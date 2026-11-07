@@ -44,8 +44,8 @@ Walidacja struktury nie dowodzi, ze wskazane adresy sa dostepne lub bezpieczne. 
 2. Ladowacz laduje jadro do pamieci i przygotowuje znormalizowana mape.
 3. Ladowacz wypelnia `VGK_BOOT_INFO` i sprawdza ja funkcja walidujaca.
 4. Ladowacz konczy uslugi startowe firmware w odpowiednim momencie.
-5. Ladowacz przekazuje adres struktury do uzgodnionego punktu wejscia jadra zgodnie z ustalonym ABI x86-64.
-6. Ladowacz przekazuje wskaznik do struktury w rejestrze RDI; jest to wlasny, prosty kontrakt VGK dla x86-64, a nie ABI GRUB/Multiboot2.\n7. Jadro sprawdza protokol przed korzystaniem z przekazanych danych.
+5. Ladowacz przekazuje wskaznik do struktury w rejestrze RDI; jest to wlasny kontrakt VGK dla x86-64, a nie ABI GRUB/Multiboot2.
+6. Jadro sprawdza protokol przed korzystaniem z przekazanych danych.
 
 ## Status implementacji
 
@@ -53,7 +53,8 @@ Walidacja struktury nie dowodzi, ze wskazane adresy sa dostepne lub bezpieczne. 
 - [x] Definicja wspolnego wpisu mapy pamieci.
 - [x] Walidacja podstawowej spojnosci.
 - [x] Testy przypadkow poprawnych i blednych.
-- [x] Test uruchamiany w GitHub Actions\n- [x] Minimalny punkt wejscia jadra i kontrola protokolu przez port szeregowy (kod przygotowany; bez uruchomienia przez ladowacz).
+- [x] Test uruchamiany w GitHub Actions.
+- [x] Minimalny punkt wejscia jadra i kontrola protokolu przez port szeregowy (kod przygotowany; bez uruchomienia przez ladowacz).
 - [ ] Wypelnianie struktury przez ladowacz UEFI.
 - [ ] Zaladowanie obrazu jadra przez UEFI.
 - [ ] Przekazanie sterowania do jadra.
