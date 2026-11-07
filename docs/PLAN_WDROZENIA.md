@@ -97,7 +97,11 @@ Podstawą jest architektura x86-64. System ma wykrywać możliwości procesora p
 - Dodać testy z atrapą firmware oraz uruchamianie pod emulatorem UEFI.
 
 ### Etap B – własne przekazanie sterowania do jądra
-- Zdefiniować wersjonowany protokół informacji startowych VGK.
+- [x] Zdefiniować wersjonowany protokół informacji startowych VGK.
+- [x] Przygotować natywny punkt wejścia x86-64 i minimalne jądro diagnostyczne.
+- [x] Dodać walidację zakresów pamięci i normalizację mapy UEFI.
+- [x] Zadeklarować ABI usług AllocatePages, GetMemoryMap i ExitBootServices.
+- [ ] Podłączyć usługi firmware i rzeczywiście wczytać segmenty ELF.
 - Przekazać mapę pamięci, informacje o grafice i tabele sprzętowe udostępnione przez firmware.
 - Zakończyć usługi startowe firmware zgodnie z wymaganiami UEFI.
 - Załadować i uruchomić własne jądro.
