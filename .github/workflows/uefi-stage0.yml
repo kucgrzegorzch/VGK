@@ -23,6 +23,8 @@ jobs:
         run: make uefi-test
       - name: Test UEFI file protocol layout
         run: make uefi-abi-test
+      - name: Test wspolnego protokolu startowego VGK
+        run: make boot-info-test
       - name: Test UEFI boot service layout
         run: make uefi-services-abi-test
       - name: Test UEFI file reader adapter
