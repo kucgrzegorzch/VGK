@@ -99,7 +99,9 @@ static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
         info->memory_map_size % sizeof(VGK_MEMORY_MAP_ENTRY) != 0 ||
         (info->memory_map_address & 7U) != 0 ||
         info->kernel_physical_base == 0 || info->kernel_size == 0 ||
-        info->kernel_entry == 0)
+        info->kernel_entry == 0 ||
+        info->memory_map_address > UINT64_MAX - info->memory_map_size ||
+        info->kernel_physical_base > UINT64_MAX - info->kernel_size)
         return 0;
 
     memory_map_end = info->memory_map_address + info->memory_map_size;\n    kernel_end = info->kernel_physical_base + info->kernel_size;\n    if (memory_map_end <= info->memory_map_address ||\n        info->kernel_entry < info->kernel_physical_base ||\n        info->kernel_entry >= kernel_end)\n        return 0;\n\n    for (size_t i = 0; i < sizeof(info->reserved) / sizeof(info->reserved[0]); ++i) {
@@ -109,8 +111,12 @@ static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
 
     if ((info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0) {
         if (info->framebuffer_base == 0 || info->framebuffer_size == 0 ||
+            info->framebuffer_base > UINT64_MAX - info->framebuffer_size ||
             info->framebuffer_width == 0 || info->framebuffer_height == 0 ||
             info->framebuffer_stride < info->framebuffer_width)
+            return 0;
+        framebuffer_end = info->framebuffer_base + info->framebuffer_size;
+        if (framebuffer_end <= info->framebuffer_base)
             return 0;
     } else if (info->framebuffer_base != 0 || info->framebuffer_size != 0 ||
                info->framebuffer_width != 0 || info->framebuffer_height != 0 ||
