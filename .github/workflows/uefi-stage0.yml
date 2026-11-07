@@ -16,10 +16,10 @@ jobs:
       - name: Install build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang lld python3 openssl
+          sudo apt-get install -y clang lld gcc binutils python3 openssl
       - name: Build native UEFI application
         run: make clean uefi
-      - name: Validate PE32+ EFI image
+      - name: Build independent native VGK kernel\n        run: make native-kernel\n      - name: Validate native VGK kernel ELF\n        run: make native-kernel-test\n      - name: Validate PE32+ EFI image
         run: make uefi-test
       - name: Test UEFI file protocol layout
         run: make uefi-abi-test
