@@ -11,7 +11,7 @@ UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machin
 CRYPTO_DIR := boot/crypto
 MONOCYPHER_DIR := $(CRYPTO_DIR)/monocypher
 
-.PHONY: all clean iso check-tools test uefi uefi-test uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test
+.PHONY: all clean iso check-tools test uefi uefi-test uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test
 all: build/vgk-kernel.elf
 
 test: build/vgk-kernel.elf
@@ -67,6 +67,10 @@ uefi-test: build/BOOTX64.EFI
 uefi-abi-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi tests/test_uefi_file_abi.c -o build/test_uefi_file_abi
 	./build/test_uefi_file_abi
+
+boot-info-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude tests/test_boot_info.c -o build/test_boot_info
+	./build/test_boot_info
 
 uefi-services-abi-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi tests/test_uefi_services_abi.c -o build/test_uefi_services_abi
