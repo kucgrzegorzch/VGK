@@ -20,6 +20,8 @@ phoff = struct.unpack_from("<Q", data, 32)[0]
 ehsize, phentsize, phnum = struct.unpack_from("<HHH", data, 52)[0], struct.unpack_from("<H", data, 54)[0], struct.unpack_from("<H", data, 56)[0]
 if ehsize != 64 or phentsize != 56 or phnum < 1:
     raise SystemExit("FAIL: invalid ELF program header table")
+if phoff + phentsize * phnum > len(data):
+    raise SystemExit("FAIL: program header table exceeds file bounds")
 if not (0x200000 <= entry < 0x40000000):
     raise SystemExit(f"FAIL: entry outside expected low physical range: 0x{entry:x}")
 
@@ -31,6 +33,10 @@ for index in range(phnum):
     if p_type == 1:
         if p_filesz > p_memsz or p_offset + p_filesz > len(data):
             raise SystemExit("FAIL: invalid PT_LOAD bounds")
+        if p_vaddr != p_paddr or p_memsz == 0:
+            raise SystemExit("FAIL: expected identity-mapped, non-empty load segment")
+        if p_paddr + p_memsz > 0x40000000:
+            raise SystemExit("FAIL: load segment exceeds the initial low-memory window")
         loads.append((p_paddr, p_memsz, p_flags))
 
 if not loads:
