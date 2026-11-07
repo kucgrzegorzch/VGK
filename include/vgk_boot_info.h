@@ -138,15 +138,15 @@ _Static_assert(sizeof(VGK_MEMORY_MAP_ENTRY) == 32,
                "VGK memory map entry layout changed");
 _Static_assert(offsetof(VGK_BOOT_INFO, flags) == 16,
                "VGK boot info flags offset changed");
-_Static_assert(offsetof(VGK_BOOT_INFO, memory_map_address) == 40,
+_Static_assert(offsetof(VGK_BOOT_INFO, memory_map_address) == 32,
                "VGK boot info memory map offset changed");
-_Static_assert(offsetof(VGK_BOOT_INFO, kernel_physical_base) == 64,
+_Static_assert(offsetof(VGK_BOOT_INFO, kernel_physical_base) == 56,
                "VGK boot info kernel offset changed");
-_Static_assert(offsetof(VGK_BOOT_INFO, framebuffer_base) == 88,
+_Static_assert(offsetof(VGK_BOOT_INFO, framebuffer_base) == 80,
                "VGK boot info framebuffer offset changed");
-_Static_assert(offsetof(VGK_BOOT_INFO, acpi_rsdp_address) == 136,
+_Static_assert(offsetof(VGK_BOOT_INFO, acpi_rsdp_address) == 128,
                "VGK boot info ACPI offset changed");
-_Static_assert(sizeof(VGK_BOOT_INFO) == 176,
+_Static_assert(sizeof(VGK_BOOT_INFO) == 168,
                "VGK boot info size changed");
 
 #endif
