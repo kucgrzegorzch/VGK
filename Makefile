@@ -24,7 +24,7 @@ build/entry.o: boot/entry.asm | build
 	$(CC) $(ASFLAGS) -x assembler -c $< -o $@
 
 build/kernel.o: src/kernel.c | build
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
 build/vgk-kernel.elf: build/entry.o build/kernel.o linker.ld
 	$(LD) $(LDFLAGS) -o $@ build/entry.o build/kernel.o
