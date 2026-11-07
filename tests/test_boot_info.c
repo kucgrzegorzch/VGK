@@ -50,6 +50,36 @@ int main(void)
         ++failures;
     }
     info = valid_info();
+    info.kernel_entry = info.kernel_physical_base - 1U;
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano punkt wejscia przed jadrem");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.kernel_entry = info.kernel_physical_base + info.kernel_size;
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano punkt wejscia poza jadrem");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.memory_map_address = UINT64_MAX - 15U;
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano przepełnienie zakresu mapy pamieci");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.kernel_physical_base = UINT64_MAX - 15U;
+    info.kernel_size = 64U;
+    info.kernel_entry = info.kernel_physical_base;
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano przepełnienie zakresu jadra");
+        ++failures;
+    }
+
+    info = valid_info();
 
     info.flags = VGK_BOOT_FLAG_FRAMEBUFFER;
     info.framebuffer_base = UINT64_C(0xE0000000);
@@ -66,6 +96,14 @@ int main(void)
     info.framebuffer_stride = 1000;
     if (vgk_boot_info_is_valid(&info)) {
         puts("FAIL: zaakceptowano za krotki wiersz obrazu");
+        ++failures;
+    }
+
+    info.framebuffer_stride = 1024;
+    info.framebuffer_base = UINT64_MAX - 15U;
+    info.framebuffer_size = 64U;
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano przepełnienie zakresu obrazu");
         ++failures;
     }
     info = valid_info();
