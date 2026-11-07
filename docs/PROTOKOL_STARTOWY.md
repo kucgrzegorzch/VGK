@@ -54,7 +54,11 @@ Walidacja struktury nie dowodzi, ze wskazane adresy sa dostepne lub bezpieczne. 
 - [x] Walidacja podstawowej spojnosci.
 - [x] Testy przypadkow poprawnych i blednych.
 - [x] Test uruchamiany w GitHub Actions.
-- [x] Minimalny punkt wejscia jadra i kontrola protokolu przez port szeregowy (kod przygotowany; bez uruchomienia przez ladowacz).
+- [x] Walidacja przepełnień zakresów mapy, jądra i obrazu.
+- [x] Minimalny punkt wejścia jądra, własny stos i diagnostyka przez port szeregowy (kod przygotowany; bez uruchomienia przez ładowacz).
+- [x] Deklaracje usług AllocatePages, GetMemoryMap i ExitBootServices.
+- [x] Normalizacja mapy UEFI do formatu VGK wraz z testami.
+- [ ] Połączenie ładowacza z tym protokołem i uruchomienie jądra.
 - [ ] Wypelnianie struktury przez ladowacz UEFI.
 - [ ] Zaladowanie obrazu jadra przez UEFI.
 - [ ] Przekazanie sterowania do jadra.
