@@ -60,6 +60,18 @@ Tworzenie zwykłych kopii zapasowych odbywa się w działającym VGK, za pomocą
 
 Migawki systemowe nie zastępują kopii zapasowych na innym nośniku i nie chronią przed fizyczną awarią dysku.
 
+
+
+## Doprecyzowanie architektury: dwa poziomy podziału
+
+Wymienione wyżej dwa moduły systemowe nie mogą być mylone z dwoma wariantami startu firmware:
+
+- **Moduł pierwszy – Środowisko Startowe i Ratunkowe:** własne, odseparowane środowisko, kontrola integralności, ekran logowania i tryb awaryjny. Pozostaje dostępny niezależnie od awarii Systemu Właściwego.
+- **Moduł drugi – System Właściwy:** przejmuje działanie po zalogowaniu; obejmuje jądro, usługi, sterowniki, pulpit i aplikacje.
+- **VGK UEFI i VGK Legacy:** dwa warianty uruchomienia sprzętowego modułu pierwszego, odpowiednio dla UEFI i starszego BIOS. Nie są dodatkowymi modułami systemowymi i mają prowadzić do tej samej instalacji VGK.
+
+Instalator ma udostępniać funkcję „Odbuduj mechanizm startowy pierwszego modułu”. Odtworzenie ma dotyczyć wyłącznie zaufanych składników modułu pierwszego, być poprzedzone kontrolą nośnika i pokazywać użytkownikowi zakres zmian. Awaria modułu drugiego nie może naruszyć modułu pierwszego. Wariant UEFI jest realizowany jako pierwszy; wariant Legacy powstanie po jego sprawdzeniu.
+
 ## Pulpit i codzienna obsługa
 
 - Nowoczesny, czytelny i konfigurowalny pulpit.
