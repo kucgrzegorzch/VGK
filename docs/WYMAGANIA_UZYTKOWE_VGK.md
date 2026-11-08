@@ -15,7 +15,7 @@ Wymagane elementy:
 - bezpieczne aktualizacje z podpisem i kontrolą integralności; odzyskiwanie systemu odbywa się zgodnie z osobnym trybem awaryjnym opisanym niżej;
 - dziennik zdarzeń bezpieczeństwa oraz czytelne ostrzeżenia dla użytkownika.
 
-Ochrona ma działać lokalnie i nie może wymagać połączenia z usługą sztucznej inteligencji. Moduł inteligentnego doradcy może pomagać w analizie, ale nie może być jedyną barierą bezpieczeństwa.
+Ochrona ma działać lokalnie i nie może wymagać połączenia z usługą sztucznej inteligencji. Inteligentny Opiekun Systemu może pomagać w analizie i reagowaniu na problemy, ale nie może być jedyną barierą bezpieczeństwa.
 
 Nie zakładamy, że sam podpis lub skanowanie zapewni pełną odporność na złośliwe oprogramowanie. Ochrona ma składać się z kilku niezależnych warstw.
 
@@ -46,10 +46,13 @@ System powinien od pierwszej użytecznej wersji zawierać podstawowy zestaw narz
 - ustawienia systemowe;
 - menedżer instalowania i usuwania aplikacji;
 - narzędzie aktualizacji systemu;
-- przeglądarka internetowa;
+- aplikację do tworzenia kopii zapasowych;
+- przeglądarkę internetową;
 - prosty edytor tekstu;
 - archiwizator plików;
 - podstawowe narzędzia diagnostyczne dostępne w zwykłym systemie, bez terminala naprawczego.
+
+Aplikacja kopii zapasowych ma działać w zwykłym systemie. Użytkownik powinien móc wybrać dane do zapisania i miejsce kopii, w tym dysk lokalny albo pendrive, a po wykonaniu sprawdzić poprawność kopii. Tworzenie kopii nie może uruchamiać procedury przywracania systemu.
 
 Operacje mogące usunąć dane (np. formatowanie, zmiana partycji) muszą mieć dodatkowe ostrzeżenie i potwierdzenie.
 
@@ -63,18 +66,16 @@ Dolny pasek pulpitu ma obsługiwać automatyczne ukrywanie:
 
 ## 5. Tryb awaryjny i odzyskiwanie systemu
 
-Odzyskiwanie VGK ma odbywać się przez odrębny tryb awaryjny, a nie przez zwykły pulpit.
+Tworzenie zwykłych kopii zapasowych odbywa się w działającym VGK, za pomocą aplikacji opisanej w sekcji 3. **Przywracanie systemu z kopii jest dostępne wyłącznie w trybie awaryjnym** — nie na zwykłym pulpicie.
 
 Ustalone funkcje trybu awaryjnego są ograniczone do trzech:
 1. **Terminal naprawczy** — dostępny wyłącznie w trybie awaryjnym. Nie może być dostępny podczas zwykłej pracy systemu.
 2. **Automatyczne migawki systemu** — dwie migawki w miesiącu; przy tworzeniu kolejnej najstarsza jest usuwana, aby zachować ustaloną rotację.
-3. **Odtworzenie systemu** — możliwość przywrócenia systemu z kopii znajdującej się na dysku komputera albo na pendrivie.
+3. **Przywracanie systemu** — możliwość odtworzenia systemu z kopii znajdującej się na dysku komputera albo na pendrivie. Przed rozpoczęciem należy sprawdzić, czy kopia jest czytelna i zgodna; użytkownik musi potwierdzić operację, ponieważ może ona zastąpić aktualny stan systemu.
 
 Tryb awaryjny ma być częścią odseparowanego środowiska uruchamiania i ratunkowego, z własnymi plikami. Awaria właściwego systemu nie powinna uniemożliwić uruchomienia środowiska ratunkowego. Należy zabezpieczyć jego pliki kontrolą integralności i oddzielić je od zwykłego systemu.
 
-W zwykłym trybie pracy terminal naprawczy pozostaje niedostępny. Za bieżące monitorowanie i wykrywanie problemów odpowiada Strażnik VGK. Użytkownik korzysta z trybu awaryjnego przy poważnych awariach lub gdy zwykły system nie może się uruchomić.
-
-Nie dodawać do zwykłego pulpitu osobnego, ogólnego narzędzia do ręcznego odtwarzania systemu — tę rolę pełni opisany tryb awaryjny.
+W zwykłym trybie pracy terminal naprawczy i funkcja przywracania systemu pozostają niedostępne. Za bieżące monitorowanie i wykrywanie problemów odpowiada **Inteligentny Opiekun Systemu**. Użytkownik korzysta z trybu awaryjnego przy poważnych awariach lub gdy zwykły system nie może się uruchomić.
 
 ## 6. Zgłoszenia brakujących funkcji
 
@@ -93,8 +94,8 @@ Nie należy obiecywać, że każda zgłoszona funkcja na pewno trafi do najbliż
 2. Zbudować podstawy pamięci, wyjątków, przerwań i sterowników.
 3. Wdrożyć ochronę plików systemowych, uprawnienia i bezpieczny mechanizm aktualizacji.
 4. Przygotować podstawowe narzędzia systemowe i pulpit, w tym ukrywany dolny pasek.
-5. Zbudować instalator oraz menedżer aplikacji.
+5. Zbudować instalator, menedżer aplikacji i aplikację kopii zapasowych.
 6. Rozwijać zgodność z programami Windows; później ocenić zgodność z programami Linux.
-7. Dokończyć odseparowane środowisko ratunkowe i trzy ustalone funkcje trybu awaryjnego; bieżące monitorowanie powierzyć Strażnikowi VGK.
+7. Dokończyć odseparowane środowisko ratunkowe i trzy ustalone funkcje trybu awaryjnego; bieżące monitorowanie powierzyć Inteligentnemu Opiekunowi Systemu.
 
 **Status:** wymagania zapisane do realizacji etapami. Żadna z funkcji opisanych w tym dokumencie nie jest przez samo zapisanie uznana za gotową.
