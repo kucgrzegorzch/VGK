@@ -1,4 +1,4 @@
-# Protokół startowy VGK – wersja 1
+# Protokół startowy VGK – wersja 2
 
 ## Cel
 
@@ -9,7 +9,7 @@ Definicje znajdują się w `include/vgk_boot_info.h`.
 ## Zasady zgodności
 
 - Sygnatura: `VGK_BOOT_INFO_MAGIC`.
-- Wersja: `VGK_BOOT_INFO_VERSION = 1`.
+- Wersja: `VGK_BOOT_INFO_VERSION = 2`.
 - Adresy i rozmiary mają stałe pola 64-bitowe.
 - Rozmiar struktury jest przekazywany w polu `structure_size`.
 - Nieznane flagi oraz niezerowe pola zarezerwowane powodują odrzucenie danych.
@@ -35,6 +35,9 @@ Funkcja `vgk_boot_info_is_valid` sprawdza:
 - wyrównanie adresu mapy oraz całkowitą liczbę wpisów;
 - zgodność rozmiaru wpisu mapy;
 - podstawowe informacje o załadowanym jądrze i położenie punktu wejścia;
+- liczbę i zakresy segmentów jądra, ich wyrównanie, dozwolone flagi oraz brak nakładania stron;
+- zakaz segmentów jednocześnie zapisywalnych i wykonywalnych (W+X) oraz położenie punktu wejścia w segmencie wykonywalnym;
+- wyzerowanie nieużywanych opisów segmentów;
 - spójność opcjonalnych danych obrazu i ACPI;
 - wyzerowanie pól zarezerwowanych;
 - przepełnienia zakresów adresowych.
@@ -65,6 +68,9 @@ Walidacja struktury nie dowodzi sama w sobie, że wskazane adresy są dostępne 
 - [x] Weryfikacja podpisu wykazu i skrótów plików.
 - [x] Walidacja ELF64 oraz przydzielanie i kopiowanie segmentów.
 - [x] Wypełnianie struktury przez ładowacz UEFI.
+- [x] Przekazywanie zweryfikowanych uprawnień segmentów ELF w protokole wersji 2.
+- [x] Testy odrzucania segmentów W+X, nakładających się stron i nieprawidłowego punktu wejścia.
+- [ ] Wykorzystanie uprawnień segmentów do budowy tablic stron: tekst tylko do odczytu i wykonania, dane do zapisu i niewykonywalne.
 - [x] Zakończenie usług startowych UEFI i przekazanie sterowania do jądra.
 - [x] Minimalny punkt wejścia jądra, własny stos i diagnostyka przez port szeregowy.
 - [x] Test uruchomienia w QEMU z firmware OVMF i tymczasowym kluczem testowym (GitHub Actions, przebieg nr 349).
@@ -75,6 +81,6 @@ Walidacja struktury nie dowodzi sama w sobie, że wskazane adresy są dostępne 
 
 ## Granice obecnego testu
 
-Test QEMU potwierdza, że określony obraz UEFI, podpisane wydanie testowe i diagnostyczne jądro uruchomiły się w określonej konfiguracji emulatora OVMF. Klucz jest tworzony tymczasowo w GitHub Actions i nie jest kluczem produkcyjnym.
+Test QEMU potwierdza, że określony obraz UEFI, podpisane wydanie testowe i diagnostyczne jądro uruchomiły się w określonej konfiguracji emulatora OVMF. Klucz jest tworzony tymczasowo w GitHub Actions i nie jest kluczem produkcyjnym. Protokół v2 przekazuje uprawnienia segmentów do przyszłego zarządcy tablic stron; samo przekazanie flag nie oznacza jeszcze, że procesor egzekwuje te uprawnienia.
 
 Nie potwierdza to jeszcze zgodności ze wszystkimi wersjami firmware, procesorami Intel i AMD ani uruchomienia na fizycznym komputerze. Jądro pozostaje minimalnym etapem diagnostycznym, bez pełnego zarządzania pamięcią, przerwań, sterowników i usług systemowych.
