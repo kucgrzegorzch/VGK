@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "vgk_boot_info.h"
+#include "vgk_memory.h"
 
 #define COM1_PORT 0x3F8U
 
@@ -55,6 +56,24 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
     }
 
     serial_write("VGK: protokol startowy poprawny.\r\n");
+
+    {
+        VGK_MEMORY_STATS memory_stats;
+        uint64_t test_page = 0;
+
+        if (vgk_memory_init(boot_info) != VGK_MEMORY_OK ||
+            vgk_memory_get_stats(&memory_stats) != VGK_MEMORY_OK ||
+            memory_stats.total_pages == 0 ||
+            vgk_memory_alloc_pages(1U, 1U, &test_page) != VGK_MEMORY_OK ||
+            vgk_memory_free_pages(test_page, 1U) != VGK_MEMORY_OK) {
+            serial_write("VGK: BLAD inicjalizacji menedzera pamieci.\r\n");
+            for (;;) {
+                __asm__ volatile ("cli; hlt");
+            }
+        }
+    }
+
+    serial_write("VGK: menedzer pamieci uruchomiony.\r\n");
     serial_write("VGK: etap diagnostyczny; sterowniki i uslugi nie sa jeszcze gotowe.\r\n");
 
     for (;;) {
