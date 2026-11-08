@@ -11,7 +11,7 @@ UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machin
 CRYPTO_DIR := boot/crypto
 MONOCYPHER_DIR := $(CRYPTO_DIR)/monocypher
 
-.PHONY: all clean iso check-tools test native-kernel native-kernel-test uefi uefi-test uefi-keyed-compile-test uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test
+.PHONY: all clean iso check-tools test native-kernel native-kernel-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test
 all: build/vgk-kernel.elf
 
 test: build/vgk-kernel.elf
@@ -90,9 +90,18 @@ uefi: build/BOOTX64.EFI
 uefi-test: build/BOOTX64.EFI
 	python3 tests/check_uefi_image.py build/BOOTX64.EFI
 
-# Compile the trusted-key path with a test-only key; never link it into release EFI.
-uefi-keyed-compile-test: | build
-	$(CLANG) $(UEFI_CFLAGS) -Itests/fixtures -Iinclude -Iboot/uefi -Iboot/crypto -c boot/uefi/bootx64.c -o build/bootx64-keyed-test.obj
+# Compile and link the trusted-key path with a test-only key.
+# This image is for CI only and is never published as a release artifact.
+build/bootx64-keyed-test.obj: boot/uefi/bootx64.c boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/uefi/uefi_file_reader.h boot/uefi/elf_loader.h boot/uefi/uefi_elf_allocator.h boot/uefi/uefi_memory_map.h boot/uefi/uefi_kernel_entry.h include/vgk_boot_info.h tests/fixtures/vgk_trusted_public_key.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Itests/fixtures -Iinclude -Iboot/uefi -Iboot/crypto -c $< -o $@
+
+build/BOOTX64-KEYED-TEST.EFI: build/bootx64-keyed-test.obj build/uefi_kernel_entry.obj build/elf_loader.obj build/uefi_elf_allocator.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
+	$(LLD_LINK) $(UEFI_LDFLAGS) /out:$@ $^
+
+uefi-keyed-compile-test: build/bootx64-keyed-test.obj
+
+uefi-keyed-link-test: build/BOOTX64-KEYED-TEST.EFI
+	python3 tests/check_uefi_image.py $<
 
 uefi-abi-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi tests/test_uefi_file_abi.c -o build/test_uefi_file_abi
