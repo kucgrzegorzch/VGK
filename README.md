@@ -4,7 +4,7 @@ VGK jest eksperymentalnym projektem niezależnego systemu operacyjnego. Ten etap
 
 ## Wymagania użytkowe
 
-Zebrane wymagania dotyczące bezpieczeństwa, instalowania programów, podstawowych aplikacji, kopii zapasowych, pulpitu i trybu awaryjnego znajdują się w [planie wymagań użytkowych VGK](docs/WYMAGANIA_UZYTKOWE_VGK.md). Dokument opisuje cele przyszłych etapów, a nie funkcje już dostępne.
+Zebrane wymagania dotyczące bezpieczeństwa, instalowania programów, podstawowych aplikacji, kopii zapasowych, pulpitu i trybu awaryjnego znajdują się w [planie wymagań użytkowych VGK](docs/WYMAGANIA_UZYTKOWE_VGK.md). Dokument opisuje cele przyszłych etapów, a nie funkcje już dostępne. Szczegółowy projekt odseparowanego środowiska, terminala naprawczego, pomocy lokalnej i internetowej, migawek oraz przywracania znajduje się w [projekcie trybu awaryjnego](docs/TRYB_AWARYJNY.md).
 
 ## Stan funkcji
 
