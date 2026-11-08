@@ -12,6 +12,7 @@
 #define ELF_PF_X 1U
 #define ELF_PF_W 2U
 #define VGK_ELF_PAGE_SIZE UINT64_C(4096)
+#define VGK_ELF_PAGE_MASK (VGK_ELF_PAGE_SIZE - 1U)
 
 static uint16_t read_u16(const uint8_t *p)
 {
@@ -134,8 +135,16 @@ VGK_ELF_RESULT vgk_elf64_make_load_plan(
         for (uint32_t j = 0; j < plan->segment_count; ++j) {
             const VGK_ELF_LOAD_SEGMENT *prior = &plan->segments[j];
             uint64_t prior_end = prior->physical_address + prior->memory_size;
+            uint64_t prior_page_end =
+                (prior_end + VGK_ELF_PAGE_MASK) & ~VGK_ELF_PAGE_MASK;
+            uint64_t page_end =
+                (segment_end + VGK_ELF_PAGE_MASK) & ~VGK_ELF_PAGE_MASK;
             if (physical_address < prior_end &&
                 prior->physical_address < segment_end)
+                return VGK_ELF_SEGMENT_OVERLAP;
+            /* UEFI allocates whole pages, so distinct segments may not share one. */
+            if (physical_address < prior_page_end &&
+                prior->physical_address < page_end)
                 return VGK_ELF_SEGMENT_OVERLAP;
         }
 
@@ -159,4 +168,89 @@ VGK_ELF_RESULT vgk_elf64_make_load_plan(
         return VGK_ELF_ENTRY_NOT_EXECUTABLE;
 
     return VGK_ELF_OK;
+}
+
+
+static void zero_bytes(uint8_t *destination, uint64_t length)
+{
+    for (uint64_t i = 0; i < length; ++i)
+        destination[i] = 0;
+}
+
+static void copy_bytes(uint8_t *destination, const uint8_t *source,
+                       uint64_t length)
+{
+    for (uint64_t i = 0; i < length; ++i)
+        destination[i] = source[i];
+}
+
+VGK_ELF_RESULT vgk_elf64_load_image(
+    const uint8_t *image,
+    size_t image_size,
+    const VGK_ELF_LOAD_PLAN *plan,
+    VGK_ELF_ALLOCATE_RANGE allocate_range,
+    VGK_ELF_RELEASE_RANGE release_range,
+    void *context,
+    VGK_ELF_LOADED_IMAGE *loaded)
+{
+    if (image == 0 || plan == 0 || allocate_range == 0 ||
+        release_range == 0 || loaded == 0 ||
+        plan->segment_count == 0 ||
+        plan->segment_count > VGK_ELF_MAX_LOAD_SEGMENTS)
+        return VGK_ELF_INVALID_ARGUMENT;
+
+    zero_bytes((uint8_t *)loaded, sizeof(*loaded));
+
+    for (uint32_t i = 0; i < plan->segment_count; ++i) {
+        const VGK_ELF_LOAD_SEGMENT *segment = &plan->segments[i];
+        uint64_t rounded_size;
+        uint64_t page_count;
+        void *mapped = 0;
+
+        if (segment->file_offset > (uint64_t)image_size ||
+            segment->file_size > (uint64_t)image_size - segment->file_offset ||
+            segment->file_size > segment->memory_size ||
+            segment->memory_size == 0 ||
+            segment->physical_address > UINT64_MAX - segment->memory_size)
+            goto invalid_plan;
+
+        rounded_size = segment->memory_size;
+        if (rounded_size > UINT64_MAX - VGK_ELF_PAGE_MASK)
+            goto invalid_plan;
+        rounded_size = (rounded_size + VGK_ELF_PAGE_MASK) &
+                       ~VGK_ELF_PAGE_MASK;
+        page_count = rounded_size / VGK_ELF_PAGE_SIZE;
+
+        if (allocate_range(context, segment->physical_address,
+                           page_count, &mapped) != 0 || mapped == 0)
+            goto allocation_failed;
+
+        loaded->ranges[loaded->range_count].physical_address =
+            segment->physical_address;
+        loaded->ranges[loaded->range_count].page_count = page_count;
+        ++loaded->range_count;
+
+        zero_bytes((uint8_t *)mapped, segment->memory_size);
+        copy_bytes((uint8_t *)mapped,
+                   image + (size_t)segment->file_offset,
+                   segment->file_size);
+    }
+
+    return VGK_ELF_OK;
+
+invalid_plan:
+    while (loaded->range_count != 0) {
+        VGK_ELF_ALLOCATED_RANGE *range =
+            &loaded->ranges[--loaded->range_count];
+        release_range(context, range->physical_address, range->page_count);
+    }
+    return VGK_ELF_BAD_SEGMENT;
+
+allocation_failed:
+    while (loaded->range_count != 0) {
+        VGK_ELF_ALLOCATED_RANGE *range =
+            &loaded->ranges[--loaded->range_count];
+        release_range(context, range->physical_address, range->page_count);
+    }
+    return VGK_ELF_BAD_SEGMENT;
 }
