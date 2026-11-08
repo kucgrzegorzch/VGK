@@ -21,6 +21,8 @@ jobs:
         run: make clean uefi
       - name: Compile trusted kernel startup path with test-only key
         run: make uefi-keyed-compile-test
+      - name: Link and validate trusted UEFI startup test image
+        run: make uefi-keyed-link-test
       - name: Build independent native VGK kernel
         run: make native-kernel
       - name: Validate native VGK kernel ELF
