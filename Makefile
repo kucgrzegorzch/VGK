@@ -61,6 +61,9 @@ build/elf_loader.obj: boot/uefi/elf_loader.c boot/uefi/elf_loader.h | build
 build/uefi_elf_allocator.obj: boot/uefi/uefi_elf_allocator.c boot/uefi/uefi_elf_allocator.h boot/uefi/elf_loader.h boot/uefi/uefi_services.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -c $< -o $@
 
+build/uefi_memory_map.obj: boot/uefi/uefi_memory_map.c boot/uefi/uefi_memory_map.h boot/uefi/uefi_services.h include/vgk_boot_info.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Iinclude -Iboot/uefi -c $< -o $@
+
 build/uefi_release_verify.obj: boot/uefi/uefi_release_verify.c boot/uefi/uefi_release_verify.h boot/uefi/uefi_file_reader.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -Iboot/crypto -c $< -o $@
 
@@ -82,7 +85,7 @@ build/monocypher.obj: $(MONOCYPHER_DIR)/monocypher.c | build
 build/monocypher_ed25519.obj: $(MONOCYPHER_DIR)/monocypher-ed25519.c | build
 	$(CLANG) $(UEFI_CFLAGS) -I$(MONOCYPHER_DIR) -c $< -o $@
 
-build/BOOTX64.EFI: build/bootx64.obj build/uefi_kernel_entry.obj build/elf_loader.obj build/uefi_elf_allocator.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
+build/BOOTX64.EFI: build/bootx64.obj build/uefi_kernel_entry.obj build/elf_loader.obj build/uefi_elf_allocator.obj build/uefi_memory_map.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
 	$(LLD_LINK) $(UEFI_LDFLAGS) /out:$@ $^
 
 uefi: build/BOOTX64.EFI
@@ -95,7 +98,7 @@ uefi-test: build/BOOTX64.EFI
 build/bootx64-keyed-test.obj: boot/uefi/bootx64.c boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/uefi/uefi_file_reader.h boot/uefi/elf_loader.h boot/uefi/uefi_elf_allocator.h boot/uefi/uefi_memory_map.h boot/uefi/uefi_kernel_entry.h include/vgk_boot_info.h tests/fixtures/vgk_trusted_public_key.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Itests/fixtures -Iinclude -Iboot/uefi -Iboot/crypto -c $< -o $@
 
-build/BOOTX64-KEYED-TEST.EFI: build/bootx64-keyed-test.obj build/uefi_kernel_entry.obj build/elf_loader.obj build/uefi_elf_allocator.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
+build/BOOTX64-KEYED-TEST.EFI: build/bootx64-keyed-test.obj build/uefi_kernel_entry.obj build/elf_loader.obj build/uefi_elf_allocator.obj build/uefi_memory_map.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
 	$(LLD_LINK) $(UEFI_LDFLAGS) /out:$@ $^
 
 uefi-keyed-compile-test: build/bootx64-keyed-test.obj
