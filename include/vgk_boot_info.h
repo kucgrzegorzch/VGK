@@ -182,6 +182,14 @@ static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
     if (!entry_is_executable)
         return 0;
 
+    for (uint32_t i = info->kernel_segment_count;
+         i < VGK_BOOT_MAX_KERNEL_SEGMENTS; ++i) {
+        const VGK_KERNEL_SEGMENT *unused = &info->kernel_segments[i];
+        if (unused->physical_base != 0 || unused->memory_size != 0 ||
+            unused->flags != 0 || unused->reserved != 0)
+            return 0;
+    }
+
     if ((info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0) {
         if (info->framebuffer_base == 0 || info->framebuffer_size == 0 ||
             info->framebuffer_base > UINT64_MAX - info->framebuffer_size ||
