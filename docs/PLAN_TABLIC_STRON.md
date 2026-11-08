@@ -28,6 +28,14 @@ Walidator odrzuca segmenty W+X, nieprawidłowy punkt wejścia, nakładające si�
 6. Ustawić CR0.WP, aby także kod działający z poziomem uprzywilejowania jądra respektował ochronę przed zapisem do stron tylko do odczytu.
 7. Nie aktywować nowych tablic, dopóki nie zostanie udowodnione, że nadal dostępne są wszystkie dane i instrukcje potrzebne do dokończenia przełączenia.
 
+## Moduł rozpoznawania procesora
+
+W kodzie znajduje się już pierwszy moduł CPUID: `include/vgk_cpu_features.h` i `src/cpu_features.c`. Odczytuje on maksymalne obsługiwane poziomy CPUID, sprawdza bit NX oraz odczytuje szerokość adresu fizycznego z rozszerzonego liścia `0x80000008`. Odrębna funkcja dekodująca pozwala testować te warunki bez wykonywania instrukcji CPUID.
+
+Testy obejmują procesor bez NX, brak wymaganego liścia CPUID, niedopuszczalną szerokość adresu oraz prawidłowe granice 32 i 52 bitów. Moduł jest dołączony do natywnego jądra, a start testowy w QEMU ma potwierdzać wykrycie NX.
+
+**Ważne:** wykrycie NX nie włącza jeszcze bitu NXE w rejestrze EFER i nie tworzy tablic stron. Na tym etapie jądro tylko rozpoznaje możliwości procesora i zapisuje diagnostykę. Włączenie ochrony nastąpi dopiero po przygotowaniu kompletnych mapowań i bezpiecznej obsługi błędów.
+
 ## Docelowe uprawnienia segmentów
 
 | Obszar | Odczyt | Zapis | Wykonanie |
