@@ -178,9 +178,9 @@ int main(void)
     assert(release_calls == 1U);
     fail_allocation_at = -1;
 
-    /* Two segments in the same 4 KiB page cannot be independently allocated. */
+    /* Two segments cannot occupy the same physical allocation page. */
     make_valid_image();
-    set_segment(1U, 6U, 272U, UINT64_C(0x200008), 16U, 32U, 1U);
+    set_segment(1U, 6U, 272U, UINT64_C(0x200000), 16U, 32U, 1U);
     assert(vgk_elf64_make_load_plan(image, sizeof(image), &plan) ==
            VGK_ELF_SEGMENT_OVERLAP);
 
