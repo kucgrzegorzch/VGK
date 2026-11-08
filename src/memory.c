@@ -166,6 +166,9 @@ VGK_MEMORY_RESULT vgk_memory_alloc_pages(
         page_count > UINT64_MAX / VGK_MEMORY_PAGE_SIZE)
         return VGK_MEMORY_INVALID_ARGUMENT;
 
+    if (page_count > available_pages)
+        return VGK_MEMORY_NO_MEMORY;
+
     alignment_bytes = alignment_pages * VGK_MEMORY_PAGE_SIZE;
     allocation_bytes = page_count * VGK_MEMORY_PAGE_SIZE;
 
@@ -216,8 +219,6 @@ VGK_MEMORY_RESULT vgk_memory_alloc_pages(
             --free_range_count;
         }
 
-        if (available_pages < page_count)
-            return VGK_MEMORY_BAD_MAP;
         available_pages -= page_count;
         *physical_address = aligned_base;
         return VGK_MEMORY_OK;
@@ -244,6 +245,9 @@ VGK_MEMORY_RESULT vgk_memory_free_pages(
         (physical_address & (VGK_MEMORY_PAGE_SIZE - 1U)) != 0 ||
         page_count > UINT64_MAX / VGK_MEMORY_PAGE_SIZE)
         return VGK_MEMORY_INVALID_ARGUMENT;
+
+    if (page_count > total_pages)
+        return VGK_MEMORY_OUT_OF_RANGE;
 
     bytes = page_count * VGK_MEMORY_PAGE_SIZE;
     if (physical_address > UINT64_MAX - bytes)
@@ -279,7 +283,8 @@ VGK_MEMORY_RESULT vgk_memory_free_pages(
         end > free_ranges[insert_at].base)
         return VGK_MEMORY_DOUBLE_FREE;
 
-    if (available_pages > total_pages - page_count)
+    if (page_count > total_pages ||
+        available_pages > total_pages - page_count)
         return VGK_MEMORY_BAD_MAP;
 
     merge_left = 0;
