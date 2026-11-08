@@ -23,6 +23,22 @@ typedef struct {
     VGK_ELF_LOAD_SEGMENT segments[VGK_ELF_MAX_LOAD_SEGMENTS];
 } VGK_ELF_LOAD_PLAN;
 
+typedef struct {
+    uint64_t physical_address;
+    uint64_t page_count;
+} VGK_ELF_ALLOCATED_RANGE;
+
+typedef struct {
+    uint32_t range_count;
+    VGK_ELF_ALLOCATED_RANGE ranges[VGK_ELF_MAX_LOAD_SEGMENTS];
+} VGK_ELF_LOADED_IMAGE;
+
+typedef int (*VGK_ELF_ALLOCATE_RANGE)(
+    void *context, uint64_t physical_address, uint64_t page_count,
+    void **mapped_address);
+typedef void (*VGK_ELF_RELEASE_RANGE)(
+    void *context, uint64_t physical_address, uint64_t page_count);
+
 typedef enum {
     VGK_ELF_OK = 0,
     VGK_ELF_INVALID_ARGUMENT,
@@ -33,6 +49,20 @@ typedef enum {
     VGK_ELF_SEGMENT_OVERLAP,
     VGK_ELF_ENTRY_NOT_EXECUTABLE
 } VGK_ELF_RESULT;
+
+/*
+ * Allocate exact physical ranges, copy file bytes, and zero the BSS tail.
+ * Allocation callbacks must return a writable mapping for the requested
+ * physical address. On failure, every allocation made by this call is freed.
+ */
+VGK_ELF_RESULT vgk_elf64_load_image(
+    const uint8_t *image,
+    size_t image_size,
+    const VGK_ELF_LOAD_PLAN *plan,
+    VGK_ELF_ALLOCATE_RANGE allocate_range,
+    VGK_ELF_RELEASE_RANGE release_range,
+    void *context,
+    VGK_ELF_LOADED_IMAGE *loaded);
 
 /*
  * Validate a bounded ELF64 x86-64 executable and produce a load plan.
