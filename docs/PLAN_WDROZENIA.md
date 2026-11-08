@@ -186,3 +186,10 @@ Ponieważ VGK trzeba najpierw zainstalować, przygotowanie pierwszego pendrive'a
 ## Postęp prac nad walidacją jądra ELF64
 
 Dodano osobny, ograniczony walidator pliku ELF64 dla architektury x86-64. Sprawdza nagłówek, tablicę segmentów, granice pliku i pamięci, zgodność adresów wirtualnych i fizycznych, wyrównanie, nakładanie się segmentów, położenie punktu wejścia oraz zakaz segmentów jednocześnie zapisywalnych i wykonywalnych. Walidator tworzy wyłącznie plan załadowania — nie kopiuje jeszcze jądra do pamięci i nie uruchamia go. Został dołączony do budowania aplikacji UEFI i otrzymał osobny zestaw testów oraz kontrolę w GitHub Actions. Do czasu zakończenia automatycznego przebiegu nie uznajemy testów za zaliczone.
+
+
+## Postęp: bezpieczne kopiowanie segmentów ELF64
+
+Rozszerzono moduł ładowania ELF64 o kontrolowaną operację przydzielania dokładnych zakresów pamięci, kopiowania danych segmentu oraz zerowania końcówki BSS. Przed przydziałem moduł ponownie wylicza plan z pliku ELF i porównuje go z planem przekazanym przez wywołującego. Segmenty nie mogą współdzielić stron pamięci, ponieważ firmware przydziela pamięć całymi stronami. Jeśli kolejny przydział się nie powiedzie, moduł zwalnia wcześniej przydzielone zakresy.
+
+Ten moduł jest obecnie samodzielnym, testowanym elementem. Nie został jeszcze podłączony do przepływu startowego UEFI: program startowy nadal nie odczytuje obrazu jądra do bufora, nie przydziela mu pamięci przez firmware, nie buduje kompletnego VGK_BOOT_INFO, nie kończy usług startowych UEFI i nie przekazuje sterowania do punktu wejścia jądra. Nie uznajemy więc tego etapu za uruchomienie jądra.
