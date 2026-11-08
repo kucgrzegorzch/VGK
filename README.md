@@ -20,6 +20,7 @@ To potwierdza start w konkretnym środowisku emulatora. Nie jest jeszcze potwier
 - Ograniczony walidator ELF64 x86-64: granice segmentów, adresy, wyrównanie, nakładanie stron, punkt wejścia i zakaz segmentu W+X.
 - Przydzielanie dokładnych zakresów pamięci przez UEFI, kopiowanie segmentów i zerowanie BSS.
 - Normalizacja mapy pamięci UEFI do wspólnego formatu VGK.
+- Wczesny zarządca fizycznych stron pamięci: wyznacza wolne zakresy, przydziela strony z wyrównaniem i scala zwalniane zakresy.
 - Wersjonowany protokół przekazania danych startowych do jądra.
 - Zakończenie usług startowych UEFI i przekazanie sterowania do własnego punktu wejścia jądra.
 - Własny stos jądra oraz diagnostyka przez port szeregowy COM1.
