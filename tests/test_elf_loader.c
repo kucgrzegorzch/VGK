@@ -87,7 +87,7 @@ static void make_valid_image(void)
     put16(52U, 64U);
     put16(54U, PHENT);
     put16(56U, 2U);
-    set_segment(0U, 5U, 256U, UINT64_C(0x200000), 16U, 16U, 16U);
+    set_segment(0U, 5U, 256U, UINT64_C(0x200000), 16U, 32U, 16U);
     set_segment(1U, 6U, 272U, UINT64_C(0x201000), 16U, 32U, 16U);
 }
 
