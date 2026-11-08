@@ -4,6 +4,12 @@
 #include "uefi_file.h"
 #include "uefi_services.h"
 #include "uefi_release_verify.h"
+#include "uefi_file_reader.h"
+#include "elf_loader.h"
+#include "uefi_elf_allocator.h"
+#include "uefi_memory_map.h"
+#include "uefi_kernel_entry.h"
+#include "integrity.h"
 
 #if defined(__x86_64__)
 #define EFIAPI __attribute__((ms_abi))
@@ -75,6 +81,12 @@ _Static_assert(sizeof(EFI_SYSTEM_TABLE) == 120,
 #define EFI_SECURITY_VIOLATION UINT64_C(0x800000000000001A)
 #define EFI_ERROR(status) (((status) & UINT64_C(0x8000000000000000)) != 0)
 
+#define VGK_KERNEL_FILE_MAX_SIZE (UINT64_C(64) * 1024U * 1024U)
+#define VGK_UEFI_PAGE_SIZE UINT64_C(4096)
+#define VGK_MEMORY_MAP_BUFFER_SIZE (512U * 1024U)
+#define VGK_MEMORY_MAP_ENTRY_CAPACITY 16384U
+#define VGK_EXIT_BOOT_SERVICES_ATTEMPTS 4U
+
 static const VGK_EFI_GUID loaded_image_guid = {
     UINT32_C(0x5B1B31A1), UINT16_C(0x9562), UINT16_C(0x11D2),
     {0x8E, 0x3F, 0x00, 0xA0, 0xC9, 0x69, 0x72, 0x3B}
@@ -85,10 +97,15 @@ static const VGK_EFI_GUID simple_file_system_guid = {
     {0x8E, 0x39, 0x00, 0xA0, 0xC9, 0x69, 0x72, 0x3B}
 };
 
-/* Static storage avoids placing a 64 KiB manifest on the firmware stack. */
+/* Fixed storage is reserved before GetMemoryMap/ExitBootServices. */
 #if VGK_HAS_TRUSTED_PUBLIC_KEY
 static uint8_t manifest_buffer[VGK_MANIFEST_MAX_SIZE];
 static uint8_t signature_buffer[VGK_RELEASE_SIGNATURE_SIZE];
+static uint8_t firmware_memory_map[VGK_MEMORY_MAP_BUFFER_SIZE]
+    __attribute__((aligned(16)));
+static VGK_MEMORY_MAP_ENTRY vgk_memory_map[VGK_MEMORY_MAP_ENTRY_CAPACITY]
+    __attribute__((aligned(16)));
+static VGK_BOOT_INFO boot_info;
 #endif
 
 static void print_text(EFI_SYSTEM_TABLE *system_table, CHAR16 *message)
@@ -146,6 +163,212 @@ static EFI_STATUS open_boot_volume(
     return EFI_SUCCESS;
 }
 
+#if VGK_HAS_TRUSTED_PUBLIC_KEY
+static int path_is_kernel(const VGK_MANIFEST_ENTRY *entry)
+{
+    static const uint8_t expected[] = "boot/kernel.elf";
+    if (entry == 0 || entry->path == 0 ||
+        entry->path_length != sizeof(expected) - 1U)
+        return 0;
+    for (size_t i = 0; i < sizeof(expected) - 1U; ++i) {
+        if (entry->path[i] != expected[i])
+            return 0;
+    }
+    return 1;
+}
+
+static int find_kernel_entry(
+    const uint8_t *manifest_bytes,
+    size_t manifest_size,
+    const uint8_t public_key[32],
+    const uint8_t signature[VGK_RELEASE_SIGNATURE_SIZE],
+    VGK_MANIFEST_ENTRY *kernel_entry)
+{
+    VGK_MANIFEST manifest;
+    VGK_MANIFEST_RESULT result;
+
+    result = vgk_manifest_open(&manifest, manifest_bytes, manifest_size,
+                               public_key, signature);
+    if (result != VGK_MANIFEST_OK)
+        return -1;
+
+    for (uint16_t i = 0; i < manifest.entry_count; ++i) {
+        VGK_MANIFEST_ENTRY entry;
+        if (vgk_manifest_get(&manifest, i, &entry) != VGK_MANIFEST_OK)
+            return -1;
+        if (path_is_kernel(&entry)) {
+            *kernel_entry = entry;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+static void release_loaded_kernel(
+    VGK_UEFI_ELF_ALLOCATOR *allocator,
+    const VGK_ELF_LOADED_IMAGE *loaded)
+{
+    if (allocator == 0 || loaded == 0)
+        return;
+    for (uint32_t i = 0; i < loaded->range_count; ++i) {
+        vgk_uefi_elf_release(allocator,
+            loaded->ranges[i].physical_address,
+            loaded->ranges[i].page_count);
+    }
+}
+
+static EFI_STATUS start_verified_kernel(
+    EFI_SYSTEM_TABLE *system_table,
+    VGK_EFI_HANDLE image_handle,
+    VGK_EFI_FILE_PROTOCOL *root,
+    size_t manifest_size,
+    const uint8_t trusted_public_key[32])
+{
+    VGK_EFI_BOOT_SERVICES_PREFIX *services = system_table->boot_services;
+    VGK_MANIFEST_ENTRY kernel_file;
+    VGK_ELF_LOAD_PLAN load_plan;
+    VGK_ELF_LOADED_IMAGE loaded_image;
+    VGK_UEFI_ELF_ALLOCATOR allocator;
+    uint64_t kernel_buffer_address = 0;
+    uint64_t kernel_buffer_pages;
+    size_t kernel_bytes_read = 0;
+    uint64_t kernel_min = UINT64_MAX;
+    uint64_t kernel_max = 0;
+    VGK_EFI_UINTN memory_map_size;
+    VGK_EFI_UINTN map_key = 0;
+    VGK_EFI_UINTN descriptor_size = 0;
+    uint32_t descriptor_version = 0;
+    size_t normalized_count = 0;
+    EFI_STATUS status;
+
+    if (services == 0 || services->allocate_pages == 0 ||
+        services->free_pages == 0 || services->get_memory_map == 0 ||
+        services->exit_boot_services == 0 ||
+        find_kernel_entry(manifest_buffer, manifest_size,
+                          trusted_public_key, signature_buffer,
+                          &kernel_file) != 0 ||
+        kernel_file.file_size == 0 ||
+        kernel_file.file_size > VGK_KERNEL_FILE_MAX_SIZE ||
+        kernel_file.file_size > (uint64_t)SIZE_MAX)
+        return EFI_LOAD_ERROR;
+
+    kernel_buffer_pages =
+        (kernel_file.file_size + VGK_UEFI_PAGE_SIZE - 1U) /
+        VGK_UEFI_PAGE_SIZE;
+    if (kernel_buffer_pages == 0 ||
+        kernel_buffer_pages > UINT64_MAX / VGK_UEFI_PAGE_SIZE)
+        return EFI_LOAD_ERROR;
+
+    status = services->allocate_pages(
+        VGK_EFI_ALLOCATE_ANY_PAGES, VGK_EFI_LOADER_DATA,
+        (VGK_EFI_UINTN)kernel_buffer_pages, &kernel_buffer_address);
+    if (EFI_ERROR(status) || kernel_buffer_address == 0)
+        return EFI_LOAD_ERROR;
+
+    if (vgk_uefi_read_file_bounded(
+            root, kernel_file.path, kernel_file.path_length,
+            (uint8_t *)(uintptr_t)kernel_buffer_address,
+            (size_t)kernel_file.file_size, &kernel_bytes_read) != 0 ||
+        kernel_bytes_read != (size_t)kernel_file.file_size ||
+        vgk_verify_buffer_sha256(
+            (const void *)(uintptr_t)kernel_buffer_address,
+            kernel_bytes_read, kernel_file.sha256) != VGK_INTEGRITY_OK) {
+        (void)services->free_pages(kernel_buffer_address,
+                                   (VGK_EFI_UINTN)kernel_buffer_pages);
+        return EFI_SECURITY_VIOLATION;
+    }
+
+    if (vgk_elf64_make_load_plan(
+            (const uint8_t *)(uintptr_t)kernel_buffer_address,
+            kernel_bytes_read, &load_plan) != VGK_ELF_OK) {
+        (void)services->free_pages(kernel_buffer_address,
+                                   (VGK_EFI_UINTN)kernel_buffer_pages);
+        return EFI_LOAD_ERROR;
+    }
+
+    allocator.allocate_pages = services->allocate_pages;
+    allocator.free_pages = services->free_pages;
+    if (vgk_elf64_load_image(
+            (const uint8_t *)(uintptr_t)kernel_buffer_address,
+            kernel_bytes_read, &load_plan,
+            vgk_uefi_elf_allocate, vgk_uefi_elf_release,
+            &allocator, &loaded_image) != VGK_ELF_OK) {
+        (void)services->free_pages(kernel_buffer_address,
+                                   (VGK_EFI_UINTN)kernel_buffer_pages);
+        return EFI_LOAD_ERROR;
+    }
+
+    (void)services->free_pages(kernel_buffer_address,
+                               (VGK_EFI_UINTN)kernel_buffer_pages);
+
+    for (uint32_t i = 0; i < load_plan.segment_count; ++i) {
+        const VGK_ELF_LOAD_SEGMENT *segment = &load_plan.segments[i];
+        uint64_t end = segment->physical_address + segment->memory_size;
+        if (segment->physical_address < kernel_min)
+            kernel_min = segment->physical_address;
+        if (end > kernel_max)
+            kernel_max = end;
+    }
+    if (kernel_min == UINT64_MAX || kernel_max <= kernel_min) {
+        release_loaded_kernel(&allocator, &loaded_image);
+        return EFI_LOAD_ERROR;
+    }
+
+    /* Close the volume before taking the final firmware memory map. */
+    if (root != 0 && root->close != 0)
+        (void)root->close(root);
+
+    boot_info.magic = VGK_BOOT_INFO_MAGIC;
+    boot_info.version = VGK_BOOT_INFO_VERSION;
+    boot_info.structure_size = sizeof(boot_info);
+    boot_info.flags = 0;
+    boot_info.firmware_type = VGK_FIRMWARE_UEFI;
+    boot_info.memory_map_address = (uint64_t)(uintptr_t)vgk_memory_map;
+    boot_info.memory_map_entry_size = sizeof(VGK_MEMORY_MAP_ENTRY);
+    boot_info.kernel_physical_base = kernel_min;
+    boot_info.kernel_size = kernel_max - kernel_min;
+    boot_info.kernel_entry = load_plan.entry;
+
+    for (uint32_t attempt = 0;
+         attempt < VGK_EXIT_BOOT_SERVICES_ATTEMPTS; ++attempt) {
+        memory_map_size = sizeof(firmware_memory_map);
+        status = services->get_memory_map(
+            &memory_map_size, firmware_memory_map, &map_key,
+            &descriptor_size, &descriptor_version);
+        if (EFI_ERROR(status) ||
+            memory_map_size > sizeof(firmware_memory_map) ||
+            descriptor_size > SIZE_MAX ||
+            vgk_uefi_normalize_memory_map(
+                firmware_memory_map, (size_t)memory_map_size,
+                (size_t)descriptor_size, descriptor_version,
+                vgk_memory_map, VGK_MEMORY_MAP_ENTRY_CAPACITY,
+                &normalized_count) != 0) {
+            release_loaded_kernel(&allocator, &loaded_image);
+            return EFI_LOAD_ERROR;
+        }
+
+        boot_info.memory_map_size =
+            normalized_count * sizeof(VGK_MEMORY_MAP_ENTRY);
+        if (!vgk_boot_info_is_valid(&boot_info)) {
+            release_loaded_kernel(&allocator, &loaded_image);
+            return EFI_LOAD_ERROR;
+        }
+
+        status = services->exit_boot_services(image_handle, map_key);
+        if (status == EFI_SUCCESS) {
+            vgk_uefi_enter_kernel(load_plan.entry, &boot_info);
+        }
+        if (status != EFI_INVALID_PARAMETER) {
+            release_loaded_kernel(&allocator, &loaded_image);
+            return status;
+        }
+    }
+
+    release_loaded_kernel(&allocator, &loaded_image);
+    return EFI_LOAD_ERROR;
+}
+#endif
+
 EFI_STATUS EFIAPI efi_main(void *image_handle, EFI_SYSTEM_TABLE *system_table)
 {
     static CHAR16 banner[] = {
@@ -164,8 +387,7 @@ EFI_STATUS EFIAPI efi_main(void *image_handle, EFI_SYSTEM_TABLE *system_table)
     static CHAR16 verified[] = {
         'P','o','d','p','i','s',' ','i',' ','p','l','i','k','i',' ','w','y','d','a','n','i','a',
         ' ','s','p','r','a','w','d','z','o','n','e','.','\r','\n',
-        'J','a','d','r','o',' ','n','i','e',' ','j','e','s','z','c','z','e',' ','j','e','s','t',' ',
-        'u','r','u','c','h','a','m','i','a','n','e','.','\r','\n',0
+        'L','a','d','o','w','a','n','i','e',' ','i',' ','u','r','u','c','h','a','m','i','a','n','i','e',' ','j','a','d','r','a','.','\r','\n',0
     };
 #else
     static CHAR16 no_key[] = {
@@ -195,14 +417,17 @@ EFI_STATUS EFIAPI efi_main(void *image_handle, EFI_SYSTEM_TABLE *system_table)
         VGK_MANIFEST_RESULT result = vgk_uefi_load_and_verify_release(
             root, manifest_buffer, sizeof(manifest_buffer), &manifest_size,
             signature_buffer, trusted_public_key);
-        (void)manifest_size;
-        (void)root->close(root);
         if (result != VGK_MANIFEST_OK) {
+            (void)root->close(root);
             print_text(system_table, verify_error);
             return EFI_SECURITY_VIOLATION;
         }
         print_text(system_table, verified);
-        return EFI_SUCCESS;
+        status = start_verified_kernel(
+            system_table, image_handle, root, manifest_size,
+            trusted_public_key);
+        /* start_verified_kernel closes root before ExitBootServices. */
+        return status;
     }
 #else
     (void)root->close(root);
