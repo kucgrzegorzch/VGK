@@ -85,3 +85,8 @@ Podpisany wykaz VGK można już przekazać do wspólnej kontroli plików: funkcj
 ## Planowane aplikacje użytkowe
 
 W wymaganiach VGK zapisano własny kreator przygotowania pendrive'a instalacyjnego (wygodny w obsłudze jak Rufus), osobny instalator systemu oraz pakiet biurowy obejmujący edytor tekstu, arkusz kalkulacyjny i prezentacje. Są to cele rozwoju, a nie funkcje dostępne w obecnym prototypie.
+
+
+## Walidacja jądra przed załadowaniem
+
+Dodano eksperymentalny walidator ELF64 x86-64, który sprawdza strukturę i bezpieczne granice segmentów przed przygotowaniem planu załadowania. Nie ładuje jeszcze jądra do pamięci ani nie przekazuje mu sterowania. Test walidatora jest częścią kontroli GitHub Actions; wynik należy potwierdzić po zakończeniu przebiegu.
