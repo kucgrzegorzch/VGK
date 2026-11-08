@@ -53,6 +53,9 @@ build/uefi_file_reader.obj: boot/uefi/uefi_file_reader.c boot/uefi/uefi_file_rea
 build/elf_loader.obj: boot/uefi/elf_loader.c boot/uefi/elf_loader.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -c $< -o $@
 
+build/uefi_elf_allocator.obj: boot/uefi/uefi_elf_allocator.c boot/uefi/uefi_elf_allocator.h boot/uefi/elf_loader.h boot/uefi/uefi_services.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -c $< -o $@
+
 build/uefi_release_verify.obj: boot/uefi/uefi_release_verify.c boot/uefi/uefi_release_verify.h boot/uefi/uefi_file_reader.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -Iboot/crypto -c $< -o $@
 
