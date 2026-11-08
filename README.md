@@ -80,3 +80,8 @@ W katalogu `boot/crypto/` znajduje się również interfejs weryfikacji podpisó
 Dodano także parser podpisanego wykazu plików VGK (format VGKM) w języku C. Sprawdza podpis przed odczytaniem wpisów i odrzuca niebezpieczne lub powtórzone ścieżki. Test: `make manifest-test`. Moduł nie jest jeszcze połączony z programem UEFI.
 
 Podpisany wykaz VGK można już przekazać do wspólnej kontroli plików: funkcja `vgk_manifest_verify_files` sprawdza skróty plików wskazanych w podpisanym wykazie, korzystając z funkcji odczytu dostarczonej przez przyszłą obsługę systemu plików. Test obejmuje również wykrycie podmienionej zawartości. Integracja z rzeczywistym odczytem nośnika UEFI jest kolejnym etapem.
+
+
+## Planowane aplikacje użytkowe
+
+W wymaganiach VGK zapisano własny kreator przygotowania pendrive'a instalacyjnego (wygodny w obsłudze jak Rufus), osobny instalator systemu oraz pakiet biurowy obejmujący edytor tekstu, arkusz kalkulacyjny i prezentacje. Są to cele rozwoju, a nie funkcje dostępne w obecnym prototypie.
