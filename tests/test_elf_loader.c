@@ -97,7 +97,13 @@ int main(void)
     make_valid_image();
     set_segment(1U, 6U, 272U, UINT64_C(0x200008), 16U, 32U, 1U);
     assert(vgk_elf64_make_load_plan(image, sizeof(image), &plan) ==
-           VGK_ELF_SEGMENT_OVERLAP);
+           VGK_ELF_BAD_SEGMENT);
+
+    /* UEFI AllocateAddress works in pages: segment bases must be 4 KiB aligned. */
+    make_valid_image();
+    set_segment(1U, 6U, 272U, UINT64_C(0x202008), 16U, 32U, 1U);
+    assert(vgk_elf64_make_load_plan(image, sizeof(image), &plan) ==
+           VGK_ELF_BAD_SEGMENT);
 
     make_valid_image();
     put64(24U, UINT64_C(0x201000));
