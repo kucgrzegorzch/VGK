@@ -6,10 +6,40 @@
 #include "elf_loader.h"
 
 #define IMAGE_SIZE 512U
+#define TEST_MEMORY_SIZE 0x4000U
 #define PHOFF 64U
 #define PHENT 56U
 
 static uint8_t image[IMAGE_SIZE];
+static uint8_t test_memory[TEST_MEMORY_SIZE];
+static unsigned allocation_calls;
+static unsigned release_calls;
+static int fail_allocation_at = -1;
+
+static int test_allocate(void *context, uint64_t address, uint64_t pages,
+                         void **mapped)
+{
+    (void)context;
+    ++allocation_calls;
+    if (fail_allocation_at > 0 &&
+        allocation_calls == (unsigned)fail_allocation_at)
+        return -1;
+    if (address < UINT64_C(0x200000) ||
+        address - UINT64_C(0x200000) > TEST_MEMORY_SIZE ||
+        pages > (TEST_MEMORY_SIZE -
+                 (size_t)(address - UINT64_C(0x200000))) / 4096U)
+        return -1;
+    *mapped = test_memory + (size_t)(address - UINT64_C(0x200000));
+    return 0;
+}
+
+static void test_release(void *context, uint64_t address, uint64_t pages)
+{
+    (void)context;
+    (void)address;
+    (void)pages;
+    ++release_calls;
+}
 
 static void put16(size_t offset, uint16_t value)
 {
@@ -120,6 +150,40 @@ int main(void)
     assert(vgk_elf64_make_load_plan(image, sizeof(image), &plan) ==
            VGK_ELF_BAD_SEGMENT);
 
-    puts("OK: ELF64 loader plan validation");
+    /* Successful loading copies file bytes and zero-fills the BSS tail. */
+    make_valid_image();
+    assert(vgk_elf64_make_load_plan(image, sizeof(image), &plan) == VGK_ELF_OK);
+    memset(test_memory, 0xA5, sizeof(test_memory));
+    allocation_calls = release_calls = 0;
+    fail_allocation_at = -1;
+    VGK_ELF_LOADED_IMAGE loaded;
+    assert(vgk_elf64_load_image(image, sizeof(image), &plan,
+                               test_allocate, test_release, 0, &loaded) ==
+           VGK_ELF_OK);
+    assert(loaded.range_count == 2U);
+    assert(test_memory[0] == image[256]);
+    assert(test_memory[15] == image[271]);
+    assert(test_memory[16] == 0U);
+    assert(test_memory[0x1000] == image[272]);
+    assert(test_memory[0x1010] == 0U);
+    assert(release_calls == 0U);
+
+    /* A later allocation failure releases all earlier pages. */
+    allocation_calls = release_calls = 0;
+    fail_allocation_at = 2;
+    assert(vgk_elf64_load_image(image, sizeof(image), &plan,
+                               test_allocate, test_release, 0, &loaded) ==
+           VGK_ELF_BAD_SEGMENT);
+    assert(loaded.range_count == 0U);
+    assert(release_calls == 1U);
+    fail_allocation_at = -1;
+
+    /* Two segments in the same 4 KiB page cannot be independently allocated. */
+    make_valid_image();
+    set_segment(1U, 6U, 272U, UINT64_C(0x200008), 16U, 32U, 1U);
+    assert(vgk_elf64_make_load_plan(image, sizeof(image), &plan) ==
+           VGK_ELF_SEGMENT_OVERLAP);
+
+    puts("OK: ELF64 validation and bounded segment loading");
     return 0;
 }
