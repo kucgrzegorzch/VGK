@@ -2,6 +2,10 @@
 
 VGK jest eksperymentalnym projektem niezależnego systemu operacyjnego. Ten etap zawiera własny, freestanding kernel ELF64. Historyczny prototyp 0.1 był uruchamiany przez bootloader zgodny z Multiboot2; docelowy mechanizm uruchamiania VGK jest rozwijany niezależnie. Nie jest to jeszcze kompletny system operacyjny.
 
+## Wymagania użytkowe
+
+Zebrane wymagania dotyczące bezpieczeństwa, instalowania programów, podstawowych aplikacji i pulpitu znajdują się w [planie wymagań użytkowych VGK](docs/WYMAGANIA_UZYTKOWE_VGK.md). Dokument opisuje cele przyszłych etapów, a nie funkcje już dostępne.
+
 ## Stan funkcji
 
 - [x] Własny punkt wejścia jądra i przejście do trybu 64-bitowego
