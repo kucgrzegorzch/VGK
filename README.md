@@ -4,7 +4,7 @@ VGK jest eksperymentalnym projektem niezależnego systemu operacyjnego. Ten etap
 
 ## Wymagania użytkowe
 
-Zebrane wymagania dotyczące bezpieczeństwa, instalowania programów, podstawowych aplikacji i pulpitu znajdują się w [planie wymagań użytkowych VGK](docs/WYMAGANIA_UZYTKOWE_VGK.md). Dokument opisuje cele przyszłych etapów, a nie funkcje już dostępne.
+Zebrane wymagania dotyczące bezpieczeństwa, instalowania programów, podstawowych aplikacji, kopii zapasowych, pulpitu i trybu awaryjnego znajdują się w [planie wymagań użytkowych VGK](docs/WYMAGANIA_UZYTKOWE_VGK.md). Dokument opisuje cele przyszłych etapów, a nie funkcje już dostępne.
 
 ## Stan funkcji
 
@@ -17,20 +17,20 @@ Zebrane wymagania dotyczące bezpieczeństwa, instalowania programów, podstawow
 - [ ] Parsowanie mapy pamięci i własny allocator
 - [ ] IDT, wyjątki i przerwania
 - [ ] Sterowniki urządzeń
-- [ ] System Naprawczy – planowany moduł diagnostyki, wykrywania usterek i bezpiecznego przywracania sprawności systemu
-- [ ] Pulpit, instalator i obsługa aplikacji
+- [ ] Inteligentny Opiekun Systemu – planowany moduł monitorowania, diagnozowania i podejmowania bezpiecznych działań naprawczych
+- [ ] Pulpit, instalator, aplikacje i narzędzie do tworzenia kopii zapasowych
 - [ ] Potwierdzony test uruchomienia w emulatorze lub na fizycznym komputerze
 
-## System Naprawczy
+## Inteligentny Opiekun Systemu
 
-System Naprawczy będzie odrębnym modułem VGK. Jego zadaniem będzie:
+Inteligentny Opiekun Systemu będzie odrębnym modułem VGK. Jego zadaniem będzie:
 - kontrolowanie podstawowych elementów systemu i wykrywanie nieprawidłowości;
 - diagnozowanie problemów z jądrem, pamięcią i sterownikami;
 - zapisywanie raportu diagnostycznego;
 - podejmowanie napraw automatycznych wyłącznie wtedy, gdy można je wykonać bezpiecznie;
-- uruchamianie procedury odzyskiwania lub proszenie użytkownika o zgodę, gdy naprawa może zmienić dane.
+- informowanie użytkownika o wykrytych problemach i wykonanych działaniach.
 
-Moduł jest na etapie projektu. Powyższe funkcje nie są jeszcze zaimplementowane ani przetestowane.
+Poważniejsze przywracanie systemu pozostaje zadaniem trybu awaryjnego. Moduł jest na etapie projektu; powyższe funkcje nie są jeszcze zaimplementowane ani przetestowane.
 
 ## Kompilacja
 
@@ -59,7 +59,7 @@ Repozytorium zawiera workflow GitHub Actions, który buduje historyczny prototyp
 - Konfiguracja starego ISO jest przeznaczona na start BIOS/Legacy; start UEFI/GOP nie jest jeszcze potwierdzony.
 - Wczesny ekran używa klasycznej pamięci tekstowej VGA.
 - Mapa stron obejmuje obecnie tylko pierwsze 1 GiB przestrzeni fizycznej.
-- Zarządzanie pamięcią, sterowniki, bezpieczeństwo, System Naprawczy, SafeCore, pulpit i aplikacje nie są jeszcze zaimplementowane.
+- Zarządzanie pamięcią, sterowniki, bezpieczeństwo, Inteligentny Opiekun Systemu, SafeCore, pulpit i aplikacje nie są jeszcze zaimplementowane.
 - Test `make test` sprawdza strukturę pliku, a nie uruchomienie jądra.
 
 ## Kontrola poprawki GDT (2026-11-02)
