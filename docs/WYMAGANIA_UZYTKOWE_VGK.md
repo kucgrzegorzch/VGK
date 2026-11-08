@@ -77,6 +77,19 @@ Tryb awaryjny ma być częścią odseparowanego środowiska uruchamiania i ratun
 
 W zwykłym trybie pracy terminal naprawczy i funkcja przywracania systemu pozostają niedostępne. Za bieżące monitorowanie i wykrywanie problemów odpowiada **Inteligentny Opiekun Systemu**. Użytkownik korzysta z trybu awaryjnego przy poważnych awariach lub gdy zwykły system nie może się uruchomić.
 
+
+
+## 5A. Dwa moduły systemowe i warianty uruchamiania
+
+VGK składa się z dwóch odrębnych modułów systemowych:
+
+1. **Moduł pierwszy – Środowisko Startowe i Ratunkowe.** Uruchamia komputer, sprawdza zaufanie i integralność składników, prowadzi do ekranu logowania oraz zapewnia tryb awaryjny. Musi działać niezależnie od Systemu Właściwego. Ekran logowania należy do tego modułu.
+2. **Moduł drugi – System Właściwy.** Po zalogowaniu przejmuje działanie i udostępnia jądro, usługi, sterowniki, pulpit, aplikacje i pozostałe funkcje codzienne.
+
+Awaria modułu drugiego nie może uszkodzić ani unieruchomić modułu pierwszego. Moduł pierwszy nie może zależeć od jądra ani usług modułu drugiego. Instalator ma mieć osobną funkcję **„Odbuduj mechanizm startowy pierwszego modułu”**. Ma ona odtwarzać z zaufanego nośnika składniki modułu pierwszego, bez niepotrzebnego naruszania danych użytkownika i Systemu Właściwego; przed zmianą pokazuje zakres i wymaga potwierdzenia.
+
+Niezależnie od tego podziału moduł pierwszy ma dwa warianty sprzętowego startu: **VGK UEFI** dla współczesnego firmware UEFI oraz **VGK Legacy** dla starszego BIOS. To nie są dwa moduły systemowe. Docelowy nośnik instalacyjny zawiera oba warianty i automatycznie wybiera właściwy, a oba prowadzą do tego samego środowiska startowego i tego samego jądra/Systemu Właściwego. Najpierw należy ukończyć i przetestować UEFI, a następnie opracować Legacy.
+
 ## 6. Zgłoszenia brakujących funkcji
 
 Jeśli użytkownik zapyta o funkcję powszechną w innych systemach, której VGK jeszcze nie ma, odpowiedź powinna być uczciwa i spokojna:
