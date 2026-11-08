@@ -11,7 +11,7 @@ UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machin
 CRYPTO_DIR := boot/crypto
 MONOCYPHER_DIR := $(CRYPTO_DIR)/monocypher
 
-.PHONY: all clean iso check-tools test native-kernel native-kernel-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test
+.PHONY: all clean iso check-tools test native-kernel native-kernel-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test
 all: build/vgk-kernel.elf
 
 test: build/vgk-kernel.elf
@@ -33,16 +33,23 @@ build/vgk-kernel.elf: build/entry.o build/kernel.o linker.ld
 build/entry_native.o: boot/entry_native.S | build
 	$(CC) -m64 -ffreestanding -fno-pic -fno-pie -c $< -o $@
 
-build/kernel_native.o: src/kernel_native.c include/vgk_boot_info.h | build
+build/kernel_native.o: src/kernel_native.c include/vgk_boot_info.h include/vgk_memory.h | build
 	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
-build/vgk-kernel-native.elf: build/entry_native.o build/kernel_native.o linker-native.ld
-	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/kernel_native.o
+build/memory_native.o: src/memory.c include/vgk_memory.h include/vgk_boot_info.h | build
+	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
+
+build/vgk-kernel-native.elf: build/entry_native.o build/kernel_native.o build/memory_native.o linker-native.ld
+	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/kernel_native.o build/memory_native.o
 
 native-kernel: build/vgk-kernel-native.elf
 
 native-kernel-test: build/vgk-kernel-native.elf
 	python3 tests/check_native_kernel.py build/vgk-kernel-native.elf
+
+memory-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/memory.c tests/test_memory.c -o build/test_memory
+	./build/test_memory
 
 build/bootx64.obj: boot/uefi/bootx64.c boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/crypto/manifest.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iinclude -Iboot/uefi -Iboot/crypto -c $< -o $@
