@@ -3,6 +3,14 @@
 #define VGK_CPUID_EXT_FEATURES UINT32_C(0x80000001)
 #define VGK_CPUID_ADDRESS_SIZE UINT32_C(0x80000008)
 #define VGK_CPUID_NX_BIT (UINT32_C(1) << 20)
+#define VGK_CPUID_SSE2_BIT (UINT32_C(1) << 26)
+#define VGK_CPUID_SSE3_BIT (UINT32_C(1) << 0)
+#define VGK_CPUID_SSSE3_BIT (UINT32_C(1) << 9)
+#define VGK_CPUID_SSE41_BIT (UINT32_C(1) << 19)
+#define VGK_CPUID_SSE42_BIT (UINT32_C(1) << 20)
+#define VGK_CPUID_AVX_BIT (UINT32_C(1) << 28)
+#define VGK_CPUID_OSXSAVE_BIT (UINT32_C(1) << 27)
+#define VGK_CPUID_AVX2_BIT (UINT32_C(1) << 5)
 
 static void vgk_cpuid(
     uint32_t leaf,
@@ -29,6 +37,25 @@ static void vgk_cpuid(
     if (edx != 0) *edx = d;
 }
 
+static void vgk_cpu_clear_optional_features(VGK_CPU_FEATURES *features)
+{
+    uint32_t i;
+    for (i = 0; i < 13U; ++i)
+        features->vendor[i] = '\0';
+    features->family = 0;
+    features->model = 0;
+    features->stepping = 0;
+    features->sse2_supported = 0;
+    features->sse3_supported = 0;
+    features->ssse3_supported = 0;
+    features->sse4_1_supported = 0;
+    features->sse4_2_supported = 0;
+    features->avx_hardware_supported = 0;
+    features->avx_state_supported = 0;
+    features->avx2_hardware_supported = 0;
+    features->avx2_usable = 0;
+}
+
 VGK_CPU_RESULT vgk_cpu_decode_features(
     uint32_t max_basic_leaf,
     uint32_t max_extended_leaf,
@@ -47,6 +74,7 @@ VGK_CPU_RESULT vgk_cpu_decode_features(
     features->nx_supported = 0;
     features->reserved[0] = 0;
     features->reserved[1] = 0;
+    vgk_cpu_clear_optional_features(features);
 
     if (max_extended_leaf < VGK_CPUID_EXT_FEATURES ||
         (extended_feature_edx & VGK_CPUID_NX_BIT) == 0 ||
@@ -63,12 +91,87 @@ VGK_CPU_RESULT vgk_cpu_decode_features(
     return VGK_CPU_OK;
 }
 
+static void vgk_cpu_read_identity_and_optional_features(
+    VGK_CPU_FEATURES *features)
+{
+    uint32_t eax0, ebx0, ecx0, edx0;
+    uint32_t eax1, ebx1, ecx1, edx1;
+    uint32_t eax7 = 0, ebx7 = 0;
+    uint32_t base_family, base_model, extended_family, extended_model;
+
+    vgk_cpuid(0, 0, &eax0, &ebx0, &ecx0, &edx0);
+    features->max_basic_leaf = eax0;
+    features->vendor[0] = (char)(ebx0 & 0xFFU);
+    features->vendor[1] = (char)((ebx0 >> 8) & 0xFFU);
+    features->vendor[2] = (char)((ebx0 >> 16) & 0xFFU);
+    features->vendor[3] = (char)((ebx0 >> 24) & 0xFFU);
+    features->vendor[4] = (char)(edx0 & 0xFFU);
+    features->vendor[5] = (char)((edx0 >> 8) & 0xFFU);
+    features->vendor[6] = (char)((edx0 >> 16) & 0xFFU);
+    features->vendor[7] = (char)((edx0 >> 24) & 0xFFU);
+    features->vendor[8] = (char)(ecx0 & 0xFFU);
+    features->vendor[9] = (char)((ecx0 >> 8) & 0xFFU);
+    features->vendor[10] = (char)((ecx0 >> 16) & 0xFFU);
+    features->vendor[11] = (char)((ecx0 >> 24) & 0xFFU);
+    features->vendor[12] = '\0';
+
+    if (eax0 < 1U)
+        return;
+
+    vgk_cpuid(1, 0, &eax1, &ebx1, &ecx1, &edx1);
+    (void)ebx1;
+    base_family = (eax1 >> 8) & 0xFU;
+    base_model = (eax1 >> 4) & 0xFU;
+    extended_family = (eax1 >> 20) & 0xFFU;
+    extended_model = (eax1 >> 16) & 0xFU;
+    features->family = (uint16_t)(base_family == 0xFU
+        ? base_family + extended_family : base_family);
+    features->model = (uint16_t)((base_family == 0x6U || base_family == 0xFU)
+        ? (extended_model << 4) | base_model : base_model);
+    features->stepping = (uint8_t)(eax1 & 0xFU);
+
+    features->sse2_supported = (uint8_t)((edx1 & VGK_CPUID_SSE2_BIT) != 0U);
+    features->sse3_supported = (uint8_t)((ecx1 & VGK_CPUID_SSE3_BIT) != 0U);
+    features->ssse3_supported = (uint8_t)((ecx1 & VGK_CPUID_SSSE3_BIT) != 0U);
+    features->sse4_1_supported = (uint8_t)((ecx1 & VGK_CPUID_SSE41_BIT) != 0U);
+    features->sse4_2_supported = (uint8_t)((ecx1 & VGK_CPUID_SSE42_BIT) != 0U);
+    features->avx_hardware_supported = (uint8_t)((ecx1 & VGK_CPUID_AVX_BIT) != 0U);
+
+    /*
+     * AVX instructions are safe only when the CPU has AVX, advertises
+     * OSXSAVE, and XCR0 enables both XMM and YMM state. Never execute XGETBV
+     * before checking OSXSAVE.
+     */
+    if ((ecx1 & (VGK_CPUID_AVX_BIT | VGK_CPUID_OSXSAVE_BIT)) ==
+        (VGK_CPUID_AVX_BIT | VGK_CPUID_OSXSAVE_BIT)) {
+        uint32_t xcr0_low, xcr0_high;
+        __asm__ volatile (
+            "xgetbv"
+            : "=a"(xcr0_low), "=d"(xcr0_high)
+            : "c"(0)
+        );
+        (void)xcr0_high;
+        features->avx_state_supported =
+            (uint8_t)((xcr0_low & 0x6U) == 0x6U);
+    }
+
+    if (eax0 >= 7U) {
+        vgk_cpuid(7, 0, &eax7, &ebx7, 0, 0);
+        features->avx2_hardware_supported =
+            (uint8_t)((ebx7 & VGK_CPUID_AVX2_BIT) != 0U);
+        features->avx2_usable = (uint8_t)(
+            features->avx2_hardware_supported != 0U &&
+            features->avx_state_supported != 0U);
+    }
+}
+
 VGK_CPU_RESULT vgk_cpu_detect_features(VGK_CPU_FEATURES *features)
 {
     uint32_t max_basic;
     uint32_t max_extended;
     uint32_t feature_edx = 0;
     uint32_t address_eax = 0;
+    VGK_CPU_RESULT result;
 
     if (features == 0)
         return VGK_CPU_INVALID_ARGUMENT;
@@ -81,6 +184,9 @@ VGK_CPU_RESULT vgk_cpu_detect_features(VGK_CPU_FEATURES *features)
     if (max_extended >= VGK_CPUID_ADDRESS_SIZE)
         vgk_cpuid(VGK_CPUID_ADDRESS_SIZE, 0, &address_eax, 0, 0, 0);
 
-    return vgk_cpu_decode_features(
+    result = vgk_cpu_decode_features(
         max_basic, max_extended, feature_edx, address_eax, features);
+    vgk_cpu_read_identity_and_optional_features(features);
+    features->max_extended_leaf = max_extended;
+    return result;
 }
