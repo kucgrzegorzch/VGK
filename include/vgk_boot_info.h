@@ -12,7 +12,12 @@
 #include <stdint.h>
 
 #define VGK_BOOT_INFO_MAGIC UINT64_C(0x314F464E494B4756) /* "VGKINFO1" */
-#define VGK_BOOT_INFO_VERSION UINT32_C(1)
+#define VGK_BOOT_INFO_VERSION UINT32_C(2)
+#define VGK_BOOT_MAX_KERNEL_SEGMENTS 16U
+#define VGK_KERNEL_SEGMENT_READ  UINT32_C(0x4)
+#define VGK_KERNEL_SEGMENT_WRITE UINT32_C(0x2)
+#define VGK_KERNEL_SEGMENT_EXEC  UINT32_C(0x1)
+#define VGK_KERNEL_SEGMENT_KNOWN_FLAGS UINT32_C(0x7)
 
 #define VGK_BOOT_FLAG_FRAMEBUFFER UINT64_C(0x0000000000000001)
 #define VGK_BOOT_FLAG_ACPI        UINT64_C(0x0000000000000002)
@@ -49,6 +54,14 @@ typedef enum {
  * przez ladowacz i jadro bez zaleznosci od rozmiaru typow wskaznikowych.
  */
 typedef struct {
+    uint64_t physical_base;
+    uint64_t memory_size;
+    uint32_t flags;
+    uint32_t reserved;
+} VGK_KERNEL_SEGMENT;
+
+/* Uprawnienia segmentow ELF przekazywane do tworzenia tablic stron. */
+typedef struct {
     uint64_t magic;
     uint32_t version;
     uint32_t structure_size;
@@ -80,6 +93,10 @@ typedef struct {
     uint64_t acpi_rsdp_address;
 
     uint64_t reserved[4];
+
+    uint32_t kernel_segment_count;
+    uint32_t reserved2;
+    VGK_KERNEL_SEGMENT kernel_segments[VGK_BOOT_MAX_KERNEL_SEGMENTS];
 } VGK_BOOT_INFO;
 
 static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
@@ -88,6 +105,7 @@ static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
     uint64_t memory_map_end;
     uint64_t kernel_end;
     uint64_t framebuffer_end;
+    int entry_is_executable = 0;
 
     if (info == NULL ||
         info->magic != VGK_BOOT_INFO_MAGIC ||
@@ -118,6 +136,51 @@ static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
         if (info->reserved[i] != 0)
             return 0;
     }
+
+    if (info->kernel_segment_count == 0 ||
+        info->kernel_segment_count > VGK_BOOT_MAX_KERNEL_SEGMENTS ||
+        info->reserved2 != 0)
+        return 0;
+
+    for (uint32_t i = 0; i < info->kernel_segment_count; ++i) {
+        const VGK_KERNEL_SEGMENT *segment = &info->kernel_segments[i];
+        uint64_t segment_end;
+        uint64_t page_end;
+
+        if (segment->reserved != 0 || segment->memory_size == 0 ||
+            (segment->physical_base & UINT64_C(0xFFF)) != 0 ||
+            (segment->flags & ~VGK_KERNEL_SEGMENT_KNOWN_FLAGS) != 0 ||
+            (segment->flags & (VGK_KERNEL_SEGMENT_READ |
+                              VGK_KERNEL_SEGMENT_EXEC)) == 0 ||
+            ((segment->flags & VGK_KERNEL_SEGMENT_WRITE) != 0 &&
+             (segment->flags & VGK_KERNEL_SEGMENT_EXEC) != 0) ||
+            segment->physical_base > UINT64_MAX - segment->memory_size)
+            return 0;
+
+        segment_end = segment->physical_base + segment->memory_size;
+        if (segment->physical_base < info->kernel_physical_base ||
+            segment_end > kernel_end)
+            return 0;
+        if ((segment->flags & VGK_KERNEL_SEGMENT_EXEC) != 0 &&
+            info->kernel_entry >= segment->physical_base &&
+            info->kernel_entry < segment_end)
+            entry_is_executable = 1;
+
+        if (segment_end > UINT64_MAX - UINT64_C(0xFFF))
+            return 0;
+        page_end = (segment_end + UINT64_C(0xFFF)) & ~UINT64_C(0xFFF);
+        for (uint32_t j = 0; j < i; ++j) {
+            const VGK_KERNEL_SEGMENT *prior = &info->kernel_segments[j];
+            uint64_t prior_end = prior->physical_base + prior->memory_size;
+            uint64_t prior_page_end =
+                (prior_end + UINT64_C(0xFFF)) & ~UINT64_C(0xFFF);
+            if (segment->physical_base < prior_page_end &&
+                prior->physical_base < page_end)
+                return 0;
+        }
+    }
+    if (!entry_is_executable)
+        return 0;
 
     if ((info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0) {
         if (info->framebuffer_base == 0 || info->framebuffer_size == 0 ||
@@ -162,7 +225,9 @@ _Static_assert(offsetof(VGK_BOOT_INFO, framebuffer_base) == 80,
                "VGK boot info framebuffer offset changed");
 _Static_assert(offsetof(VGK_BOOT_INFO, acpi_rsdp_address) == 128,
                "VGK boot info ACPI offset changed");
-_Static_assert(sizeof(VGK_BOOT_INFO) == 168,
+_Static_assert(sizeof(VGK_KERNEL_SEGMENT) == 24,
+               "VGK kernel segment layout changed");
+_Static_assert(sizeof(VGK_BOOT_INFO) == 560,
                "VGK boot info size changed");
 
 #endif
