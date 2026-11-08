@@ -11,7 +11,7 @@ UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machin
 CRYPTO_DIR := boot/crypto
 MONOCYPHER_DIR := $(CRYPTO_DIR)/monocypher
 
-.PHONY: all clean iso check-tools test native-kernel native-kernel-test uefi uefi-test uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test
+.PHONY: all clean iso check-tools test native-kernel native-kernel-test uefi uefi-test uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test
 all: build/vgk-kernel.elf
 
 test: build/vgk-kernel.elf
@@ -50,6 +50,9 @@ build/bootx64.obj: boot/uefi/bootx64.c boot/uefi/uefi_file.h boot/uefi/uefi_serv
 build/uefi_file_reader.obj: boot/uefi/uefi_file_reader.c boot/uefi/uefi_file_reader.h boot/uefi/uefi_file.h boot/crypto/manifest.h boot/crypto/integrity.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -Iboot/crypto -c $< -o $@
 
+build/elf_loader.obj: boot/uefi/elf_loader.c boot/uefi/elf_loader.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -c $< -o $@
+
 build/uefi_release_verify.obj: boot/uefi/uefi_release_verify.c boot/uefi/uefi_release_verify.h boot/uefi/uefi_file_reader.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -Iboot/crypto -c $< -o $@
 
@@ -71,7 +74,7 @@ build/monocypher.obj: $(MONOCYPHER_DIR)/monocypher.c | build
 build/monocypher_ed25519.obj: $(MONOCYPHER_DIR)/monocypher-ed25519.c | build
 	$(CLANG) $(UEFI_CFLAGS) -I$(MONOCYPHER_DIR) -c $< -o $@
 
-build/BOOTX64.EFI: build/bootx64.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
+build/BOOTX64.EFI: build/bootx64.obj build/elf_loader.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
 	$(LLD_LINK) $(UEFI_LDFLAGS) /out:$@ $^
 
 uefi: build/BOOTX64.EFI
@@ -90,6 +93,10 @@ boot-info-test: | build
 uefi-services-abi-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi tests/test_uefi_services_abi.c -o build/test_uefi_services_abi
 	./build/test_uefi_services_abi
+
+uefi-elf-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi boot/uefi/elf_loader.c tests/test_elf_loader.c -o build/test_elf_loader
+	./build/test_elf_loader
 
 uefi-memory-map-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude -Iboot/uefi boot/uefi/uefi_memory_map.c tests/test_uefi_memory_map.c -o build/test_uefi_memory_map
