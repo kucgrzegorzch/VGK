@@ -17,6 +17,11 @@ static VGK_BOOT_INFO valid_info(void)
     info.kernel_physical_base = UINT64_C(0x200000);
     info.kernel_size = UINT64_C(0x40000);
     info.kernel_entry = UINT64_C(0x200100);
+    info.kernel_segment_count = 1;
+    info.kernel_segments[0].physical_base = UINT64_C(0x200000);
+    info.kernel_segments[0].memory_size = UINT64_C(0x1000);
+    info.kernel_segments[0].flags =
+        VGK_KERNEL_SEGMENT_READ | VGK_KERNEL_SEGMENT_EXEC;
     return info;
 }
 
@@ -80,7 +85,29 @@ int main(void)
     }
 
     info = valid_info();
+    info.kernel_segments[0].flags =
+        VGK_KERNEL_SEGMENT_READ | VGK_KERNEL_SEGMENT_WRITE |
+        VGK_KERNEL_SEGMENT_EXEC;
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano segment jednoczesnie zapisywalny i wykonywalny");
+        ++failures;
+    }
 
+    info = valid_info();
+    info.kernel_segments[0].physical_base += UINT64_C(0x1000);
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano segment poza zakresem jadra");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.kernel_segments[0].flags = VGK_KERNEL_SEGMENT_READ;
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano punkt wejscia w niewykonywalnym segmencie");
+        ++failures;
+    }
+
+    info = valid_info();
     info.flags = VGK_BOOT_FLAG_FRAMEBUFFER;
     info.framebuffer_base = UINT64_C(0xE0000000);
     info.framebuffer_size = UINT64_C(0x400000);
