@@ -74,7 +74,7 @@ build/monocypher.obj: $(MONOCYPHER_DIR)/monocypher.c | build
 build/monocypher_ed25519.obj: $(MONOCYPHER_DIR)/monocypher-ed25519.c | build
 	$(CLANG) $(UEFI_CFLAGS) -I$(MONOCYPHER_DIR) -c $< -o $@
 
-build/BOOTX64.EFI: build/bootx64.obj build/elf_loader.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
+build/BOOTX64.EFI: build/bootx64.obj build/elf_loader.obj build/uefi_elf_allocator.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
 	$(LLD_LINK) $(UEFI_LDFLAGS) /out:$@ $^
 
 uefi: build/BOOTX64.EFI
