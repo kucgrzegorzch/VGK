@@ -7,7 +7,7 @@
 #define PAGE VGK_MEMORY_PAGE_SIZE
 #define EXPECT(condition) do { \
     if (!(condition)) { \
-        fprintf(stderr, "FAIL line %d: %s\\n", __LINE__, #condition); \
+        fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #condition); \
         ++failures; \
     } \
 } while (0)
@@ -91,7 +91,7 @@ int main(void)
     EXPECT(first_allocation == 0U);
 
     if (failures != 0) {
-        fprintf(stderr, "VGK memory allocator: %d test(s) failed\\n", failures);
+        fprintf(stderr, "VGK memory allocator: %d test(s) failed\n", failures);
         return 1;
     }
 
