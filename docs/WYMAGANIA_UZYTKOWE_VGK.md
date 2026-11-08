@@ -99,3 +99,28 @@ Nie należy obiecywać, że każda zgłoszona funkcja na pewno trafi do najbliż
 7. Dokończyć odseparowane środowisko ratunkowe i trzy ustalone funkcje trybu awaryjnego; bieżące monitorowanie powierzyć Inteligentnemu Opiekunowi Systemu.
 
 **Status:** wymagania zapisane do realizacji etapami. Żadna z funkcji opisanych w tym dokumencie nie jest przez samo zapisanie uznana za gotową.
+
+
+## 8. Tworzenie nośnika instalacyjnego i instalacja VGK
+
+VGK ma otrzymać własną, prostą aplikację do przygotowywania pendrive'a instalacyjnego, podobną w obsłudze do Rufusa. Ma ona:
+- wskazać pobrany obraz instalacyjny VGK i docelowy pendrive;
+- przed zapisem sprawdzić podpis wydania i sumę kontrolną obrazu;
+- sprawdzić, czy wybrano właściwy nośnik i wyraźnie ostrzec, że zapis usuwa jego dotychczasową zawartość;
+- wymagać świadomego potwierdzenia przed rozpoczęciem zapisu;
+- przygotowywać nośnik dla własnego mechanizmu uruchamiania VGK, początkowo UEFI, a dla starszego BIOS dopiero po ukończeniu i przetestowaniu osobnej ścieżki;
+- po zapisie sprawdzić poprawność nagrania i zgłosić ewentualny błąd;
+- nie wymagać od użytkownika terminala ani ręcznego formatowania pendrive'a.
+
+Osobnym elementem jest **instalator VGK** uruchamiany z przygotowanego nośnika. Ma on prowadzić użytkownika krok po kroku przez wybór dysku i sposób instalacji, pokazywać skutki operacji oraz chronić istniejące dane. Nie wolno zakładać, że samo utworzenie pendrive'a instaluje system na komputerze.
+
+## 9. Programy biurowe
+
+VGK ma oferować zestaw programów biurowych, dostępny z pulpitu i możliwy do zainstalowania bez terminala:
+- edytor tekstu do pism, dokumentów i raportów;
+- arkusz kalkulacyjny do tabel, obliczeń i wykresów;
+- program do tworzenia i wyświetlania prezentacji.
+
+Priorytetem jest obsługa popularnych formatów dokumentów, w tym formatów OpenDocument oraz możliwie dobra wymiana plików z formatami Microsoft Office. Zgodność należy sprawdzać na rzeczywistych dokumentach; nie wolno obiecywać idealnego odwzorowania każdego zaawansowanego pliku.
+
+Na początku należy ocenić możliwość dołączenia istniejącego, legalnie rozpowszechnianego pakietu biurowego albo jego bezpiecznej instalacji z poziomu menedżera aplikacji. Wybór konkretnego pakietu wymaga sprawdzenia licencji, wymagań sprzętowych, rozmiaru i zgodności z niezależnym VGK. Dołączenie aplikacji biurowych nie oznacza oparcia jądra ani podstaw systemu na Linuksie.
