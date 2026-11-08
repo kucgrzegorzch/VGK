@@ -25,7 +25,7 @@ Docelowa kolejność:
 3. **Ładowanie jądra** następuje dopiero po sprawdzeniu podpisu wydania i skrótu kryptograficznego pliku jądra.
 4. **Przekazanie sterowania jądru** odbywa się wraz z informacją o wyniku sprawdzeń, wersji wykazu i wykrytych problemach.
 5. **Jądro VGK** sprawdza sterowniki i składniki systemowe przed dopuszczeniem ich do działania.
-6. **System Naprawczy** może odizolować podejrzany składnik i zaproponować przywrócenie poprawnej kopii.
+6. **Inteligentny Opiekun Systemu** może wykryć podejrzany składnik, odizolować go w zakresie swoich uprawnień i zgłosić potrzebę naprawy. Przywracanie systemu odbywa się wyłącznie w trybie awaryjnym.
 
 Każdy etap musi ufać wyłącznie kluczowi publicznemu lub wynikowi sprawdzenia przekazanemu przez wcześniejszy, zaufany etap. Sam komunikat tekstowy ani nazwa pliku nie są dowodem autentyczności.
 
