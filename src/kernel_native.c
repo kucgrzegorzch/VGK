@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include "vgk_boot_info.h"
 #include "vgk_memory.h"
+#include "vgk_cpu_features.h"
 
 #define COM1_PORT 0x3F8U
 
@@ -56,6 +57,15 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
     }
 
     serial_write("VGK: protokol startowy poprawny.\r\n");
+
+    {
+        VGK_CPU_FEATURES cpu_features;
+        if (vgk_cpu_detect_features(&cpu_features) == VGK_CPU_OK) {
+            serial_write("VGK: procesor obsluguje NX; wykryto szerokosc adresu fizycznego.\r\n");
+        } else {
+            serial_write("VGK: brak potwierdzonej obslugi NX lub szerokosci adresu; ochrona stron nie zostanie wlaczona.\r\n");
+        }
+    }
 
     {
         VGK_MEMORY_STATS memory_stats;
