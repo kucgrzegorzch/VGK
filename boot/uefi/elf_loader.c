@@ -11,6 +11,7 @@
 #define ELF_PT_LOAD 1U
 #define ELF_PF_X 1U
 #define ELF_PF_W 2U
+#define VGK_ELF_PAGE_SIZE UINT64_C(4096)
 
 static uint16_t read_u16(const uint8_t *p)
 {
@@ -118,6 +119,7 @@ VGK_ELF_RESULT vgk_elf64_make_load_plan(
 
         segment_end = physical_address + memory_size;
         if (physical_address < VGK_ELF_MIN_LOAD_ADDRESS ||
+            (physical_address & (VGK_ELF_PAGE_SIZE - 1U)) != 0 ||
             segment_end > VGK_ELF_MAX_LOAD_ADDRESS ||
             (flags & ~(ELF_PF_X | ELF_PF_W | 4U)) != 0 ||
             ((flags & ELF_PF_X) != 0 && (flags & ELF_PF_W) != 0))
