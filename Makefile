@@ -45,7 +45,7 @@ native-kernel-test: build/vgk-kernel-native.elf
 	python3 tests/check_native_kernel.py build/vgk-kernel-native.elf
 
 build/bootx64.obj: boot/uefi/bootx64.c boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/crypto/manifest.h | build
-	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -Iboot/crypto -c $< -o $@
+	$(CLANG) $(UEFI_CFLAGS) -Iinclude -Iboot/uefi -Iboot/crypto -c $< -o $@
 
 # Most UEFI functions use Microsoft x64 ABI; this bridge prepares the native
 # kernel entry register contract (System V: VGK_BOOT_INFO in RDI).
