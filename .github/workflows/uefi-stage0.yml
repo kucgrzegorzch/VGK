@@ -31,6 +31,8 @@ jobs:
         run: make boot-info-test
       - name: Test UEFI boot service layout
         run: make uefi-services-abi-test
+      - name: Test walidacji segmentow jadra ELF64
+        run: make uefi-elf-test
       - name: Test normalizacji mapy pamieci UEFI
         run: make uefi-memory-map-test
       - name: Test UEFI file reader adapter
