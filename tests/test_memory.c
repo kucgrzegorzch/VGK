@@ -12,7 +12,7 @@
     } \
 } while (0)
 
-static VGK_MEMORY_MAP_ENTRY memory_map[3];
+static VGK_MEMORY_MAP_ENTRY memory_map[4];
 
 int main(void)
 {
@@ -23,15 +23,19 @@ int main(void)
     int failures = 0;
 
     memset(&boot_info, 0, sizeof(boot_info));
-    memory_map[0].base = UINT64_C(0x101000);
-    memory_map[0].length = UINT64_C(0xF000);
+    /* Low memory is deliberately reported usable; the allocator must skip it. */
+    memory_map[0].base = UINT64_C(0x1000);
+    memory_map[0].length = UINT64_C(0xFF000);
     memory_map[0].type = VGK_MEMORY_USABLE;
-    memory_map[1].base = UINT64_C(0x110000);
-    memory_map[1].length = UINT64_C(0x10000);
-    memory_map[1].type = VGK_MEMORY_RESERVED;
-    memory_map[2].base = UINT64_C(0x120000);
-    memory_map[2].length = UINT64_C(0x4000);
-    memory_map[2].type = VGK_MEMORY_USABLE;
+    memory_map[1].base = UINT64_C(0x101000);
+    memory_map[1].length = UINT64_C(0xF000);
+    memory_map[1].type = VGK_MEMORY_USABLE;
+    memory_map[2].base = UINT64_C(0x110000);
+    memory_map[2].length = UINT64_C(0x10000);
+    memory_map[2].type = VGK_MEMORY_RESERVED;
+    memory_map[3].base = UINT64_C(0x120000);
+    memory_map[3].length = UINT64_C(0x4000);
+    memory_map[3].type = VGK_MEMORY_USABLE;
 
     boot_info.magic = VGK_BOOT_INFO_MAGIC;
     boot_info.version = VGK_BOOT_INFO_VERSION;
@@ -48,9 +52,9 @@ int main(void)
     EXPECT(vgk_boot_info_is_valid(&boot_info));
 
     /* A sorted map containing an overlap must be rejected. */
-    memory_map[1].base = UINT64_C(0x10F000);
+    memory_map[2].base = UINT64_C(0x10F000);
     EXPECT(vgk_memory_init(&boot_info) == VGK_MEMORY_BAD_MAP);
-    memory_map[1].base = UINT64_C(0x110000);
+    memory_map[2].base = UINT64_C(0x110000);
 
     EXPECT(vgk_memory_init(&boot_info) == VGK_MEMORY_OK);
     EXPECT(vgk_memory_get_stats(&stats) == VGK_MEMORY_OK);
