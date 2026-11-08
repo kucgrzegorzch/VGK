@@ -103,22 +103,26 @@ Podstawą jest architektura x86-64. System ma wykrywać możliwości procesora p
 ## Etapy techniczne
 
 ### Etap A – wiarygodna podstawa uruchamiania
-- Uporządkować i uruchamiać wyłącznie własną ścieżkę UEFI.
-- Dokończyć poprawny, ograniczony odczyt plików z nośnika.
-- Ustalić i bezpiecznie osadzić potwierdzony klucz publiczny wydawcy.
-- Podpisany wykaz ma obejmować rzeczywiste pliki wydania.
-- Nie uruchamiać jądra, jeżeli podpis, rozmiar lub skrót pliku są niezgodne.
-- Dodać testy z atrapą firmware oraz uruchamianie pod emulatorem UEFI.
+- [x] Własna ścieżka startowa UEFI x86-64, bez GRUB/Multiboot2.
+- [x] Ograniczony odczyt plików z woluminu UEFI.
+- [x] Podpisany wykaz VGKM, weryfikacja Ed25519 i kontrola SHA-256.
+- [x] Odmowa uruchomienia przy braku klucza lub błędzie weryfikacji.
+- [x] Test podpisanego wydania i odrzucania zmienionych plików.
+- [x] Test startu w emulatorze QEMU/OVMF z tymczasowym kluczem CI.
+- [ ] Ustalenie, niezależne potwierdzenie i bezpieczne osadzenie produkcyjnego klucza publicznego wydawcy.
+- [ ] Testy na fizycznych komputerach z różnymi wersjami UEFI.
 
 ### Etap B – własne przekazanie sterowania do jądra
 - [x] Zdefiniować wersjonowany protokół informacji startowych VGK.
 - [x] Przygotować natywny punkt wejścia x86-64 i minimalne jądro diagnostyczne.
 - [x] Dodać walidację zakresów pamięci i normalizację mapy UEFI.
-- [x] Zadeklarować ABI usług AllocatePages, GetMemoryMap i ExitBootServices.
-- [ ] Podłączyć usługi firmware i rzeczywiście wczytać segmenty ELF.
-- Przekazać mapę pamięci, informacje o grafice i tabele sprzętowe udostępnione przez firmware.
-- Zakończyć usługi startowe firmware zgodnie z wymaganiami UEFI.
-- Załadować i uruchomić własne jądro.
+- [x] Zadeklarować i sprawdzić ABI usług AllocatePages, GetMemoryMap i ExitBootServices.
+- [x] Podłączyć odczyt plików, weryfikację podpisu i skrótów oraz ładowanie segmentów ELF.
+- [x] Wypełnić VGK_BOOT_INFO i przekazać wskaźnik do jądra zgodnie z własnym kontraktem x86-64.
+- [x] Zakończyć usługi startowe UEFI z ograniczoną obsługą ponowienia ExitBootServices.
+- [x] Potwierdzić start diagnostycznego jądra w emulatorze QEMU/OVMF.
+- [ ] Rozszerzyć informacje startowe o framebuffer i ACPI.
+- [ ] Potwierdzić uruchomienie na fizycznym sprzęcie.
 - Nie używać GRUB ani Multiboot2 w nowej ścieżce.
 
 ### Etap C – minimalne działające jądro
@@ -157,21 +161,24 @@ Podstawą jest architektura x86-64. System ma wykrywać możliwości procesora p
 - Instrukcja, licencja, suma kontrolna obrazu i podpisane wydanie.
 - Publikacja dopiero po przeglądzie i zatwierdzeniu przez administratora projektu.
 
-## Stan rzeczywisty na początku tego planu
+## Aktualny stan rzeczywisty – 8 listopada 2026
 
 Repozytorium zawiera:
-- kod punktu wejścia UEFI;
-- podstawę odczytu plików z woluminu UEFI;
-- kod sprawdzania podpisanego wykazu VGKM i skrótów SHA-256;
-- implementację weryfikacji Ed25519 i testy;
-- testy układu struktur UEFI oraz testy integracyjne z atrapą protokołu plików.
+- własną aplikację startową UEFI x86-64;
+- odczyt plików z woluminu startowego UEFI;
+- sprawdzanie podpisanego wykazu VGKM, podpisu Ed25519 i skrótów SHA-256;
+- walidację i ładowanie segmentów ELF64 do dokładnych zakresów pamięci;
+- normalizację mapy pamięci UEFI;
+- wypełnianie VGK_BOOT_INFO, zakończenie usług startowych i przekazanie sterowania do jądra;
+- minimalne jądro diagnostyczne z własnym stosem i komunikatami przez COM1;
+- test startu w QEMU/OVMF, który zakończył się powodzeniem w GitHub Actions nr 349.
 
 Ograniczenia:
-- nie ma jeszcze potwierdzonego, produkcyjnego klucza publicznego wydawcy;
-- nie ma kompletnego ładowania i uruchamiania jądra przez nową ścieżkę;
-- brak kompletnego własnego jądra, sterowników, systemu plików, instalatora i pulpitu;
+- test emulatorowy używa klucza tymczasowego, a nie produkcyjnego klucza wydawcy;
+- nie wykonano jeszcze testu na fizycznym komputerze;
+- jądro nie ma jeszcze pełnego zarządzania pamięcią, procesami, przerwaniami, sterownikami ani usług systemowych;
 - własna ścieżka starszego BIOS nie jest gotowa;
-- testy struktury i testy z atrapą firmware nie zastępują testu w emulatorze UEFI ani na fizycznym komputerze.
+- system plików, sieć, instalator, pulpit, aplikacje i środowisko ratunkowe pozostają do zbudowania.
 
 Historyczny prototyp 0.1 i jego pliki należy zachować jako materiał archiwalny do czasu potwierdzenia nowej ścieżki. Nie należy przywracać GRUB/Multiboot2 do docelowego mechanizmu VGK.
 
@@ -204,4 +211,4 @@ Dodano osobny, ograniczony walidator pliku ELF64 dla architektury x86-64. Sprawd
 
 Rozszerzono moduł ładowania ELF64 o kontrolowaną operację przydzielania dokładnych zakresów pamięci, kopiowania danych segmentu oraz zerowania końcówki BSS. Przed przydziałem moduł ponownie wylicza plan z pliku ELF i porównuje go z planem przekazanym przez wywołującego. Segmenty nie mogą współdzielić stron pamięci, ponieważ firmware przydziela pamięć całymi stronami. Jeśli kolejny przydział się nie powiedzie, moduł zwalnia wcześniej przydzielone zakresy.
 
-Ten moduł jest obecnie samodzielnym, testowanym elementem. Nie został jeszcze podłączony do przepływu startowego UEFI: program startowy nadal nie odczytuje obrazu jądra do bufora, nie przydziela mu pamięci przez firmware, nie buduje kompletnego VGK_BOOT_INFO, nie kończy usług startowych UEFI i nie przekazuje sterowania do punktu wejścia jądra. Nie uznajemy więc tego etapu za uruchomienie jądra.
+Moduł został podłączony do przepływu startowego UEFI. Ładowacz odczytuje jądro z woluminu, sprawdza jego skrót względem podpisanego wykazu, przydziela dokładne zakresy pamięci, kopiuje segmenty i zeruje BSS. Następnie buduje VGK_BOOT_INFO, pobiera aktualną mapę pamięci, kończy usługi startowe UEFI i przekazuje sterowanie do punktu wejścia jądra. Test QEMU/OVMF potwierdził, że jądro uruchamia się i akceptuje protokół startowy. To nadal minimalne jądro diagnostyczne, a nie kompletny system operacyjny; test na fizycznym sprzęcie pozostaje do wykonania.
