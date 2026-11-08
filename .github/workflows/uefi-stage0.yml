@@ -52,7 +52,7 @@ jobs:
           test -f "$OVMF_VARS"
           cp "$OVMF_VARS" build/OVMF_VARS.fd
           set +e
-          timeout 25s qemu-system-x86_64 \
+          timeout -k 5s 25s qemu-system-x86_64 \
             -machine q35 -m 1024 -cpu qemu64 \
             -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
             -drive if=pflash,format=raw,file=build/OVMF_VARS.fd \
@@ -60,7 +60,7 @@ jobs:
             -drive if=none,id=usbstick,format=raw,file=fat:rw:build/esp \
             -device usb-storage,drive=usbstick,bootindex=1 \
             -display none -monitor none -serial file:build/qemu-serial.log \
-            -no-reboot -no-shutdown
+            -no-reboot
           qemu_status=$?
           set -e
           if [ "$qemu_status" -ne 124 ] && [ "$qemu_status" -ne 0 ]; then
