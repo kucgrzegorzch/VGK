@@ -1,68 +1,80 @@
-# Protokol startowy VGK – wersja 1
+# Protokół startowy VGK – wersja 1
 
 ## Cel
 
-Protokol jest wspolnym kontraktem pomiedzy wlasnym mechanizmem uruchamiania VGK a jadrem. Ma byc taki sam niezaleznie od tego, czy komputer uruchomiono przez UEFI, czy przez starszy BIOS. Jadro nie powinno odczytywac surowych struktur firmware.
+Protokół jest wspólnym kontraktem pomiędzy własnym mechanizmem uruchamiania VGK a jądrem. Ma być niezależny od surowych struktur firmware, tak aby w przyszłości mógł go wypełniać zarówno ładowacz UEFI, jak i osobny ładowacz starszego BIOS.
 
-Definicje znajduja sie w `include/vgk_boot_info.h`.
+Definicje znajdują się w `include/vgk_boot_info.h`.
 
-## Zasady zgodnosci
+## Zasady zgodności
 
 - Sygnatura: `VGK_BOOT_INFO_MAGIC`.
 - Wersja: `VGK_BOOT_INFO_VERSION = 1`.
-- Wszystkie adresy i rozmiary w strukturze maja stale pola 64-bitowe.
+- Adresy i rozmiary mają stałe pola 64-bitowe.
 - Rozmiar struktury jest przekazywany w polu `structure_size`.
-- Nieznane flagi oraz niezerowe pola zarezerwowane powoduja odrzucenie danych.
-- Wpis mapy pamieci ma staly rozmiar 32 bajtow i opisuje zakres, dlugosc, rodzaj oraz atrybuty.
-- Mapa pamieci jest znormalizowana przez ladowacz. Jadro nie interpretuje bezposrednio deskryptorow UEFI ani struktur BIOS.
+- Nieznane flagi oraz niezerowe pola zarezerwowane powodują odrzucenie danych.
+- Wpis mapy pamięci ma stały rozmiar 32 bajtów i opisuje zakres, długość, rodzaj oraz atrybuty.
+- Mapa pamięci jest normalizowana przez ładowacz. Jądro nie interpretuje bezpośrednio deskryptorów UEFI ani struktur BIOS.
 
-## Dane przekazywane do jadra
+## Dane przekazywane do jądra
 
 1. Typ firmware: UEFI albo BIOS.
-2. Adres, rozmiar i format znormalizowanej mapy pamieci.
-3. Fizyczny adres i rozmiar zaladowanego obrazu jadra.
-4. Adres wejscia jadra.
-5. Opcjonalny opis bufora obrazu (adres, rozmiar, wymiary, krok wiersza i format).
+2. Adres, rozmiar i format znormalizowanej mapy pamięci.
+3. Fizyczny adres i rozmiar załadowanego obrazu jądra.
+4. Adres wejścia jądra.
+5. Opcjonalny opis bufora obrazu: adres, rozmiar, wymiary, krok wiersza i format.
 6. Opcjonalny adres tabel RSDP ACPI.
+
+W obecnej ścieżce UEFI wypełniane są dane dotyczące firmware, mapy pamięci i jądra. Informacje o framebufferze i ACPI pozostają nieaktywne – odpowiednie flagi są wyzerowane.
 
 ## Walidacja
 
 Funkcja `vgk_boot_info_is_valid` sprawdza:
-- znacznik, wersje i minimalny rozmiar struktury;
+- znacznik, wersję i minimalny rozmiar struktury;
 - rozpoznany typ firmware i dozwolone flagi;
-- wyrownanie adresu mapy oraz calkowita liczbe wpisow;
-- zgodnosc rozmiaru wpisu mapy;
-- obecność podstawowych informacji o zaladowanym jadrze;
-- spojność opcjonalnych danych obrazu i ACPI;
-- wyzerowanie pol zarezerwowanych.
+- wyrównanie adresu mapy oraz całkowitą liczbę wpisów;
+- zgodność rozmiaru wpisu mapy;
+- podstawowe informacje o załadowanym jądrze i położenie punktu wejścia;
+- spójność opcjonalnych danych obrazu i ACPI;
+- wyzerowanie pól zarezerwowanych;
+- przepełnienia zakresów adresowych.
 
-Walidacja struktury nie dowodzi, ze wskazane adresy sa dostepne lub bezpieczne. Ladowacz musi zapewnic poprawne mapowanie, zakresy pamieci i czas zycia danych. Jadro po przejeciu sterowania musi dodatkowo sprawdzic zakresy przed dereferencja.
+Walidacja struktury nie dowodzi sama w sobie, że wskazane adresy są dostępne lub bezpieczne. Ładowacz musi zapewnić poprawne mapowanie, zakresy pamięci i czas życia danych. Jądro musi dodatkowo sprawdzać zakresy przed dereferencją.
 
-## Przekazanie sterowania – wymagany przyszly przebieg
+## Przekazanie sterowania – obecna ścieżka UEFI
 
-1. Ladowacz odczytuje wydanie i weryfikuje podpis oraz skroty plikow.
-2. Ladowacz laduje jadro do pamieci i przygotowuje znormalizowana mape.
-3. Ladowacz wypelnia `VGK_BOOT_INFO` i sprawdza ja funkcja walidujaca.
-4. Ladowacz konczy uslugi startowe firmware w odpowiednim momencie.
-5. Ladowacz przekazuje wskaznik do struktury w rejestrze RDI; jest to wlasny kontrakt VGK dla x86-64, a nie ABI GRUB/Multiboot2.
-6. Jadro sprawdza protokol przed korzystaniem z przekazanych danych.
+1. Ładowacz otwiera wolumin startowy i odczytuje podpisany wykaz VGKM oraz podpis.
+2. Sprawdza podpis Ed25519 i integralność plików wymienionych w wykazie.
+3. Odczytuje plik jądra do ograniczonego bufora i ponownie sprawdza jego rozmiar oraz SHA-256.
+4. Waliduje ELF64 x86-64, planuje segmenty i przydziela dokładne zakresy pamięci przez `AllocatePages`.
+5. Kopiuje segmenty do pamięci i zeruje obszary BSS.
+6. Normalizuje mapę pamięci UEFI i wypełnia `VGK_BOOT_INFO`.
+7. Pobiera aktualną mapę bezpośrednio przed `ExitBootServices`. Przy `EFI_INVALID_PARAMETER` ponawia pobranie mapy i próbę w ograniczonej pętli. Po nieudanej pierwszej próbie nie wykonuje innych usług firmware; przy nieoczekiwanym błędzie zatrzymuje procesor.
+8. Po udanym zakończeniu usług UEFI most asemblerowy przekazuje wskaźnik `VGK_BOOT_INFO` w rejestrze RDI i skacze do punktu wejścia jądra. Jest to własny kontrakt VGK, a nie ABI GRUB/Multiboot2.
+9. Punkt wejścia jądra ustawia własny stos, wywołuje funkcję diagnostyczną i sprawdza protokół przed użyciem danych.
 
 ## Status implementacji
 
 - [x] Definicja wersjonowanej struktury.
-- [x] Definicja wspolnego wpisu mapy pamieci.
-- [x] Walidacja podstawowej spojnosci.
-- [x] Testy przypadkow poprawnych i blednych.
-- [x] Test uruchamiany w GitHub Actions.
-- [x] Walidacja przepełnień zakresów mapy, jądra i obrazu.
-- [x] Minimalny punkt wejścia jądra, własny stos i diagnostyka przez port szeregowy (kod przygotowany; bez uruchomienia przez ładowacz).
-- [x] Deklaracje usług AllocatePages, GetMemoryMap i ExitBootServices.
+- [x] Definicja wspólnego wpisu mapy pamięci.
+- [x] Walidacja podstawowej spójności i przepełnień.
+- [x] Testy przypadków poprawnych i błędnych.
+- [x] Deklaracje usług UEFI i sprawdzenie ich położeń w tabeli firmware.
 - [x] Normalizacja mapy UEFI do formatu VGK wraz z testami.
-- [ ] Połączenie ładowacza z tym protokołem i uruchomienie jądra.
-- [ ] Wypelnianie struktury przez ladowacz UEFI.
-- [ ] Zaladowanie obrazu jadra przez UEFI.
-- [ ] Przekazanie sterowania do jadra.
-- [ ] Implementacja ladowacza BIOS.
-- [ ] Test uruchomienia w emulatorze UEFI i na sprzecie.
+- [x] Odczyt wykazu i plików z woluminu UEFI.
+- [x] Weryfikacja podpisu wykazu i skrótów plików.
+- [x] Walidacja ELF64 oraz przydzielanie i kopiowanie segmentów.
+- [x] Wypełnianie struktury przez ładowacz UEFI.
+- [x] Zakończenie usług startowych UEFI i przekazanie sterowania do jądra.
+- [x] Minimalny punkt wejścia jądra, własny stos i diagnostyka przez port szeregowy.
+- [x] Test uruchomienia w QEMU z firmware OVMF i tymczasowym kluczem testowym (GitHub Actions, przebieg nr 349).
+- [ ] Potwierdzenie działania na fizycznym komputerze.
+- [ ] Produkcyjny klucz zaufania wydawcy i procedura jego rotacji.
+- [ ] Implementacja ładowacza starszego BIOS.
+- [ ] Rozszerzenie protokołu o framebuffer, ACPI i dalsze informacje sprzętowe.
 
-Testy kompilacji i walidacji struktury nie oznaczaja jeszcze, ze VGK uruchamia jadro. Ten etap pozostaje do wykonania.
+## Granice obecnego testu
+
+Test QEMU potwierdza, że określony obraz UEFI, podpisane wydanie testowe i diagnostyczne jądro uruchomiły się w określonej konfiguracji emulatora OVMF. Klucz jest tworzony tymczasowo w GitHub Actions i nie jest kluczem produkcyjnym.
+
+Nie potwierdza to jeszcze zgodności ze wszystkimi wersjami firmware, procesorami Intel i AMD ani uruchomienia na fizycznym komputerze. Jądro pozostaje minimalnym etapem diagnostycznym, bez pełnego zarządzania pamięcią, przerwań, sterowników i usług systemowych.
