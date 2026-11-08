@@ -121,3 +121,29 @@ Testy muszą obejmować zarówno poprawne przypadki, jak i próby podmiany plik�
 Ogólne wymagania użytkowe i zasada trzech funkcji znajdują się w pliku docs/WYMAGANIA_UZYTKOWE_VGK.md. Plan etapów całego systemu znajduje się w pliku docs/PLAN_WDROZENIA.md.
 
 **Stan na dziś:** dokumentacja trybu awaryjnego jest projektem. W repozytorium nie ma jeszcze działającego terminala ratunkowego, migawek ani przywracania systemu.
+
+
+## 0. Dwa moduły systemowe i dwa warianty uruchamiania komputera
+
+W VGK trzeba rozróżniać dwa niezależne podziały. Nie są one tym samym:
+
+### Dwa moduły systemowe
+
+**Moduł pierwszy – Środowisko Startowe i Ratunkowe** działa niezależnie od właściwego systemu. Odpowiada za rozpoczęcie uruchamiania VGK, kontrolę zaufania i integralności, uruchomienie ekranu logowania oraz udostępnienie trybu awaryjnego. To on ma pozostać dostępny, gdy moduł drugi ulegnie awarii. Musi być możliwie mały, odseparowany i chroniony przed zmianami przez zwykły system.
+
+**Moduł drugi – System Właściwy** przejmuje pracę po pomyślnym zalogowaniu użytkownika. Obejmuje jądro i usługi zwykłego systemu, pulpit, sterowniki, aplikacje oraz codzienne funkcje. Jego awaria nie może uszkodzić ani zablokować modułu pierwszego.
+
+Moduł pierwszy nie może zależeć od jądra ani usług modułu drugiego. Instalator VGK ma zawierać funkcję **„Odbuduj mechanizm startowy pierwszego modułu”**, która z zaufanego nośnika sprawdzi i odtworzy wyłącznie składniki modułu pierwszego. Operacja musi pokazać zakres zmian i wymagać potwierdzenia. Nie może przy tym kasować danych użytkownika ani bez potrzeby reinstalować modułu drugiego.
+
+Ekran logowania należy do modułu pierwszego. Po poprawnym uwierzytelnieniu następuje kontrolowane przekazanie działania do modułu drugiego. Szczegóły tego przekazania, izolacji pamięci i obsługi sesji wymagają osobnego projektu technicznego.
+
+### Dwa warianty startu sprzętowego
+
+Moduł pierwszy ma mieć dwa własne warianty dostosowane do oprogramowania startowego płyty głównej:
+
+- **VGK UEFI** – dla komputerów uruchamianych w trybie UEFI;
+- **VGK Legacy** – dla komputerów ze starszym BIOS-em.
+
+To dwa warianty uruchomienia tego samego modułu pierwszego, a nie dwa różne systemy operacyjne ani dwa jądra. Docelowy nośnik instalacyjny ma zawierać oba warianty i automatycznie wybrać właściwy dla trybu uruchomienia komputera. Oba mają prowadzić do tego samego środowiska startowego VGK i dalej do tego samego Systemu Właściwego. Wariant Legacy zostanie opracowany po bezpiecznym uruchomieniu i przetestowaniu ścieżki UEFI.
+
+**Zasada nadrzędna:** problem lub uszkodzenie Systemu Właściwego nie może odebrać użytkownikowi dostępu do ekranu logowania, trybu awaryjnego ani procedury odbudowy modułu pierwszego.
