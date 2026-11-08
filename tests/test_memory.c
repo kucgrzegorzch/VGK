@@ -47,6 +47,11 @@ int main(void)
     boot_info.kernel_physical_base = UINT64_C(0x200000);
     boot_info.kernel_size = PAGE;
     boot_info.kernel_entry = UINT64_C(0x200000);
+    boot_info.kernel_segment_count = 1;
+    boot_info.kernel_segments[0].physical_base = UINT64_C(0x200000);
+    boot_info.kernel_segments[0].memory_size = PAGE;
+    boot_info.kernel_segments[0].flags =
+        VGK_KERNEL_SEGMENT_READ | VGK_KERNEL_SEGMENT_EXEC;
 
     EXPECT(vgk_memory_get_stats(&stats) == VGK_MEMORY_NOT_INITIALIZED);
     EXPECT(vgk_boot_info_is_valid(&boot_info));
