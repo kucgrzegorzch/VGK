@@ -4,9 +4,9 @@
 /*
  * Wspolny, wersjonowany protokol przekazania informacji startowych do jadra.
  *
- * Struktura nie jest jeszcze podlaczona do programu UEFI ani do jadra.
- * Jej uklad jest niezalezny od struktur firmware. Ladowacz UEFI i przyszly
- * ladowacz BIOS musza wypelnic ja zgodnie z tym samym kontraktem.
+ * Obecny ladowacz UEFI wypelnia te strukture i przekazuje jej adres w RDI.
+ * Jej uklad jest niezalezny od struktur firmware. Przyszly ladowacz BIOS
+ * bedzie musial wypelniac ja zgodnie z tym samym kontraktem.
  */
 #include <stddef.h>
 #include <stdint.h>
