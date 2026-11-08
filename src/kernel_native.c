@@ -62,6 +62,13 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
         VGK_CPU_FEATURES cpu_features;
         if (vgk_cpu_detect_features(&cpu_features) == VGK_CPU_OK) {
             serial_write("VGK: procesor obsluguje NX; wykryto szerokosc adresu fizycznego.\r\n");
+            if (cpu_features.sse2_supported != 0U)
+                serial_write("VGK: wykryto SSE2.\r\n");
+            if (cpu_features.avx_hardware_supported != 0U &&
+                cpu_features.avx_state_supported == 0U)
+                serial_write("VGK: AVX jest w procesorze, ale stan systemowy go nie udostepnia.\r\n");
+            if (cpu_features.avx2_usable != 0U)
+                serial_write("VGK: AVX2 jest dostepne; jadro nadal uzywa bezpiecznego zestawu podstawowego.\r\n");
         } else {
             serial_write("VGK: brak potwierdzonej obslugi NX lub szerokosci adresu; ochrona stron nie zostanie wlaczona.\r\n");
         }
