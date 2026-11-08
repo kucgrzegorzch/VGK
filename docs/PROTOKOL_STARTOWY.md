@@ -73,7 +73,7 @@ Walidacja struktury nie dowodzi sama w sobie, że wskazane adresy są dostępne 
 - [ ] Wykorzystanie uprawnień segmentów do budowy tablic stron: tekst tylko do odczytu i wykonania, dane do zapisu i niewykonywalne.
 - [x] Zakończenie usług startowych UEFI i przekazanie sterowania do jądra.
 - [x] Minimalny punkt wejścia jądra, własny stos i diagnostyka przez port szeregowy.
-- [x] Test uruchomienia w QEMU z firmware OVMF i tymczasowym kluczem testowym (GitHub Actions, przebieg nr 349).
+- [x] Test uruchomienia w QEMU z firmware OVMF i tymczasowym kluczem testowym (GitHub Actions, przebieg nr 406).
 - [ ] Potwierdzenie działania na fizycznym komputerze.
 - [ ] Produkcyjny klucz zaufania wydawcy i procedura jego rotacji.
 - [ ] Implementacja ładowacza starszego BIOS.
