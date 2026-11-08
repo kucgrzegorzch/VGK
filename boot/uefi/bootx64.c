@@ -340,6 +340,16 @@ static EFI_STATUS start_verified_kernel(
     boot_info.kernel_physical_base = kernel_min;
     boot_info.kernel_size = kernel_max - kernel_min;
     boot_info.kernel_entry = load_plan.entry;
+    boot_info.kernel_segment_count = load_plan.segment_count;
+    boot_info.reserved2 = 0;
+    for (uint32_t i = 0; i < load_plan.segment_count; ++i) {
+        const VGK_ELF_LOAD_SEGMENT *source = &load_plan.segments[i];
+        VGK_KERNEL_SEGMENT *destination = &boot_info.kernel_segments[i];
+        destination->physical_base = source->physical_address;
+        destination->memory_size = source->memory_size;
+        destination->flags = source->flags;
+        destination->reserved = 0;
+    }
 
     for (uint32_t attempt = 0;
          attempt < VGK_EXIT_BOOT_SERVICES_ATTEMPTS; ++attempt) {
