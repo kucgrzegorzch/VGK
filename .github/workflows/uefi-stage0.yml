@@ -33,6 +33,8 @@ jobs:
         run: make uefi-services-abi-test
       - name: Test walidacji segmentow jadra ELF64
         run: make uefi-elf-test
+      - name: Test przydzielania pamieci ELF przez UEFI
+        run: make uefi-elf-allocator-test
       - name: Test normalizacji mapy pamieci UEFI
         run: make uefi-memory-map-test
       - name: Test UEFI file reader adapter
