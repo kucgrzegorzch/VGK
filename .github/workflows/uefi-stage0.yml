@@ -16,7 +16,7 @@ jobs:
       - name: Install build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang lld gcc binutils python3 openssl
+          sudo apt-get install -y clang lld gcc binutils python3 openssl qemu-system-x86 ovmf
       - name: Build native UEFI application
         run: make clean uefi
       - name: Compile trusted kernel startup path with test-only key
@@ -27,6 +27,50 @@ jobs:
         run: make native-kernel
       - name: Validate native VGK kernel ELF
         run: make native-kernel-test
+      - name: Prepare an ephemeral signed UEFI test release
+        run: |
+          set -eu
+          openssl genpkey -algorithm Ed25519 -out build/test-signing-key.pem
+          openssl pkey -in build/test-signing-key.pem -pubout -outform DER -out build/test-public-key.der
+          python3 tools/generate_test_trust_header.py build/test-public-key.der build/vgk_trusted_public_key.h
+          make uefi-qemu-image
+          mkdir -p build/esp/EFI/BOOT build/esp/EFI/VGK build/esp/boot
+          cp build/BOOTX64-QEMU-TEST.EFI build/esp/EFI/BOOT/BOOTX64.EFI
+          cp build/vgk-kernel-native.elf build/esp/boot/kernel.elf
+          python3 tools/przygotuj_wydanie.py --root build/esp --release VGK-QEMU-CI --private-key build/test-signing-key.pem --manifest build/esp/EFI/VGK/VGKM --signature build/esp/EFI/VGK/VGKM.sig boot/kernel.elf
+      - name: Boot VGK kernel in QEMU with OVMF
+        run: |
+          set -eu
+          if [ -f /usr/share/OVMF/OVMF_CODE.fd ]; then
+            OVMF_CODE=/usr/share/OVMF/OVMF_CODE.fd
+            OVMF_VARS=/usr/share/OVMF/OVMF_VARS.fd
+          else
+            OVMF_CODE=/usr/share/OVMF/OVMF_CODE_4M.fd
+            OVMF_VARS=/usr/share/OVMF/OVMF_VARS_4M.fd
+          fi
+          test -f "$OVMF_CODE"
+          test -f "$OVMF_VARS"
+          cp "$OVMF_VARS" build/OVMF_VARS.fd
+          set +e
+          timeout 25s qemu-system-x86_64 \
+            -machine q35 -m 1024 -cpu qemu64 \
+            -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
+            -drive if=pflash,format=raw,file=build/OVMF_VARS.fd \
+            -device qemu-xhci,id=xhci \
+            -drive if=none,id=usbstick,format=raw,file=fat:rw:build/esp \
+            -device usb-storage,drive=usbstick,bootindex=1 \
+            -display none -monitor none -serial file:build/qemu-serial.log \
+            -no-reboot -no-shutdown
+          qemu_status=$?
+          set -e
+          if [ "$qemu_status" -ne 124 ] && [ "$qemu_status" -ne 0 ]; then
+            echo "QEMU zakończył się kodem $qemu_status"
+            cat build/qemu-serial.log || true
+            exit "$qemu_status"
+          fi
+          cat build/qemu-serial.log
+          grep -aF "VGK: uruchomiono wlasne jadro." build/qemu-serial.log
+          grep -aF "VGK: protokol startowy poprawny." build/qemu-serial.log
       - name: Validate PE32+ EFI image
         run: make uefi-test
       - name: Test UEFI file protocol layout
