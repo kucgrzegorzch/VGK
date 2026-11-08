@@ -13,7 +13,7 @@ Ten dokument porządkuje wymagania ustalone dla docelowego systemu. Nie oznacza,
 3. Nie usuwamy historycznego prototypu ani kopii źródeł, dopóki nowa ścieżka nie zostanie sprawdzona.
 4. Każdy etap otrzymuje jawny status: zaprojektowany, zaimplementowany, sprawdzony kompilacją, sprawdzony w emulatorze, sprawdzony na sprzęcie.
 5. Klucz prywatny wydawcy nigdy nie trafia do repozytorium, obrazu instalacyjnego ani artefaktów budowania.
-6. Podstawowe zabezpieczenia muszą działać bez połączenia z usługą AI. Opiekun AI nie jest jedyną linią obrony.
+6. Podstawowe zabezpieczenia muszą działać bez połączenia z usługą AI. Inteligentny Opiekun Systemu nie jest jedyną linią obrony.
 
 ## Docelowa budowa systemu
 
@@ -33,11 +33,11 @@ Moduł pierwszy nie może korzystać z jądra modułu drugiego. Powinien być mo
 
 Docelowo obejmuje własne jądro, zarządzanie pamięcią i procesami, obsługę urządzeń, system plików, sieć, pulpit, ustawienia, aplikacje i usługi.
 
-Terminal nie jest dostępny w zwykłym trybie pracy. Narzędzia terminalowe są dostępne wyłącznie w trybie awaryjnym.
+Terminal naprawczy nie jest dostępny w zwykłym trybie pracy. Jest dostępny wyłącznie w trybie awaryjnym.
 
-### Inteligentny Opiekun VGK
+### Inteligentny Opiekun Systemu
 
-Opiekun ma:
+Inteligentny Opiekun Systemu ma:
 - monitorować procesor, pamięć, dyski, urządzenia, usługi i integralność plików;
 - wykrywać istotne zmiany ustawień oraz zapisywać czas i kontekst zdarzenia;
 - po wykryciu zmiany wymagającej potwierdzenia pytać użytkownika, czy ją zlecił;
@@ -50,13 +50,15 @@ Samo pytanie użytkownika nie potwierdza tożsamości osoby przy komputerze. Dla
 
 ### Tryb awaryjny
 
-Tryb awaryjny zawiera trzy główne narzędzia:
+Tryb awaryjny ma trzy ustalone funkcje:
 
-1. **Terminal naprawczy z asystentem** – widok podzielony na terminal i pomoc diagnostyczną. Asystent wyjaśnia proponowane polecenia; operacje ryzykowne wymagają zgody administratora i są zapisywane.
-2. **Migawki systemu** – automatycznie dwie w miesiącu, przechowywane są najwyżej dwie; trzecia zastępuje najstarszą. Przywracanie pozwala wybrać datę i godzinę. Migawki systemowe nie cofają po cichu osobistych dokumentów.
-3. **Kopia zapasowa** – tworzona z pulpitu na drugi dysk lub pamięć USB; użytkownik wybiera, czy obejmuje również dane i ustawienia osobiste.
+1. **Terminal naprawczy** – dostępny wyłącznie w trybie awaryjnym, z pomocą diagnostyczną. Operacje ryzykowne wymagają zgody administratora i są zapisywane.
+2. **Automatyczne migawki systemu** – dwie migawki w miesiącu; przy utworzeniu kolejnej najstarsza jest usuwana, aby zachować ustaloną rotację.
+3. **Przywracanie systemu** – odtworzenie systemu z kopii znajdującej się na dysku komputera albo na pendrivie. Przed rozpoczęciem należy sprawdzić czytelność i zgodność kopii, a użytkownik musi potwierdzić operację.
 
-Migawki nie zastępują kopii na innym nośniku i nie chronią przed fizyczną awarią dysku.
+Tworzenie zwykłych kopii zapasowych odbywa się w działającym VGK, za pomocą osobnej aplikacji na pulpicie. Użytkownik wybiera dane i miejsce zapisu, w tym dysk lokalny albo pamięć USB. Aplikacja tworzy i sprawdza kopię, ale nie przywraca systemu. Przywracanie jest dostępne wyłącznie w trybie awaryjnym.
+
+Migawki systemowe nie zastępują kopii zapasowych na innym nośniku i nie chronią przed fizyczną awarią dysku.
 
 ## Pulpit i codzienna obsługa
 
@@ -65,7 +67,7 @@ Migawki nie zastępują kopii na innym nośniku i nie chronią przed fizyczną a
 - Możliwość zmiany wyglądu, skrótów i elementów pulpitu.
 - Centrum powiadomień z ważnymi, a nie spamującymi komunikatami.
 - Panel ustawień w układzie dwóch kolumn: kategorie po lewej, szczegółowe ustawienia po prawej.
-- Terminal niedostępny w zwykłym trybie.
+- Terminal naprawczy niedostępny w zwykłym trybie.
 
 ## Bezpieczeństwo
 
@@ -125,12 +127,14 @@ Podstawą jest architektura x86-64. System ma wykrywać możliwości procesora p
 - Konta użytkowników i blokowanie sesji.
 - Pulpit, pasek, centrum powiadomień i panel ustawień.
 - Zapora domyślnie włączona.
-- Przeglądarka i podstawowe aplikacje.
+- Przeglądarka i podstawowe aplikacje, w tym aplikacja do tworzenia kopii zapasowych.
 
-### Etap F – odzyskiwanie i Opiekun
+### Etap F – odzyskiwanie i Inteligentny Opiekun Systemu
 - Niezależny moduł ratunkowy.
-- Dwie migawki i kopie zapasowe na zewnętrznym nośniku.
+- Dwie automatyczne migawki systemu miesięcznie.
+- Przywracanie systemu z kopii dostępne wyłącznie w trybie awaryjnym.
 - Terminal naprawczy dostępny wyłącznie w trybie awaryjnym.
+- Aplikacja tworzenia kopii zapasowych dostępna na zwykłym pulpicie.
 - Ograniczony agent lokalny Opiekuna, dziennik i kontrola uprawnień.
 - Opcjonalne połączenie z modelem AI; bez wysyłania danych bez zgody użytkownika.
 
