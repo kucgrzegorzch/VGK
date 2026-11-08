@@ -126,11 +126,14 @@ Podstawą jest architektura x86-64. System ma wykrywać możliwości procesora p
 - Nie używać GRUB ani Multiboot2 w nowej ścieżce.
 
 ### Etap C – minimalne działające jądro
-- Obsługa wyjątków, przerwań i zegara.
-- Rozpoznawanie procesora i mapy pamięci.
-- Własny allocator pamięci fizycznej i wirtualnej.
-- Podstawowa konsola diagnostyczna, a następnie sterowniki.
-- Testy w emulatorze i na wybranych komputerach Intel oraz AMD.
+- [x] Odczyt i walidacja znormalizowanej mapy pamięci.
+- [x] Wczesny allocator fizycznych stron: przydział z wyrównaniem, zwalnianie, scalanie zakresów i wykrywanie podwójnego zwolnienia.
+- [x] Testy jednostkowe allocatora oraz test przydziału i zwolnienia strony podczas startu w QEMU/OVMF.
+- [ ] Własne tablice stron i zarządzanie pamięcią wirtualną.
+- [ ] Obsługa wyjątków, przerwań i zegara.
+- [ ] Rozpoznawanie rozszerzonych możliwości procesora.
+- [ ] Podstawowa konsola diagnostyczna, a następnie sterowniki.
+- [ ] Testy na fizycznych komputerach Intel i AMD.
 
 ### Etap D – podstawowe usługi systemowe
 - Procesy, wątki, uprawnienia i izolacja pamięci.
@@ -176,7 +179,7 @@ Repozytorium zawiera:
 Ograniczenia:
 - test emulatorowy używa klucza tymczasowego, a nie produkcyjnego klucza wydawcy;
 - nie wykonano jeszcze testu na fizycznym komputerze;
-- jądro nie ma jeszcze pełnego zarządzania pamięcią, procesami, przerwaniami, sterownikami ani usług systemowych;
+- jądro ma wczesny allocator fizycznych stron, ale nie ma jeszcze własnych tablic stron, zarządzania pamięcią wirtualną, procesami, przerwaniami, sterownikami ani usług systemowych;
 - własna ścieżka starszego BIOS nie jest gotowa;
 - system plików, sieć, instalator, pulpit, aplikacje i środowisko ratunkowe pozostają do zbudowania.
 
