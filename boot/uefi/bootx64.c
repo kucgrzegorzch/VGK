@@ -217,6 +217,18 @@ static void release_loaded_kernel(
     }
 }
 
+/*
+ * ExitBootServices may partially shut down firmware even when it fails.
+ * After the first attempt, do not free pages, close protocols, print, or
+ * return to firmware. A failed retry path must stop without further services.
+ */
+static _Noreturn void halt_after_exit_boot_services_failure(void)
+{
+    for (;;) {
+        __asm__ volatile ("cli; hlt");
+    }
+}
+
 static EFI_STATUS start_verified_kernel(
     EFI_SYSTEM_TABLE *system_table,
     VGK_EFI_HANDLE image_handle,
@@ -343,6 +355,8 @@ static EFI_STATUS start_verified_kernel(
                 (size_t)descriptor_size, descriptor_version,
                 vgk_memory_map, VGK_MEMORY_MAP_ENTRY_CAPACITY,
                 &normalized_count) != 0) {
+            if (attempt != 0)
+                halt_after_exit_boot_services_failure();
             release_loaded_kernel(&allocator, &loaded_image);
             return EFI_LOAD_ERROR;
         }
@@ -350,6 +364,8 @@ static EFI_STATUS start_verified_kernel(
         boot_info.memory_map_size =
             normalized_count * sizeof(VGK_MEMORY_MAP_ENTRY);
         if (!vgk_boot_info_is_valid(&boot_info)) {
+            if (attempt != 0)
+                halt_after_exit_boot_services_failure();
             release_loaded_kernel(&allocator, &loaded_image);
             return EFI_LOAD_ERROR;
         }
@@ -358,14 +374,12 @@ static EFI_STATUS start_verified_kernel(
         if (status == EFI_SUCCESS) {
             vgk_uefi_enter_kernel(load_plan.entry, &boot_info);
         }
-        if (status != EFI_INVALID_PARAMETER) {
-            release_loaded_kernel(&allocator, &loaded_image);
-            return status;
-        }
+        if (status != EFI_INVALID_PARAMETER)
+            halt_after_exit_boot_services_failure();
     }
 
-    release_loaded_kernel(&allocator, &loaded_image);
-    return EFI_LOAD_ERROR;
+    /* Boot Services are no longer safe to call after any failed attempt. */
+    halt_after_exit_boot_services_failure();
 }
 #endif
 
