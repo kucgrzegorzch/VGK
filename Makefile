@@ -11,7 +11,7 @@ UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machin
 CRYPTO_DIR := boot/crypto
 MONOCYPHER_DIR := $(CRYPTO_DIR)/monocypher
 
-.PHONY: all clean iso check-tools test native-kernel native-kernel-test uefi uefi-test uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test
+.PHONY: all clean iso check-tools test native-kernel native-kernel-test uefi uefi-test uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test
 all: build/vgk-kernel.elf
 
 test: build/vgk-kernel.elf
@@ -116,7 +116,7 @@ vgkm-test: | build
 keygen-test: | build
 	python3 -m unittest discover -s tests -p 'test_klucz_zaufania.py' -v
 
-security-test: keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test uefi-manifest-test uefi-memory-map-test uefi-elf-test
+security-test: keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test uefi-manifest-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test
 	python3 -m unittest discover -s tests -p 'test_sprawdz_wydanie.py' -v
 
 sha256-test: | build
