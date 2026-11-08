@@ -193,16 +193,38 @@ VGK_ELF_RESULT vgk_elf64_load_image(
     void *context,
     VGK_ELF_LOADED_IMAGE *loaded)
 {
+    VGK_ELF_LOAD_PLAN checked_plan;
+
     if (image == 0 || plan == 0 || allocate_range == 0 ||
-        release_range == 0 || loaded == 0 ||
-        plan->segment_count == 0 ||
-        plan->segment_count > VGK_ELF_MAX_LOAD_SEGMENTS)
+        release_range == 0 || loaded == 0)
         return VGK_ELF_INVALID_ARGUMENT;
 
     zero_bytes((uint8_t *)loaded, sizeof(*loaded));
 
-    for (uint32_t i = 0; i < plan->segment_count; ++i) {
-        const VGK_ELF_LOAD_SEGMENT *segment = &plan->segments[i];
+    /* Never trust a caller-constructed load plan: rebuild it from the ELF. */
+    if (vgk_elf64_make_load_plan(image, image_size, &checked_plan) !=
+        VGK_ELF_OK)
+        return VGK_ELF_BAD_SEGMENT;
+    if (plan->entry != checked_plan.entry ||
+        plan->segment_count != checked_plan.segment_count ||
+        plan->segment_count == 0 ||
+        plan->segment_count > VGK_ELF_MAX_LOAD_SEGMENTS)
+        return VGK_ELF_BAD_SEGMENT;
+
+    for (uint32_t i = 0; i < checked_plan.segment_count; ++i) {
+        const VGK_ELF_LOAD_SEGMENT *supplied = &plan->segments[i];
+        const VGK_ELF_LOAD_SEGMENT *validated = &checked_plan.segments[i];
+        if (supplied->file_offset != validated->file_offset ||
+            supplied->physical_address != validated->physical_address ||
+            supplied->file_size != validated->file_size ||
+            supplied->memory_size != validated->memory_size ||
+            supplied->alignment != validated->alignment ||
+            supplied->flags != validated->flags)
+            return VGK_ELF_BAD_SEGMENT;
+    }
+
+    for (uint32_t i = 0; i < checked_plan.segment_count; ++i) {
+        const VGK_ELF_LOAD_SEGMENT *segment = &checked_plan.segments[i];
         uint64_t rounded_size;
         uint64_t page_count;
         void *mapped = 0;
