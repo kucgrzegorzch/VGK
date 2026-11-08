@@ -22,7 +22,8 @@ To potwierdza start w konkretnym środowisku emulatora. Nie jest jeszcze potwier
 - Przydzielanie dokładnych zakresów pamięci przez UEFI, kopiowanie segmentów i zerowanie BSS.
 - Normalizacja mapy pamięci UEFI do wspólnego formatu VGK.
 - Wczesny zarządca fizycznych stron pamięci: wyznacza wolne zakresy, przydziela strony z wyrównaniem i scala zwalniane zakresy.
-- Wersjonowany protokół przekazania danych startowych do jądra.
+- Walidacja segmentów jądra w protokole startowym: odrzucanie zakresów nakładających się, nieprawidłowego punktu wejścia i segmentów jednocześnie zapisywalnych oraz wykonywalnych.
+- Wersjonowany protokół przekazania danych startowych do jądra (wersja 2), z opisami segmentów ELF i ich uprawnieniami.
 - Zakończenie usług startowych UEFI i przekazanie sterowania do własnego punktu wejścia jądra.
 - Własny stos jądra oraz diagnostyka przez port szeregowy COM1.
 - Test uruchomienia w QEMU/OVMF z tymczasowym kluczem i podpisanym wydaniem testowym.
