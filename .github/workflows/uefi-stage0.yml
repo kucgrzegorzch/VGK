@@ -27,6 +27,8 @@ jobs:
         run: make native-kernel
       - name: Validate native VGK kernel ELF
         run: make native-kernel-test
+      - name: Test early physical memory allocator
+        run: make memory-test
       - name: Prepare an ephemeral signed UEFI test release
         run: |
           set -eu
@@ -71,6 +73,7 @@ jobs:
           cat build/qemu-serial.log
           grep -aF "VGK: uruchomiono wlasne jadro." build/qemu-serial.log
           grep -aF "VGK: protokol startowy poprawny." build/qemu-serial.log
+          grep -aF "VGK: menedzer pamieci uruchomiony." build/qemu-serial.log
       - name: Verify UEFI refuses a modified kernel
         run: |
           set -eu
