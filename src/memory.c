@@ -1,5 +1,7 @@
 #include "vgk_memory.h"
 
+#define VGK_MEMORY_MIN_ALLOCATABLE_ADDRESS UINT64_C(0x00100000)
+
 typedef struct {
     uint64_t base;
     uint64_t page_count;
@@ -125,16 +127,22 @@ VGK_MEMORY_RESULT vgk_memory_init(const VGK_BOOT_INFO *boot_info)
         }
         previous_end = end;
 
-        if (entry->type != VGK_MEMORY_USABLE)
+        if (entry->type != VGK_MEMORY_USABLE ||
+            end <= VGK_MEMORY_MIN_ALLOCATABLE_ADDRESS)
             continue;
 
-        page_count = entry->length / VGK_MEMORY_PAGE_SIZE;
+        {
+            uint64_t usable_base = entry->base;
+            if (usable_base < VGK_MEMORY_MIN_ALLOCATABLE_ADDRESS)
+                usable_base = VGK_MEMORY_MIN_ALLOCATABLE_ADDRESS;
+            page_count = (end - usable_base) / VGK_MEMORY_PAGE_SIZE;
+            result = append_usable_range(usable_base, page_count);
+        }
         if (total_pages > UINT64_MAX - page_count) {
             clear_allocator();
             return VGK_MEMORY_OVERFLOW;
         }
 
-        result = append_usable_range(entry->base, page_count);
         if (result != VGK_MEMORY_OK) {
             clear_allocator();
             return result;
