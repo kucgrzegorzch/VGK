@@ -181,3 +181,8 @@ Docelowy zestaw obejmuje edytor tekstu, arkusz kalkulacyjny i program prezentacy
 
 ### Narzędzie do przygotowania pierwszego nośnika w Windows
 Ponieważ VGK trzeba najpierw zainstalować, przygotowanie pierwszego pendrive'a musi być możliwe także z istniejącego systemu Windows. Należy opracować osobny, prosty program dla Windows, który sprawdza podpis i sumę kontrolną obrazu VGK, pozwala wybrać pendrive, ostrzega o skasowaniu jego zawartości, wymaga potwierdzenia, zapisuje obraz i weryfikuje wynik. Później analogiczny kreator będzie dostępny bezpośrednio w VGK. To narzędzie nie może wymagać od użytkownika znajomości poleceń ani ręcznego przygotowywania partycji.
+
+
+## Postęp prac nad walidacją jądra ELF64
+
+Dodano osobny, ograniczony walidator pliku ELF64 dla architektury x86-64. Sprawdza nagłówek, tablicę segmentów, granice pliku i pamięci, zgodność adresów wirtualnych i fizycznych, wyrównanie, nakładanie się segmentów, położenie punktu wejścia oraz zakaz segmentów jednocześnie zapisywalnych i wykonywalnych. Walidator tworzy wyłącznie plan załadowania — nie kopiuje jeszcze jądra do pamięci i nie uruchamia go. Został dołączony do budowania aplikacji UEFI i otrzymał osobny zestaw testów oraz kontrolę w GitHub Actions. Do czasu zakończenia automatycznego przebiegu nie uznajemy testów za zaliczone.
