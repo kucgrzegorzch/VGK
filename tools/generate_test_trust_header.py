@@ -20,11 +20,11 @@ def main() -> int:
     values = ", ".join(f"0x{byte:02x}" for byte in key)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(
-        "#ifndef VGK_TRUSTED_PUBLIC_KEY_H\\n"
-        "#define VGK_TRUSTED_PUBLIC_KEY_H\\n"
-        "/* Ephemeral CI-only key. Never use for a published VGK release. */\\n"
-        f"#define VGK_TRUSTED_PUBLIC_KEY_INITIALIZER {{ {values} }}\\n"
-        "#endif\\n",
+        "#ifndef VGK_TRUSTED_PUBLIC_KEY_H\n"
+        "#define VGK_TRUSTED_PUBLIC_KEY_H\n"
+        "/* Ephemeral CI-only key. Never use for a published VGK release. */\n"
+        f"#define VGK_TRUSTED_PUBLIC_KEY_INITIALIZER {{ {values} }}\n"
+        "#endif\n",
         encoding="ascii",
     )
     return 0
