@@ -47,6 +47,11 @@ native-kernel-test: build/vgk-kernel-native.elf
 build/bootx64.obj: boot/uefi/bootx64.c boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/crypto/manifest.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -Iboot/crypto -c $< -o $@
 
+# Most UEFI functions use Microsoft x64 ABI; this bridge prepares the native
+# kernel entry register contract (System V: VGK_BOOT_INFO in RDI).
+build/uefi_kernel_entry.obj: boot/uefi/uefi_kernel_entry.S boot/uefi/uefi_kernel_entry.h include/vgk_boot_info.h | build
+	$(CLANG) --target=x86_64-pc-win32-coff -mno-red-zone -c boot/uefi/uefi_kernel_entry.S -o $@
+
 build/uefi_file_reader.obj: boot/uefi/uefi_file_reader.c boot/uefi/uefi_file_reader.h boot/uefi/uefi_file.h boot/crypto/manifest.h boot/crypto/integrity.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -Iboot/crypto -c $< -o $@
 
@@ -77,7 +82,7 @@ build/monocypher.obj: $(MONOCYPHER_DIR)/monocypher.c | build
 build/monocypher_ed25519.obj: $(MONOCYPHER_DIR)/monocypher-ed25519.c | build
 	$(CLANG) $(UEFI_CFLAGS) -I$(MONOCYPHER_DIR) -c $< -o $@
 
-build/BOOTX64.EFI: build/bootx64.obj build/elf_loader.obj build/uefi_elf_allocator.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
+build/BOOTX64.EFI: build/bootx64.obj build/uefi_kernel_entry.obj build/elf_loader.obj build/uefi_elf_allocator.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
 	$(LLD_LINK) $(UEFI_LDFLAGS) /out:$@ $^
 
 uefi: build/BOOTX64.EFI
