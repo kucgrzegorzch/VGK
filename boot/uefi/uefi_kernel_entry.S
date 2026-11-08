@@ -22,4 +22,3 @@ vgk_uefi_enter_kernel:
     xorq %rbp, %rbp
     jmpq *%rax
 
-.section .note.GNU-stack,"",@progbits
