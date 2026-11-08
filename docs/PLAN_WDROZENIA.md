@@ -162,3 +162,19 @@ Ograniczenia:
 - testy struktury i testy z atrapą firmware nie zastępują testu w emulatorze UEFI ani na fizycznym komputerze.
 
 Historyczny prototyp 0.1 i jego pliki należy zachować jako materiał archiwalny do czasu potwierdzenia nowej ścieżki. Nie należy przywracać GRUB/Multiboot2 do docelowego mechanizmu VGK.
+
+
+## Dodatkowe aplikacje użytkowe – nośnik instalacyjny i biuro
+
+### Aplikacja do przygotowania pendrive'a VGK
+- Prosty kreator podobny w obsłudze do Rufusa: wybór obrazu VGK, wybór pendrive'a, kontrola obrazu, zapis i sprawdzenie wyniku.
+- Weryfikacja podpisu wydania oraz sumy kontrolnej przed zapisem.
+- Wyraźne ostrzeżenie o usunięciu danych z wybranego pendrive'a i obowiązkowe potwierdzenie.
+- Tworzenie nośnika zgodnego z własnym mechanizmem uruchamiania VGK; obsługa UEFI jako pierwsza, starszy BIOS dopiero po ukończeniu osobnej ścieżki.
+- Aplikacja nie może po cichu modyfikować dysku systemowego ani innych nośników.
+
+### Instalator systemu
+To osobny program uruchamiany z nośnika instalacyjnego. Prowadzi przez wybór dysku, sposób instalacji, ustawienia użytkownika i końcową kontrolę. Musi jasno pokazywać, które partycje i dane zostaną zmienione. Instalacja obok innego systemu będzie dostępna dopiero po bezpiecznym przygotowaniu i przetestowaniu obsługi partycji.
+
+### Pakiet biurowy
+Docelowy zestaw obejmuje edytor tekstu, arkusz kalkulacyjny i program prezentacyjny. Preferowana jest obsługa OpenDocument oraz praktyczna zgodność z dokumentami Microsoft Office. Przed wyborem gotowego pakietu należy sprawdzić licencję, wymagania pamięciowe i sprzętowe, rozmiar oraz możliwość bezpiecznego uruchomienia w VGK. Programy biurowe są aplikacjami użytkowymi – nie zmieniają niezależnej budowy jądra VGK.
