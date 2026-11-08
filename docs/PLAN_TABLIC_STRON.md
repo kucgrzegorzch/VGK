@@ -95,3 +95,24 @@ Nie wolno w takiej sytuacji kontynuować startu z częściowo zbudowanymi tablic
 - Pierwsza wersja nie będzie jeszcze pełnym zarządcą pamięci wirtualnej ani obsługą wszystkich urządzeń.
 - Wdrożenie musi być etapowe: testy hostowe, test QEMU, kontrolowane testy awarii, dopiero później próby na sprzęcie.
 - Nie wolno oznaczać tej funkcji jako gotowej, dopóki testy ochrony stron rzeczywiście nie potwierdzą zachowania procesora.
+
+## Rozszerzone rozpoznawanie możliwości procesora
+
+Moduł CPUID został rozszerzony o odczyt producenta, rodziny, modelu i rewizji procesora oraz wybranych możliwości SSE2, SSE3, SSSE3, SSE4.1, SSE4.2 i AVX/AVX2. Identyfikator producenta i model służą diagnostyce, a nie zamkniętej liście dozwolonych procesorów.
+
+Szczególnie ważne jest rozróżnienie:
+- **AVX obecne w procesorze** – procesor deklaruje instrukcje;
+- **stan AVX udostępniony przez system** – procesor deklaruje OSXSAVE, a XCR0 ma włączony zapis i odtwarzanie stanu XMM/YMM;
+- **AVX2 dostępne** – procesor deklaruje AVX2 i jednocześnie spełnione są warunki udostępnienia stanu AVX.
+
+Instrukcja XGETBV jest wykonywana dopiero po sprawdzeniu OSXSAVE. Dzięki temu VGK nie uzna samej obecności AVX w układzie za zgodę na wykonywanie tych instrukcji. Na tym etapie jądro jedynie rozpoznaje możliwości i wypisuje diagnostykę; nie zawiera jeszcze ścieżek kodu wykorzystujących AVX2.
+
+### Zasada zgodności z różnymi generacjami
+
+- Jądro i kod startowy pozostają kompilowane dla bezpiecznego, podstawowego zestawu x86-64, bez wymuszania AVX/AVX2.
+- Funkcje przyspieszone będą osobnymi wariantami, wybieranymi dopiero po sprawdzeniu sprzętu i stanu systemu.
+- Brak nowszej instrukcji nie może uniemożliwić uruchomienia podstawowego systemu.
+- Nieznany model procesora nie jest automatycznie odrzucany; znaczenie mają wymagane cechy architektury i poprawność działania.
+- Każdy wariant przyspieszony będzie musiał mieć odpowiednik podstawowy i testy na emulatorze oraz rzeczywistym sprzęcie.
+
+**Ograniczenie obecnego etapu:** wykrywanie możliwości nie oznacza jeszcze pełnej zgodności ze wszystkimi procesorami. Nie wykonaliśmy jeszcze testów na fizycznych komputerach Intel i AMD, a jądro nie przełącza się na kod AVX/AVX2.
