@@ -27,11 +27,17 @@ int main(void)
     EXPECT(features.physical_address_bits == 48U);
     EXPECT(features.nx_supported == 1U);
     EXPECT(features.reserved[0] == 0U && features.reserved[1] == 0U);
+    EXPECT(features.vendor[0] == '\\0' && features.vendor[12] == '\\0');
+    EXPECT(features.avx_hardware_supported == 0U);
+    EXPECT(features.avx_state_supported == 0U);
+    EXPECT(features.avx2_usable == 0U);
 
     EXPECT(vgk_cpu_decode_features(
         0x16U, 0x80000008U, 0U, 48U, &features) == VGK_CPU_UNSUPPORTED);
     EXPECT(features.nx_supported == 0U);
     EXPECT(features.physical_address_bits == 0U);
+    EXPECT(features.nx_supported == 0U);
+    EXPECT(features.avx2_usable == 0U);
 
     EXPECT(vgk_cpu_decode_features(
         0x16U, 0x80000001U, NX_BIT, 48U, &features) == VGK_CPU_UNSUPPORTED);
