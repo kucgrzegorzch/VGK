@@ -12,7 +12,7 @@ Wymagane elementy:
 - odmowa uruchomienia lub izolowanie pliku, którego podpis jest nieprawidłowy albo którego zawartość zmieniono;
 - rozdzielenie uprawnień zwykłego użytkownika, aplikacji i administratora;
 - ograniczanie dostępu aplikacji do plików, urządzeń, pamięci i usług, zgodnie z zasadą minimalnych uprawnień;
-- bezpieczne aktualizacje z podpisem, możliwością sprawdzenia i odzyskania poprzedniej sprawnej wersji;
+- bezpieczne aktualizacje z podpisem i kontrolą integralności; odzyskiwanie systemu odbywa się zgodnie z osobnym trybem awaryjnym opisanym niżej;
 - dziennik zdarzeń bezpieczeństwa oraz czytelne ostrzeżenia dla użytkownika.
 
 Ochrona ma działać lokalnie i nie może wymagać połączenia z usługą sztucznej inteligencji. Moduł inteligentnego doradcy może pomagać w analizie, ale nie może być jedyną barierą bezpieczeństwa.
@@ -49,7 +49,7 @@ System powinien od pierwszej użytecznej wersji zawierać podstawowy zestaw narz
 - przeglądarka internetowa;
 - prosty edytor tekstu;
 - archiwizator plików;
-- narzędzie do tworzenia kopii zapasowych i odzyskiwania.
+- podstawowe narzędzia diagnostyczne dostępne w zwykłym systemie, bez terminala naprawczego.
 
 Operacje mogące usunąć dane (np. formatowanie, zmiana partycji) muszą mieć dodatkowe ostrzeżenie i potwierdzenie.
 
@@ -61,7 +61,22 @@ Dolny pasek pulpitu ma obsługiwać automatyczne ukrywanie:
 - użytkownik może wyłączyć automatyczne ukrywanie w ustawieniach;
 - zachowanie musi być wygodne również na ekranach dotykowych.
 
-## 5. Zgłoszenia brakujących funkcji
+## 5. Tryb awaryjny i odzyskiwanie systemu
+
+Odzyskiwanie VGK ma odbywać się przez odrębny tryb awaryjny, a nie przez zwykły pulpit.
+
+Ustalone funkcje trybu awaryjnego są ograniczone do trzech:
+1. **Terminal naprawczy** — dostępny wyłącznie w trybie awaryjnym. Nie może być dostępny podczas zwykłej pracy systemu.
+2. **Automatyczne migawki systemu** — dwie migawki w miesiącu; przy tworzeniu kolejnej najstarsza jest usuwana, aby zachować ustaloną rotację.
+3. **Odtworzenie systemu** — możliwość przywrócenia systemu z kopii znajdującej się na dysku komputera albo na pendrivie.
+
+Tryb awaryjny ma być częścią odseparowanego środowiska uruchamiania i ratunkowego, z własnymi plikami. Awaria właściwego systemu nie powinna uniemożliwić uruchomienia środowiska ratunkowego. Należy zabezpieczyć jego pliki kontrolą integralności i oddzielić je od zwykłego systemu.
+
+W zwykłym trybie pracy terminal naprawczy pozostaje niedostępny. Za bieżące monitorowanie i wykrywanie problemów odpowiada Strażnik VGK. Użytkownik korzysta z trybu awaryjnego przy poważnych awariach lub gdy zwykły system nie może się uruchomić.
+
+Nie dodawać do zwykłego pulpitu osobnego, ogólnego narzędzia do ręcznego odtwarzania systemu — tę rolę pełni opisany tryb awaryjny.
+
+## 6. Zgłoszenia brakujących funkcji
 
 Jeśli użytkownik zapyta o funkcję powszechną w innych systemach, której VGK jeszcze nie ma, odpowiedź powinna być uczciwa i spokojna:
 - jasno powiedzieć, że VGK jest na wczesnym etapie rozwoju i funkcja nie jest jeszcze dostępna;
@@ -72,7 +87,7 @@ Jeśli użytkownik zapyta o funkcję powszechną w innych systemach, której VGK
 
 Nie należy obiecywać, że każda zgłoszona funkcja na pewno trafi do najbliższej aktualizacji. Priorytetem pozostają bezpieczeństwo, stabilność i sprawdzone działanie.
 
-## 6. Kolejność realizacji
+## 7. Kolejność realizacji
 
 1. Dokończyć bezpieczne uruchamianie własnego jądra VGK.
 2. Zbudować podstawy pamięci, wyjątków, przerwań i sterowników.
@@ -80,6 +95,6 @@ Nie należy obiecywać, że każda zgłoszona funkcja na pewno trafi do najbliż
 4. Przygotować podstawowe narzędzia systemowe i pulpit, w tym ukrywany dolny pasek.
 5. Zbudować instalator oraz menedżer aplikacji.
 6. Rozwijać zgodność z programami Windows; później ocenić zgodność z programami Linux.
-7. Rozwijać System Naprawczy i środowisko ratunkowe.
+7. Dokończyć odseparowane środowisko ratunkowe i trzy ustalone funkcje trybu awaryjnego; bieżące monitorowanie powierzyć Strażnikowi VGK.
 
 **Status:** wymagania zapisane do realizacji etapami. Żadna z funkcji opisanych w tym dokumencie nie jest przez samo zapisanie uznana za gotową.
