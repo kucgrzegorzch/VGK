@@ -85,6 +85,20 @@ int main(void)
     }
 
     info = valid_info();
+    info.kernel_segment_count = 0;
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano brak opisu segmentow jadra");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.kernel_segments[1].physical_base = UINT64_C(0x300000);
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano dane w nieuzywanym slocie segmentu");
+        ++failures;
+    }
+
+    info = valid_info();
     info.kernel_segments[0].flags =
         VGK_KERNEL_SEGMENT_READ | VGK_KERNEL_SEGMENT_WRITE |
         VGK_KERNEL_SEGMENT_EXEC;
@@ -97,6 +111,17 @@ int main(void)
     info.kernel_segments[0].physical_base += UINT64_C(0x1000);
     if (vgk_boot_info_is_valid(&info)) {
         puts("FAIL: zaakceptowano segment poza zakresem jadra");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.kernel_segment_count = 2;
+    info.kernel_segments[1].physical_base = UINT64_C(0x200000);
+    info.kernel_segments[1].memory_size = UINT64_C(0x1000);
+    info.kernel_segments[1].flags =
+        VGK_KERNEL_SEGMENT_READ | VGK_KERNEL_SEGMENT_WRITE;
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano dwa segmenty w tych samych stronach");
         ++failures;
     }
 
