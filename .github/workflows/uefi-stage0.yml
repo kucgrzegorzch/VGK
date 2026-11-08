@@ -71,6 +71,47 @@ jobs:
           cat build/qemu-serial.log
           grep -aF "VGK: uruchomiono wlasne jadro." build/qemu-serial.log
           grep -aF "VGK: protokol startowy poprawny." build/qemu-serial.log
+      - name: Verify UEFI refuses a modified kernel
+        run: |
+          set -eu
+          python3 - <<'PY'
+          from pathlib import Path
+          kernel = Path("build/esp/boot/kernel.elf")
+          data = bytearray(kernel.read_bytes())
+          data[len(data) // 2] ^= 1
+          kernel.write_bytes(data)
+          PY
+          if [ -f /usr/share/OVMF/OVMF_CODE.fd ]; then
+            OVMF_CODE=/usr/share/OVMF/OVMF_CODE.fd
+            OVMF_VARS=/usr/share/OVMF/OVMF_VARS.fd
+          else
+            OVMF_CODE=/usr/share/OVMF/OVMF_CODE_4M.fd
+            OVMF_VARS=/usr/share/OVMF/OVMF_VARS_4M.fd
+          fi
+          cp "$OVMF_VARS" build/OVMF_VARS_TAMPERED.fd
+          set +e
+          timeout -k 5s 15s qemu-system-x86_64 \
+            -machine q35 -m 1024 -cpu qemu64 \
+            -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
+            -drive if=pflash,format=raw,file=build/OVMF_VARS_TAMPERED.fd \
+            -device qemu-xhci,id=xhci \
+            -drive if=none,id=usbstick,format=raw,file=fat:rw:build/esp \
+            -device usb-storage,drive=usbstick,bootindex=1 \
+            -display none -monitor none -serial file:build/qemu-tampered-serial.log \
+            -no-reboot
+          qemu_status=$?
+          set -e
+          if [ "$qemu_status" -ne 124 ] && [ "$qemu_status" -ne 0 ]; then
+            echo "QEMU test podmienionego jadra zakończył się kodem $qemu_status"
+            cat build/qemu-tampered-serial.log || true
+            exit "$qemu_status"
+          fi
+          cat build/qemu-tampered-serial.log
+          grep -aF "NIEPOPRAWNY PODPIS LUB PLIKI." build/qemu-tampered-serial.log
+          if grep -aF "VGK: uruchomiono wlasne jadro." build/qemu-tampered-serial.log; then
+            echo "BŁĄD: podmienione jądro zostało uruchomione"
+            exit 1
+          fi
       - name: Validate PE32+ EFI image
         run: make uefi-test
       - name: Test UEFI file protocol layout
