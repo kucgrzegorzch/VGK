@@ -4,7 +4,7 @@ VGK jest eksperymentalnym projektem własnego systemu operacyjnego dla komputer�
 
 ## Aktualny stan – listopad 2026
 
-**Własna ścieżka UEFI uruchomiła już natywne jądro VGK w emulatorze QEMU z firmware OVMF.** Wcześniejszy test GitHub Actions potwierdził start z protokołem v2. Obecnie rozwijana jest wersja 3 protokołu, która przenosi do jądra ograniczony inwentarz PCI. Walidacja nowej wersji w CI/QEMU jest w toku. Dziennik portu szeregowego wcześniejszego testu potwierdził:
+**Własna ścieżka UEFI uruchomiła już natywne jądro VGK w emulatorze QEMU z firmware OVMF.** Wcześniejszy test GitHub Actions potwierdził start z protokołem v2. Obecnie rozwijana jest wersja 3 protokołu, która przenosi do jądra ograniczony inwentarz PCI. Wersja 3 została już sprawdzona w QEMU/OVMF: jądro otrzymało i zaakceptowało inwentarz PCI. Po ostatnim rozszerzeniu testów regresyjnych trwa kolejny przebieg CI. Dziennik portu szeregowego wcześniejszego testu potwierdził:
 - sprawdzenie podpisu i plików wydania;
 - załadowanie i uruchomienie własnego jądra;
 - poprawną walidację protokołu `VGK_BOOT_INFO`;
