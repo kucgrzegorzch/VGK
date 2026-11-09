@@ -20,7 +20,7 @@ int vgk_uefi_pci_read_identity(VGK_EFI_PCI_IO_PROTOCOL *p, VGK_PCI_DEVICE *out)
     d.vendor_id=(uint16_t)cfg[0]; d.device_id=(uint16_t)(cfg[0]>>16);
     d.revision=(uint8_t)cfg[2]; d.programming_interface=(uint8_t)(cfg[2]>>8);
     d.subclass=(uint8_t)(cfg[2]>>16); d.class_code=(uint8_t)(cfg[2]>>24);
-    d.header_type=(uint8_t)((cfg[3]>>16)&UINT32_C(0x7F));
+    d.header_type=(uint8_t)(cfg[3]>>16);
     if (!vgk_pci_device_is_valid(&d)) return -1;
     *out=d; return 0;
 }
