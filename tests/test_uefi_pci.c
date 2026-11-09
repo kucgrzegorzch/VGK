@@ -18,5 +18,7 @@ int main(void)
  CHECK(d.vendor_id==0x8086&&d.device_id==0x1234,"IDs decode failed");
  CHECK(d.class_code==3&&d.subclass==0&&d.revision==2,"class decode failed");
  CHECK(vgk_pci_classify(&d)==VGK_PCI_CLASS_DISPLAY,"display class failed");
- if(failures)return 1;puts("OK: UEFI PCI configuration read and identity decoding");return 0;
+ if (failures != 0) return 1;
+ puts("OK: UEFI PCI configuration read and identity decoding");
+ return 0;
 }
