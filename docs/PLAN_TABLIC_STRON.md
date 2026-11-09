@@ -57,7 +57,7 @@ Testy obejmują procesor bez NX, brak wymaganego liścia CPUID, niedopuszczalną
 
 **Ważne:** wykrycie NX nie włącza jeszcze bitu NXE w rejestrze EFER i nie tworzy tablic stron. Na tym etapie jądro tylko rozpoznaje możliwości procesora i zapisuje diagnostykę. Włączenie ochrony nastąpi dopiero po przygotowaniu kompletnych mapowań i bezpiecznej obsługi błędów.
 
-## Docelowe uprawnienia segmentów
+## Rozdzielenie kodu, danych tylko do odczytu i danych zapisywalnych\n\nNatywny plik linkera `linker-native.ld` rozdziela teraz segmenty ELF na trzy obszary: kod RX, dane stałe R+NX oraz dane/BSS RW+NX. Kontrola `tests/check_native_kernel.py` wymaga obecności osobnego segmentu tylko do odczytu i odrzuca nieznane flagi ELF oraz segmenty W+X. To przygotowuje dokładniejsze mapowanie stron, ale samo w sobie nie aktywuje ochrony sprzętowej.\n\n## Docelowe uprawnienia segmentów
 
 | Obszar | Odczyt | Zapis | Wykonanie |
 |---|---:|---:|---:|
