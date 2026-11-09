@@ -16,7 +16,7 @@ Dodano eksperymentalny moduł budowania nieaktywnych tablic stron:
 
 Moduł tworzy czteropoziomowe mapowanie stron 4 KiB w pamięci przekazanej przez wywołującego. Weryfikuje wyrównanie i kanoniczność adresów w modelu 48-bitowym, szerokość adresu fizycznego, duplikaty mapowań, brak pamięci oraz podstawowe uprawnienia stron. Odrzuca mapowanie W+X dla pojedynczego wpisu i ustawia NX dla stron niewykonywalnych, jeśli NX jest obsługiwane.
 
-**Moduł nie jest jeszcze używany przez jądro.** Nie przełącza CR3, nie ustawia CR0.WP ani EFER.NXE i nie zmienia aktywnego mapowania. Pula stron musi być wyrównana, zarezerwowana i dostępna pod adresem tożsamościowym. Testy hostowe sprawdzają strukturę wpisów, a nie rzeczywistą ochronę sprzętową procesora.
+**Moduł nie jest jeszcze używany przez jądro.** Nie przełącza CR3, nie ustawia CR0.WP ani EFER.NXE i nie zmienia aktywnego mapowania. Pula stron musi być wyrównana, zarezerwowana i dostępna pod adresem tożsamościowym. Testy hostowe sprawdzają strukturę wpisów, a nie rzeczywistą ochronę sprzętową procesora. Testy obejmują mapowanie niskiego i wysokiego obszaru kanonicznego, ochronę NX, zapis, odrzucanie W+X, ponowne mapowanie tej samej strony, niekanoniczne adresy, adres fizyczny poza zadeklarowaną szerokością, brak obsługi NX i wyczerpanie puli stron.
 
 Ważne ograniczenia do rozwiązania przed integracją:
 - obecny builder zakłada czteropoziomowe stronicowanie i 48-bitowe adresy wirtualne; etap aktywacji musi wykryć i odrzucić niezgodny stan CR4.LA57;
@@ -37,7 +37,7 @@ Obecny ładowacz UEFI przekazuje jądru:
 - flagi odczytu, zapisu i wykonania każdego segmentu;
 - wersję i rozmiar protokołu, które jądro może sprawdzić.
 
-Walidator odrzuca segmenty W+X, nieprawidłowy punkt wejścia, nakładające się zakresy stron i niezerowe niewykorzystane pola. Wersja 2 protokołu jest testowana w CI.
+Walidator odrzuca segmenty W+X, nieprawidłowy punkt wejścia, nakładające się zakresy stron i niezerowe niewykorzystane pola. Protokół startowy v3 jest testowany w CI.
 
 ## Zasady pierwszej wersji
 
