@@ -4,7 +4,6 @@
 #define PTE_WRITE   UINT64_C(0x002)
 #define PTE_LARGE   UINT64_C(0x080)
 #define PTE_NX      (UINT64_C(1) << 63)
-#define PTE_ADDRESS_MASK UINT64_C(0x000FFFFFFFFFF000)
 
 static int canonical_address(uint64_t address)
 {
@@ -27,13 +26,13 @@ static uint64_t *allocate_table(VGK_PAGE_TABLES *tables)
     if (tables->used_pages >= tables->pool_pages)
         return 0;
     page = tables->pool + tables->used_pages * 512U;
-    ++tables->used_pages;
     address = (uint64_t)(uintptr_t)page;
     if ((address & (VGK_PAGING_PAGE_SIZE - 1U)) != 0 ||
         (address & ~tables->physical_mask) != 0)
         return 0;
     for (size_t i = 0; i < 512U; ++i)
         page[i] = 0;
+    ++tables->used_pages;
     return page;
 }
 
@@ -45,6 +44,8 @@ VGK_PAGING_RESULT vgk_paging_init(
     uint8_t nx_supported)
 {
     uint64_t address;
+    uint64_t physical_limit;
+    size_t pool_bytes;
 
     if (tables == 0 || page_pool == 0 || pool_pages == 0)
         return VGK_PAGING_INVALID_ARGUMENT;
@@ -62,12 +63,14 @@ VGK_PAGING_RESULT vgk_paging_init(
         return VGK_PAGING_INVALID_ARGUMENT;
 
     address = (uint64_t)(uintptr_t)page_pool;
+    pool_bytes = pool_pages * (size_t)VGK_PAGING_PAGE_SIZE;
     tables->physical_mask =
         ((UINT64_C(1) << physical_bits) - 1U) &
         ~(VGK_PAGING_PAGE_SIZE - 1U);
-    if ((address & ~tables->physical_mask) != 0 ||
-        pool_pages * (size_t)VGK_PAGING_PAGE_SIZE >
-            (size_t)(tables->physical_mask - address + VGK_PAGING_PAGE_SIZE))
+    physical_limit = tables->physical_mask | (VGK_PAGING_PAGE_SIZE - 1U);
+    if (address > physical_limit ||
+        (uint64_t)(pool_bytes - 1U) > physical_limit - address ||
+        (uintptr_t)(pool_bytes - 1U) > UINTPTR_MAX - (uintptr_t)page_pool)
         return VGK_PAGING_BAD_ADDRESS;
 
     tables->pool = (uint64_t *)page_pool;
