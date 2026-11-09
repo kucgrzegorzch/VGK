@@ -50,8 +50,11 @@ int vgk_uefi_pci_enumerate(VGK_EFI_BOOT_SERVICES_PREFIX *bs,
     }
     if (result == -1) {
         /* Never expose a partial inventory after a firmware-service error. */
-        for (size_t i = 0; i < found * sizeof(*out); ++i)
-            ((uint8_t *)out)[i] = 0;
+        for (size_t i = 0; i < found; ++i) {
+            uint8_t *bytes = (uint8_t *)&out[i];
+            for (size_t j = 0; j < sizeof(*out); ++j)
+                bytes[j] = 0;
+        }
         found = 0;
     }
     *count=found;
