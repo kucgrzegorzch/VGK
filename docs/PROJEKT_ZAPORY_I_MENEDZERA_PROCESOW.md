@@ -131,3 +131,52 @@ Nie kopiujemy kodu ani interfejsu programu. Najpierw powstaje bezpieczny podglą
 - Wszystkie istotne działania są rejestrowane lokalnie i widoczne dla użytkownika.
 
 To jest dokumentacja projektu i kierunek wdrożenia, nie deklaracja, że zapora lub menedżer procesów już działają.
+
+
+## 9. Dwa profile działania zapory
+
+VGK udostępnia dwa czytelne profile:
+
+### Profil zwykły — domyślny
+
+- Jest włączany automatycznie po instalacji.
+- Blokuje nieoczekiwane połączenia przychodzące.
+- Ruch wychodzący dopuszcza według jawnych reguł systemowych i decyzji użytkownika.
+- Nowe lub nieznane aplikacje otrzymują prośbę o decyzję, gdy ich działanie wymaga dostępu do sieci.
+- Użytkownik może zapamiętać zgodę, odmowę albo zezwolić tylko na bieżące uruchomienie.
+- Interfejs pokazuje, które reguły pochodzą od systemu, a które utworzył użytkownik.
+
+### Profil ścisły — kontrola według białej listy
+
+- Domyślnie blokuje ruch sieciowy aplikacji, usług i adresów, które nie mają pasującej reguły zezwalającej.
+- Reguły muszą określać możliwie wąski zakres: aplikację, kierunek, protokół, port, adres docelowy i profil sieci.
+- Czarna lista ma pierwszeństwo przed białą listą. Jawna blokada nie może zostać przypadkowo ominięta przez szersze zezwolenie.
+- Niezbędne usługi systemowe działają na podstawie osobnych, ograniczonych reguł bazowych. Użytkownik widzi je na liście i może sprawdzić ich przeznaczenie.
+- System nie może po cichu rozszerzać zezwoleń. Jeśli usługa potrzebuje nowego zakresu, pokazuje prośbę o decyzję.
+- Profil ścisły nie oznacza automatycznie blokowania całego ruchu lokalnego: komunikacja lokalna, konfiguracja sieci, DNS, IPv4/IPv6 i inne wyjątki muszą być opisane osobnymi regułami. Nie wolno zakładać, że wszystkie sieci działają tak samo.
+
+### Bezpieczna zmiana profilu
+
+- Przed włączeniem profilu ścisłego VGK wykonuje kontrolę reguł i pokazuje, które podstawowe funkcje mogą utracić łączność.
+- Zmiana jest przygotowywana jako nowy zestaw reguł, sprawdzana i dopiero potem aktywowana atomowo.
+- Przed zatwierdzeniem użytkownik może wybrać automatyczny powrót do poprzedniego profilu po krótkim czasie, jeśli nie potwierdzi, że łączność działa. To zabezpieczenie ma być domyślnie włączone przy pierwszym przejściu do profilu ścisłego.
+- Niepowodzenie aktualizacji lub uszkodzenie konfiguracji nie może pozostawić zapory w stanie „zezwalaj na wszystko”. Obowiązuje ostatni poprawny zestaw reguł albo bezpieczna konfiguracja domyślna.
+- Przywrócenie profilu zwykłego musi być dostępne lokalnie, bez Internetu, także w środowisku ratunkowym.
+- Wyłączenie całej zapory nie jest zwykłą metodą rozwiązywania problemów; interfejs proponuje cofnięcie konkretnej reguły lub powrót do profilu zwykłego.
+
+## 10. Dodatkowe testy profili
+
+Przed uznaniem profili za gotowe należy sprawdzić co najmniej:
+
+- profil zwykły jest aktywny po świeżej instalacji i po ponownym uruchomieniu;
+- profil ścisły blokuje niezatwierdzoną aplikację zarówno dla ruchu przychodzącego, jak i wychodzącego;
+- aplikacja z białej listy nie omija pasującej reguły czarnej listy;
+- reguła dla jednego portu lub adresu nie otwiera niezamierzenie pozostałych portów i adresów;
+- zmiana profilu jest atomowa, a przerwanie zapisu nie usuwa ostatniej poprawnej konfiguracji;
+- brak potwierdzenia po przejściu do profilu ścisłego uruchamia uzgodniony powrót do poprzedniego profilu;
+- odzyskanie dostępu działa bez Internetu i bez uruchomionego pulpitu;
+- awaria interfejsu nie zatrzymuje filtrowania;
+- testy obejmują IPv4, IPv6, DNS, zmianę sieci, ponowne uruchomienie i kilka kart sieciowych;
+- dziennik jasno odróżnia ruch zablokowany przez profil, czarną listę, regułę systemową i decyzję użytkownika.
+
+Profile są częścią projektu funkcjonalnego. Nie oznacza to jeszcze, że mechanizm filtrowania został zaimplementowany w jądrze lub przetestowany na rzeczywistej karcie sieciowej.
