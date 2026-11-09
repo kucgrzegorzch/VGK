@@ -12,9 +12,9 @@ VGK ma rozpoznawac kontrolery i urzadzenia komputera przez standardowe identyfik
 - Inwentaryzacja sprzetu ma byc oddzielona od decyzji o uruchomieniu sterownika.
 
 ## Kolejnosc wdrozenia
-1. Znormalizowany rekord funkcji PCI: segment (w przyszlosci), magistrala, urzadzenie, funkcja, identyfikatory producenta/urzadzenia, rewizja, klasa, podklasa i interfejs programowy.
+1. Znormalizowany rekord funkcji PCI: segment, magistrala, urządzenie, funkcja, identyfikatory producenta/urządzenia, rewizja, klasa, podklasa i interfejs programowy.
 2. Walidacja rekordow i dekodowanie klas zgodnie ze standardem PCI.
-3. Odczyt konfiguracji przez bezpieczny interfejs firmware UEFI PCI I/O przed ExitBootServices; pozniej niezalezna warstwa dostepu dla jadra.
+3. Odczyt konfiguracji przez bezpieczny interfejs firmware UEFI PCI I/O przed ExitBootServices; później niezależna warstwa dostępu dla jądra.
 4. Testy QEMU/OVMF z urzadzeniami wirtualnymi oraz testy blednych odpowiedzi firmware.
 5. Wykrywanie funkcji PCI Express i odczyt lancucha mozliwosci dopiero po stabilnym odczycie bazowej przestrzeni konfiguracyjnej.
 6. Dopiero potem baza identyfikatorow i dopasowanie kandydatow na sterowniki.
@@ -22,4 +22,6 @@ VGK ma rozpoznawac kontrolery i urzadzenia komputera przez standardowe identyfik
 ## Stan kodu
 Dodano rekord VGK_PCI_DEVICE, walidacje numeru urzadzenia/funkcji i identyfikatora pustej funkcji oraz klasyfikacje klas: pamiec masowa, siec, obraz, multimedia, mostki, magistrale szeregowe i USB. Dodano testy jednostkowe tych reguł.
 
-**Nie ma jeszcze enumeracji magistral z firmware ani odczytu konfiguracji PCI z rzeczywistego komputera.** Nie ma tez sterownikow kart graficznych, sieciowych ani innych urzadzen. Ten etap przygotowuje bezpieczny format danych i reguly rozpoznawania.
+Dodano także skaner UEFI PCI I/O: pobiera uchwyty protokołu, odczytuje podstawowe 16 DWORD-ów przestrzeni konfiguracji oraz lokalizację segment/magistrala/urządzenie/funkcja. Ogranicza listę do 128 wpisów, zwalnia bufor uchwytów firmware i nie przekazuje uchwytów ani wskaźników do jądra. Inwentarz jest przekazywany w wersjonowanym protokole startowym v3. Błędy firmware nie blokują startu jądra i nie pozostawiają częściowej listy.
+
+**Weryfikacja pełnego przepływu w CI/QEMU jest jeszcze w toku.** Nie ma testu na fizycznym komputerze ani sterowników kart graficznych, sieciowych i innych urządzeń. Odczyt BAR, mapowanie MMIO, DMA i obsługa PCI Express pozostają wyłączone do czasu osobnych etapów bezpieczeństwa.
