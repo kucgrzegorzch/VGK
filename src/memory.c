@@ -238,7 +238,6 @@ VGK_MEMORY_RESULT vgk_memory_init(const VGK_BOOT_INFO *boot_info)
     for (size_t i = 0; i < entry_count; ++i) {
         const VGK_MEMORY_MAP_ENTRY *entry = &entries[i];
         uint64_t end;
-        uint64_t page_count;
         VGK_MEMORY_RESULT result;
 
         if (entry->length == 0 ||
