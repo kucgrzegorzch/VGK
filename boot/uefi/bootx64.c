@@ -10,6 +10,7 @@
 #include "elf_loader.h"
 #include "uefi_elf_allocator.h"
 #include "uefi_memory_map.h"
+#include "uefi_pci.h"
 #include "uefi_kernel_entry.h"
 #include "integrity.h"
 
@@ -318,6 +319,7 @@ static EFI_STATUS start_verified_kernel(
     VGK_EFI_UINTN descriptor_size = 0;
     uint32_t descriptor_version = 0;
     size_t normalized_count = 0;
+    size_t pci_device_count = 0;
     EFI_STATUS status;
 
     if (services == 0 || services->allocate_pages == 0 ||
@@ -419,6 +421,25 @@ static EFI_STATUS start_verified_kernel(
     }
 
     capture_framebuffer(system_table);
+
+    /*
+     * Enumerate PCI while firmware services are still available. Only
+     * normalized IDs are copied into the boot protocol; no UEFI handles or
+     * protocol pointers survive ExitBootServices.
+     */
+    {
+        int pci_status = vgk_uefi_pci_enumerate(
+            services, boot_info.pci_devices,
+            VGK_BOOT_MAX_PCI_DEVICES, &pci_device_count);
+        if (pci_status == 0 || pci_status == -2) {
+            boot_info.pci_device_count = (uint32_t)pci_device_count;
+            boot_info.pci_device_entry_size = sizeof(VGK_PCI_DEVICE);
+            boot_info.flags |= VGK_BOOT_FLAG_PCI;
+            if (pci_status == -2)
+                boot_info.flags |= VGK_BOOT_FLAG_PCI_TRUNCATED;
+        }
+        /* PCI inventory is diagnostic; failure must not block kernel boot. */
+    }
 
     for (uint32_t attempt = 0;
          attempt < VGK_EXIT_BOOT_SERVICES_ATTEMPTS; ++attempt) {
