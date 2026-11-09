@@ -93,6 +93,9 @@ build/uefi_pci.obj: boot/uefi/uefi_pci.c boot/uefi/uefi_pci.h boot/uefi/uefi_ser
 build/pci_uefi.obj: src/pci.c include/vgk_pci.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
 
+build/pci_uefi.obj: src/pci.c include/vgk_pci.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
+
 build/uefi_memory_map.obj: boot/uefi/uefi_memory_map.c boot/uefi/uefi_memory_map.h boot/uefi/uefi_services.h include/vgk_boot_info.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iinclude -Iboot/uefi -c $< -o $@
 
