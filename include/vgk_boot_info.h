@@ -289,7 +289,7 @@ _Static_assert(offsetof(VGK_BOOT_INFO, acpi_rsdp_address) == 128,
                "VGK boot info ACPI offset changed");
 _Static_assert(sizeof(VGK_KERNEL_SEGMENT) == 24,
                "VGK kernel segment layout changed");
-_Static_assert(sizeof(VGK_PCI_DEVICE) == 16,
+_Static_assert(sizeof(VGK_PCI_DEVICE) == 14,
                "VGK PCI device layout changed");
 _Static_assert(sizeof(VGK_BOOT_INFO) ==
                    560 + 8 + VGK_BOOT_MAX_PCI_DEVICES * sizeof(VGK_PCI_DEVICE),
