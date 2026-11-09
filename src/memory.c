@@ -220,7 +220,9 @@ VGK_MEMORY_RESULT vgk_memory_init(const VGK_BOOT_INFO *boot_info)
     if ((boot_info->flags & VGK_BOOT_FLAG_ACPI) != 0 &&
         reserve_range(reserved, &reserved_count,
                       sizeof(reserved) / sizeof(reserved[0]),
-                      boot_info->acpi_rsdp_address, 1U) != 0) {
+                      boot_info->acpi_rsdp_address &
+                          ~(VGK_MEMORY_PAGE_SIZE - 1U),
+                      2U * VGK_MEMORY_PAGE_SIZE) != 0) {
         clear_allocator();
         return VGK_MEMORY_BAD_MAP;
     }
