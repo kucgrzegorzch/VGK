@@ -43,6 +43,11 @@ int vgk_uefi_pci_enumerate(VGK_EFI_BOOT_SERVICES_PREFIX *bs,
         if (found==cap) { result=-2; break; }
         out[found++]=d;
     }
-    if (handles) (void)bs->free_pool(handles);
-    *count=found; return result;
+    if (handles) {
+        s = bs->free_pool(handles);
+        if ((s & UINT64_C(0x8000000000000000)) != 0)
+            result = -1;
+    }
+    *count=found;
+    return result;
 }
