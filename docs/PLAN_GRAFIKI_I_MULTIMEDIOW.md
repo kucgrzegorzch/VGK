@@ -1,151 +1,197 @@
 # Plan grafiki, sterowników i multimediów VGK
 
-## Cel
+Status: dokument projektowy. Opisuje docelową architekturę i kolejność prac; nie oznacza, że sterowniki, pulpit ani aplikacje multimedialne są już zaimplementowane.
 
-VGK ma zapewniać własną, niezależną warstwę obsługi grafiki oraz zestaw podstawowych aplikacji multimedialnych. Projekt musi działać również na starszych komputerach, w tym z 4 GB RAM, i nie może wymagać nowoczesnej karty graficznej do uruchomienia pulpitu.
+## 1. Cele i zasady
 
-Ten dokument opisuje plan. Nie oznacza, że sterowniki ani aplikacje są już zaimplementowane.
+VGK ma zapewniać:
+- czytelny obraz i podstawowy interfejs także wtedy, gdy nie ma dedykowanego sterownika GPU;
+- obsługę kart Intel, AMD i NVIDIA w miarę możliwości udokumentowanych interfejsów i dostępnych specyfikacji;
+- rozdzielczość ekranu, odświeżanie, skalowanie i docelowo wiele monitorów;
+- akcelerację sprzętową, gdy sterownik i karta bezpiecznie ją udostępniają;
+- lekkie aplikacje do zdjęć i filmów, działające także na komputerach z 4 GB RAM;
+- zachowanie trybu awaryjnego i możliwość powrotu do prostego obrazu po błędzie sterownika.
 
-## 1. Zasady architektury grafiki
+Priorytetem jest stabilność, zgodność i bezpieczeństwo, a nie maksymalna wydajność na każdej karcie od pierwszego wydania. Warstwa graficzna jest oddzielona od sterowników, a aplikacje nie komunikują się bezpośrednio z rejestrami GPU. Brak dedykowanego sterownika nie może uniemożliwić uruchomienia systemu.
 
-1. Warstwa graficzna VGK jest oddzielona od sterowników konkretnych kart.
-2. Jądro nie może zależeć od jednego producenta ani jednego modelu GPU.
-3. Sterowniki są dobierane na podstawie identyfikatorów urządzenia oraz rzeczywiście sprawdzonych możliwości.
-4. Brak dedykowanego sterownika nie może uniemożliwić uruchomienia systemu.
-5. Przyspieszenie sprzętowe jest opcjonalne; funkcje podstawowe muszą działać także programowo.
-6. Sterowniki działają z ograniczonymi uprawnieniami, o ile architektura i etap rozwoju VGK na to pozwolą. Błąd sterownika nie powinien bezpośrednio uszkodzić jądra.
-7. Aktualizacja sterownika musi mieć możliwość wycofania, a poprzedni sprawdzony sterownik lub tryb podstawowy musi pozostać dostępny.
-8. Nie wolno deklarować zgodności z kartą tylko na podstawie nazwy producenta. Każdy model i zakres funkcji wymagają testów.
+## 2. Architektura grafiki
 
-## 2. Poziomy obsługi obrazu
+### 2.1. Warstwa obrazu podstawowego
 
-### Poziom A — obraz podstawowy
+Pierwszy etap wykorzystuje framebuffer przekazany przez UEFI Graphics Output Protocol (GOP), o ile firmware go udostępnia. VGK sprawdzi adres bufora, rozmiar, format pikseli, szerokość linii i zakres pamięci przed użyciem.
 
-- Na komputerach uruchamianych przez UEFI wykorzystać dostępny tryb obrazu UEFI/GOP jako etap początkowy.
-- Zapewnić podstawowe wyświetlanie obrazu i komunikatów diagnostycznych.
-- Nie wymagać akceleracji 3D ani dużej ilości pamięci graficznej.
-- Zachować tryb awaryjny o niskiej rozdzielczości, jeśli bardziej zaawansowany sterownik nie działa.
+Ta warstwa ma zapewnić:
+- wyświetlenie komunikatów startowych;
+- prosty ekran diagnostyczny i ratunkowy;
+- podstawowe rysowanie pikseli, prostokątów, tekstu i kursora;
+- bezpieczny powrót do obrazu podstawowego, jeśli sterownik GPU nie uruchomi się poprawnie.
 
-Tryb UEFI/GOP jest rozwiązaniem startowym, a nie docelowym sterownikiem GPU.
+GOP jest interfejsem firmware do obrazu, a nie pełnym sterownikiem karty. Nie zapewnia sam z siebie akceleracji 3D ani wszystkich funkcji monitora. Na platformach bez dostępnego GOP trzeba będzie osobno zaprojektować obsługiwany tryb zgodności; nie należy zakładać, że historyczny VGA wystarczy dla nowoczesnych kart.
 
-### Poziom B — wykrywanie urządzenia
+### 2.2. Wykrywanie urządzeń
 
-Zebrać i zapisać co najmniej:
-- producenta i identyfikator urządzenia PCI;
-- identyfikator podsystemu i rewizję, jeśli są dostępne;
-- klasę urządzenia;
-- dostępną pamięć i możliwości urządzenia, jeśli można je bezpiecznie odczytać;
-- obsługiwane tryby obrazu i funkcje;
-- wersję sterownika oraz wynik jego inicjalizacji.
+Po uruchomieniu podstawowego obrazu VGK będzie rozpoznawać urządzenia PCI/PCI Express:
+- producenta i identyfikator urządzenia;
+- klasę i podklasę urządzenia;
+- identyfikatory podsystemu i rewizję, jeśli są dostępne;
+- zasoby i zakresy pamięci przypisane urządzeniu;
+- wymagane przerwania i możliwości urządzenia, dopiero gdy ich obsługa będzie gotowa.
 
-Nieznane urządzenie ma otrzymać status „nieznane — używany tryb podstawowy”, a nie być uznane za uszkodzone.
+Nieznany model nie może być automatycznie uznawany za uszkodzony. System ma użyć bezpiecznej warstwy podstawowej i pokazać użytkownikowi, że karta nie ma jeszcze dedykowanego sterownika VGK.
 
-### Poziom C — sterowniki producentów
+### 2.3. Warstwa sterowników
 
-Docelowo rozwijać oddzielne rodziny sterowników:
-- Intel;
-- AMD;
-- NVIDIA.
+Sterowniki będą oddzielone od aplikacji i od wspólnego interfejsu grafiki. Docelowe elementy:
+- wspólny interfejs urządzenia graficznego;
+- zarządzanie pamięcią obrazu i buforami;
+- kontrola trybów ekranu i wyjść obrazu;
+- synchronizacja pracy GPU i obsługa błędów;
+- opcjonalne funkcje 2D i 3D;
+- kontrolowane ładowanie sterowników z weryfikacją integralności i pochodzenia.
 
-Nie zakładać, że wszystkie generacje danego producenta będą obsługiwane jednocześnie. Najpierw wybrać ograniczone, dobrze udokumentowane modele do testów, a później rozszerzać listę.
+Sterownik, który zawiesza się lub zgłasza błędny stan, nie może bez potrzeby zatrzymać całego systemu. Tam, gdzie architektura i uprawnienia na to pozwolą, obsługa urządzenia powinna być izolowana od aplikacji; krytyczne operacje jądra pozostaną minimalne. Nie wolno ładować niezweryfikowanego kodu tylko po to, aby obsłużyć nową kartę.
 
-Sterowniki mogą korzystać z publicznej dokumentacji sprzętu i legalnie dostępnych interfejsów. Nie uzależniać podstawowego uruchomienia VGK od zamkniętych składników, których nie można bezpiecznie i legalnie rozpowszechniać.
+### 2.4. Kolejność obsługi producentów
 
-### Poziom D — przyspieszenie
+Nie należy obiecywać jednoczesnej, pełnej obsługi wszystkich generacji Intel, AMD i NVIDIA. Każda rodzina GPU ma własne wymagania, firmware, formaty poleceń i ograniczenia.
 
-Po stabilnym uruchomieniu sterownika dodawać stopniowo:
-- kopiowanie i wypełnianie obszarów obrazu z użyciem GPU;
-- sprzętowe skalowanie i konwersję obrazu;
-- akcelerację kompozycji okien;
-- dekodowanie wideo;
-- funkcje 3D tylko wtedy, gdy są potrzebne i przetestowane.
+Kolejność:
+1. uniwersalny obraz przez GOP;
+2. wykrywanie kart i raportowanie możliwości;
+3. podstawowa obsługa wybranych, dobrze udokumentowanych urządzeń;
+4. sterowniki 2D i akceleracja kompozycji pulpitu;
+5. akceleracja 3D i obliczeniowa tylko po przygotowaniu pamięci, synchronizacji, izolacji i testów;
+6. rozszerzanie listy urządzeń na podstawie rzeczywistych testów.
 
-Każda funkcja ma mieć sprawdzenie możliwości urządzenia i bezpieczną ścieżkę programową.
+Sterowniki mogą korzystać z publicznej dokumentacji sprzętu i legalnie dostępnych interfejsów. Nie uzależniamy podstawowego uruchomienia VGK od zamkniętych składników, których nie można bezpiecznie i legalnie rozpowszechniać.
 
-## 3. Bezpieczne uruchamianie i odzyskiwanie
+### 2.5. Pamięć i bezpieczeństwo GPU
 
-- Inicjalizacja sterownika odbywa się etapami i z kontrolą błędów.
-- Przed zmianą aktywnego sterownika zachować możliwość powrotu do trybu podstawowego.
-- Nieudana inicjalizacja nie może pozostawić użytkownika z trwałym czarnym ekranem.
-- W razie awarii system powinien uruchomić tryb podstawowy i zapisać raport diagnostyczny.
-- Aktualizacje sterowników powinny być weryfikowane, podpisywane i możliwe do cofnięcia.
-- Testy najpierw prowadzić w środowisku emulowanym i na sprzęcie testowym; dopiero po ich przejściu planować testy na komputerach użytkowników.
+Przed uruchomieniem zaawansowanego sterownika VGK musi mieć bezpieczne mapowanie pamięci urządzeń, kontrolę zakresów DMA, zarządzanie buforami, synchronizację i obsługę przerwań. IOMMU należy wykorzystać, jeśli platforma je udostępnia i VGK ma gotową obsługę; nie wolno zakładać, że jest zawsze dostępne. Funkcje GPU nie mogą omijać zasad ochrony pamięci systemu.
 
-## 4. Warstwa graficzna VGK
+## 3. Pulpit i interfejs użytkownika
 
-Należy zaprojektować wspólny interfejs pomiędzy pulpitem i aplikacjami a sterownikami. Aplikacje nie powinny komunikować się bezpośrednio z rejestrami GPU.
+Po ustabilizowaniu obrazu podstawowego powstanie warstwa okien i pulpitu:
+- okna, pasek zadań, menu i ustawienia ekranu;
+- skalowanie interfejsu i czytelne czcionki;
+- obsługa myszy i klawiatury;
+- podstawowa kompozycja 2D;
+- ustawienia rozdzielczości i częstotliwości odświeżania;
+- docelowo wiele monitorów i różne skale obrazu.
 
-Warstwa powinna zapewnić:
-- podstawowe powierzchnie obrazu i buforowanie;
-- obsługę rozdzielczości i wielu ekranów w późniejszym etapie;
-- obsługę kursora i odświeżania obrazu;
-- raportowanie dostępnych możliwości;
-- jednolity mechanizm zgłaszania błędów i przełączania na tryb podstawowy.
+Pulpit ma działać również bez akceleracji GPU, korzystając z renderowania programowego. Akceleracja będzie dodatkiem, a nie warunkiem uruchomienia systemu. Użytkownik będzie mógł wyłączyć animacje i efekty.
 
-## 5. Aplikacje multimedialne VGK
+## 4. Zestaw multimedialny VGK
 
-### Aparat VGK
+Aplikacje będą osobnymi programami korzystającymi ze wspólnych bibliotek obrazu, dźwięku i plików. Awaria jednej aplikacji nie może uszkodzić pozostałych. Podstawowe funkcje mają działać offline.
+
+### 4.1. Aparat VGK
+
+Planowane funkcje:
 - wykrywanie kamer wbudowanych i USB;
-- podgląd, wykonywanie zdjęć i nagrywanie filmów;
-- wybór dostępnej rozdzielczości i jakości;
-- samowyzwalacz oraz wybór miejsca zapisu;
-- wyraźny wskaźnik aktywnej kamery i kontrola uprawnień.
+- podgląd obrazu;
+- wykonywanie zdjęć;
+- nagrywanie filmu, gdy obsługa kamery i dźwięku będzie gotowa;
+- wybór rozdzielczości i jakości;
+- samowyzwalacz i wybór miejsca zapisu;
+- widoczny wskaźnik użycia kamery i mikrofonu oraz kontrola uprawnień.
 
-### Edytor zdjęć VGK
+Na początek preferowana będzie zgodność z powszechnym standardem USB Video Class (UVC), jeśli urządzenie go obsługuje. Nie każda kamera będzie działać od razu.
+
+### 4.2. Edytor zdjęć VGK
+
+Planowane funkcje:
 - kadrowanie, obracanie i zmiana rozmiaru;
-- jasność, kontrast, kolory i ostrość;
+- jasność, kontrast, nasycenie i balans kolorów;
+- ostrość i podstawowe filtry;
 - tekst, strzałki, ramki i oznaczenia;
-- filtry oraz cofanie i ponawianie zmian;
-- obsługa popularnych formatów, w pierwszej kolejności PNG i JPEG, a następnie kolejne formaty zależnie od bibliotek i testów;
-- oryginał pozostaje bez zmian, dopóki użytkownik nie zatwierdzi nadpisania.
+- cofanie i ponawianie zmian;
+- zapis kopii lub wersji edytowanej.
 
-### Odtwarzacz filmów VGK
-- obsługa popularnych kontenerów i kodeków, rozwijana etapami;
+Oryginał nie będzie nadpisywany bez wyraźnej zgody użytkownika. Początkowe formaty docelowe: PNG i JPEG; kolejne formaty, np. WebP, będą dodawane po wdrożeniu i przetestowaniu bibliotek.
+
+### 4.3. Odtwarzacz filmów VGK
+
+Planowane funkcje:
+- odtwarzanie popularnych kontenerów i kodeków, zależnie od dostępnych bibliotek;
+- pauza, przewijanie, pełny ekran i regulacja głośności;
 - napisy i wybór ścieżki dźwiękowej;
-- pełny ekran, regulacja głośności i prędkości;
-- zapamiętywanie miejsca odtwarzania jako opcja;
-- dekodowanie sprzętowe, jeśli sterownik i karta je obsługują; w przeciwnym razie dekodowanie programowe z kontrolą obciążenia.
+- regulacja prędkości;
+- zapamiętywanie miejsca oglądania, jeśli użytkownik tego chce;
+- dekodowanie sprzętowe, gdy GPU i sterownik je obsługują, oraz tryb programowy jako wariant zgodności.
 
-### Galeria VGK
+Kontener pliku (np. MP4 lub MKV) i kodek obrazu/dźwięku to różne rzeczy. Samo rozpoznanie rozszerzenia pliku nie oznacza obsługi wszystkich kodeków znajdujących się w środku. Obsługiwane formaty będą zależeć również od bibliotek, licencji i testów bezpieczeństwa.
+
+### 4.4. Galeria VGK
+
+Planowane funkcje:
 - przeglądanie zdjęć i filmów;
-- sortowanie według dat i albumów;
-- wyszukiwanie plików;
+- sortowanie według nazwy i daty;
+- albumy i wyszukiwanie;
 - pokazy slajdów;
 - otwieranie zdjęć w edytorze i filmów w odtwarzaczu.
 
-Aplikacje mają być oddzielne, aby awaria jednej nie blokowała pozostałych. Podstawowe funkcje powinny działać offline.
+Indeksowanie biblioteki będzie opcjonalne i ograniczone, aby nie obciążać komputerów z małą ilością pamięci.
 
-## 6. Wymagania dla słabszych komputerów
+## 5. Dźwięk i urządzenia wejściowe
 
-- ograniczone zużycie pamięci;
-- brak obowiązkowego przyspieszenia 3D;
-- możliwość wyłączenia animacji i efektów pulpitu;
-- skalowanie jakości podglądu i odtwarzania do możliwości komputera;
-- brak wymogu dedykowanej pamięci GPU o określonej wielkości;
-- zachowanie responsywności systemu podczas odtwarzania filmu lub edycji zdjęć.
+Odtwarzacz filmów i nagrywanie wymagają osobnej warstwy dźwięku. Trzeba zaprojektować wykrywanie urządzeń audio, wybór wejścia i wyjścia, regulację głośności, podstawowe miksery oraz obsługę mikrofonu z uprawnieniami. Nie należy uzależniać pierwszego pulpitu od gotowego dźwięku; dźwięk może być wdrażany jako osobny etap.
 
-## 7. Kolejność realizacji
+## 6. Wydajność i komputery o skromnych zasobach
 
-1. Ustabilizować rozruch UEFI i podstawowy obraz.
-2. Zaprojektować interfejs warstwy graficznej i wykrywanie urządzeń PCI.
-3. Dodać diagnostykę GPU oraz raport możliwości sprzętu.
-4. Zbudować i przetestować podstawową obsługę wybranego, udokumentowanego urządzenia.
-5. Dodać mechanizm powrotu do trybu podstawowego i cofania aktualizacji.
-6. Rozszerzać obsługę rodzin Intel, AMD i NVIDIA według dostępnej dokumentacji i wyników testów.
-7. Dodać akcelerację 2D, a później dekodowanie wideo i wybrane funkcje 3D.
-8. Rozwijać aparat, edytor zdjęć, odtwarzacz i galerię, zaczynając od funkcji niewymagających akceleracji.
+VGK ma działać na komputerach z 4–8 GB RAM. Dlatego:
+- pulpit musi mieć tryb bez akceleracji;
+- dekodowanie i przetwarzanie obrazu powinno używać małych buforów i ograniczonej liczby wątków;
+- aplikacje nie mogą stale trzymać w pamięci całej biblioteki zdjęć i filmów;
+- sprzętowe dekodowanie wideo jest opcjonalne;
+- użytkownik będzie mógł wyłączyć efekty i animacje;
+- pamięć GPU i pamięć systemowa będą monitorowane osobno, gdy sprzęt udostępni takie informacje.
 
-## 8. Testy i kryteria akceptacji
+## 7. Bezpieczeństwo i prywatność
 
-- start z trybem podstawowym bez dedykowanego sterownika;
-- poprawne wykrywanie znanego i nieznanego urządzenia;
-- brak zawieszenia systemu po błędzie inicjalizacji sterownika;
-- możliwość powrotu do poprzedniego sterownika lub trybu podstawowego;
-- testy rozdzielczości, odświeżania, wielu ekranów i uśpienia dopiero po wdrożeniu odpowiednich funkcji;
-- testy zużycia pamięci na konfiguracji z 4 GB RAM;
-- testy odtwarzania przy braku dekodowania sprzętowego;
-- oddzielne oznaczanie wyników testów automatycznych, QEMU i fizycznego sprzętu.
+- Kamera i mikrofon nie są używane bez działania aplikacji i zgody użytkownika.
+- Widoczny wskaźnik informuje o aktywnym użyciu kamery i mikrofonu.
+- Aplikacje otrzymują tylko potrzebne uprawnienia.
+- Sterowniki i aktualizacje są weryfikowane pod kątem integralności i pochodzenia.
+- Aktualizacja sterownika musi mieć możliwość wycofania do poprzedniej sprawdzonej wersji.
+- Funkcje sieciowe i kodeki będą dodawane z uwzględnieniem aktualizacji bezpieczeństwa i licencji.
 
-## 9. Granica obecnego etapu
+## 8. Testowanie
 
-Na obecnym etapie jest to plan architektury. Nie oznacza działających sterowników Intel, AMD lub NVIDIA, pełnej akceleracji grafiki, aparatu ani aplikacji multimedialnych. Każda z tych funkcji wymaga osobnej implementacji i testów.
+Każdy etap będzie miał osobne testy:
+- emulowany framebuffer: formaty pikseli, rozmiar, wyrównanie i granice bufora;
+- wykrywanie PCI: brak urządzenia, nieznany identyfikator i błędne zasoby;
+- sterownik: poprawna inicjalizacja, błędne odpowiedzi urządzenia, timeout i kontrolowany powrót;
+- grafika: rozdzielczość, odświeżanie, zmiana trybu i brak akceleracji;
+- pamięć: ograniczona pamięć RAM i pamięć obrazu;
+- multimedia: pliki uszkodzone, nieobsługiwane kodeki, brak kamery i odłączanie urządzenia;
+- bezpieczeństwo: brak uprawnień do kamery/mikrofonu, nieprawidłowy sterownik i wycofanie aktualizacji;
+- testy QEMU/OVMF, a później osobne testy na rzeczywistych kartach Intel, AMD i NVIDIA.
+
+Wynik testu emulatora nie będzie przedstawiany jako potwierdzenie działania na fizycznej karcie.
+
+## 9. Proponowana kolejność wdrażania
+
+1. Stabilny framebuffer GOP i tekst/rysowanie awaryjne.
+2. Wykrywanie PCI i bezpieczny raport urządzeń graficznych.
+3. Testy trybów obrazu i powrotu do trybu podstawowego.
+4. Podstawowa biblioteka 2D i prosty interfejs okien.
+5. Pierwszy sterownik dla wybranej, dobrze udokumentowanej rodziny GPU.
+6. Aparat i podstawowe przechwytywanie obrazu.
+7. Edytor zdjęć i Galeria.
+8. Dźwięk, odtwarzacz filmów i dekodowanie programowe.
+9. Akceleracja sprzętowa 2D/kompozycji, a później dekodowanie wideo.
+10. Rozszerzanie obsługi kolejnych kart i rodzin urządzeń.
+
+## 10. Zależności od innych części VGK
+
+Grafika i multimedia zależą od wcześniejszego ukończenia:
+- zarządzania pamięcią i ochrony dostępu do pamięci;
+- obsługi PCI/PCIe i mapowania pamięci urządzeń;
+- przerwań, timerów i synchronizacji;
+- systemu plików i bezpiecznego zapisu;
+- podstaw wejścia/wyjścia, w tym klawiatury i myszy;
+- zarządzania procesami i uprawnieniami;
+- infrastruktury aktualizacji i wycofywania sterowników.
+
+Nie należy przyspieszać prac nad GPU kosztem tych fundamentów. Do czasu ich wdrożenia ten dokument pozostaje planem, a nie deklaracją gotowych funkcji.
