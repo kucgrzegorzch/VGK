@@ -45,6 +45,20 @@ VGK_CPU_RESULT vgk_cpu_decode_features(
     uint32_t address_size_eax,
     VGK_CPU_FEATURES *features);
 
+/*
+ * Decode optional instruction features from supplied CPUID/XCR0 values.
+ * This pure helper makes AVX/AVX2 safety rules testable without executing
+ * optional instructions on the test host.
+ */
+void vgk_cpu_decode_vector_features(
+    uint32_t leaf1_ecx,
+    uint32_t leaf1_edx,
+    uint32_t leaf7_ebx,
+    uint32_t xcr0_low,
+    uint8_t has_leaf1,
+    uint8_t has_leaf7,
+    VGK_CPU_FEATURES *features);
+
 /* Read CPUID and identify capabilities on the current x86-64 processor. */
 VGK_CPU_RESULT vgk_cpu_detect_features(VGK_CPU_FEATURES *features);
 
