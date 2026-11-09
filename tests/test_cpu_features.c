@@ -87,6 +87,12 @@ int main(void)
     EXPECT(features.avx2_hardware_supported == 1U);
     EXPECT(features.avx2_usable == 0U);
 
+    /* OSXSAVE without the hardware XSAVE capability is not sufficient. */
+    vgk_cpu_decode_vector_features(AVX_BIT | OSXSAVE_BIT, 0, AVX2_BIT, 0x6U,
+                                   1U, 1U, &features);
+    EXPECT(features.avx_state_supported == 0U);
+    EXPECT(features.avx2_usable == 0U);
+
     /* AVX + OSXSAVE still requires both XMM and YMM state in XCR0. */
     vgk_cpu_decode_vector_features(AVX_BIT | OSXSAVE_BIT | XSAVE_BIT, 0, AVX2_BIT, 0x2U,
                                    1U, 1U, &features);
