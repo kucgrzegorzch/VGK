@@ -6,7 +6,7 @@
 
 #define EXPECT(condition) do { \
     if (!(condition)) { \
-        fprintf(stderr, "FAIL line %d: %s\\n", __LINE__, #condition); \
+        fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #condition); \
         ++failures; \
     } \
 } while (0)
@@ -19,6 +19,7 @@
 #define SSE42_BIT (UINT32_C(1) << 20)
 #define AVX_BIT (UINT32_C(1) << 28)
 #define OSXSAVE_BIT (UINT32_C(1) << 27)
+#define XSAVE_BIT (UINT32_C(1) << 26)
 #define AVX2_BIT (UINT32_C(1) << 5)
 
 int main(void)
@@ -37,7 +38,7 @@ int main(void)
     EXPECT(features.physical_address_bits == 48U);
     EXPECT(features.nx_supported == 1U);
     EXPECT(features.reserved[0] == 0U && features.reserved[1] == 0U);
-    EXPECT(features.vendor[0] == '\\0' && features.vendor[12] == '\\0');
+    EXPECT(features.vendor[0] == '\0' && features.vendor[12] == '\0');
 
     EXPECT(vgk_cpu_decode_features(
         0x16U, 0x80000008U, 0U, 48U, &features) == VGK_CPU_UNSUPPORTED);
@@ -87,13 +88,13 @@ int main(void)
     EXPECT(features.avx2_usable == 0U);
 
     /* AVX + OSXSAVE still requires both XMM and YMM state in XCR0. */
-    vgk_cpu_decode_vector_features(AVX_BIT | OSXSAVE_BIT, 0, AVX2_BIT, 0x2U,
+    vgk_cpu_decode_vector_features(AVX_BIT | OSXSAVE_BIT | XSAVE_BIT, 0, AVX2_BIT, 0x2U,
                                    1U, 1U, &features);
     EXPECT(features.avx_state_supported == 0U);
     EXPECT(features.avx2_usable == 0U);
 
     /* With XCR0 bits 1 and 2 enabled, AVX and AVX2 become usable. */
-    vgk_cpu_decode_vector_features(AVX_BIT | OSXSAVE_BIT, 0, AVX2_BIT, 0x6U,
+    vgk_cpu_decode_vector_features(AVX_BIT | OSXSAVE_BIT | XSAVE_BIT, 0, AVX2_BIT, 0x6U,
                                    1U, 1U, &features);
     EXPECT(features.avx_hardware_supported == 1U);
     EXPECT(features.avx_state_supported == 1U);
@@ -101,20 +102,20 @@ int main(void)
     EXPECT(features.avx2_usable == 1U);
 
     /* A CPU without CPUID leaf 7 cannot expose AVX2, even with AVX state. */
-    vgk_cpu_decode_vector_features(AVX_BIT | OSXSAVE_BIT, 0, AVX2_BIT, 0x6U,
+    vgk_cpu_decode_vector_features(AVX_BIT | OSXSAVE_BIT | XSAVE_BIT, 0, AVX2_BIT, 0x6U,
                                    1U, 0U, &features);
     EXPECT(features.avx_state_supported == 1U);
     EXPECT(features.avx2_hardware_supported == 0U);
     EXPECT(features.avx2_usable == 0U);
 
     /* AVX2 hardware without AVX hardware/state is not usable. */
-    vgk_cpu_decode_vector_features(OSXSAVE_BIT, 0, AVX2_BIT, 0x6U,
+    vgk_cpu_decode_vector_features(OSXSAVE_BIT | XSAVE_BIT, 0, AVX2_BIT, 0x6U,
                                    1U, 1U, &features);
     EXPECT(features.avx2_hardware_supported == 1U);
     EXPECT(features.avx2_usable == 0U);
 
     if (failures != 0) {
-        fprintf(stderr, "VGK CPU feature tests: %d failure(s)\\n", failures);
+        fprintf(stderr, "VGK CPU feature tests: %d failure(s)\n", failures);
         return 1;
     }
 
