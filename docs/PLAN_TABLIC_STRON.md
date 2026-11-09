@@ -4,7 +4,28 @@
 
 Następnym etapem po protokole startowym v2 jest przejęcie przez jądro kontroli nad mapowaniem pamięci w procesorze x86-64. Sam opis praw segmentów w protokole nie zmienia jeszcze uprawnień sprzętowych. Dopiero poprawne przygotowanie i aktywowanie tablic stron pozwoli rozdzielić pamięć wykonywalną od zapisywalnej.
 
-Ten dokument opisuje kolejność prac i warunki bezpieczeństwa. Nie oznacza, że tablice stron są już zaimplementowane.
+Ten dokument opisuje kolejność prac i warunki bezpieczeństwa.
+
+## Aktualny stan implementacji
+
+Dodano eksperymentalny moduł budowania nieaktywnych tablic stron:
+- interfejs: `include/vgk_paging.h`;
+- implementacja: `src/paging.c`;
+- test hostowy: `tests/test_paging.c`;
+- cel testowy: `make paging-test`, uruchamiany także w GitHub Actions.
+
+Moduł tworzy czteropoziomowe mapowanie stron 4 KiB w pamięci przekazanej przez wywołującego. Weryfikuje wyrównanie i kanoniczność adresów w modelu 48-bitowym, szerokość adresu fizycznego, duplikaty mapowań, brak pamięci oraz podstawowe uprawnienia stron. Odrzuca mapowanie W+X dla pojedynczego wpisu i ustawia NX dla stron niewykonywalnych, jeśli NX jest obsługiwane.
+
+**Moduł nie jest jeszcze używany przez jądro.** Nie przełącza CR3, nie ustawia CR0.WP ani EFER.NXE i nie zmienia aktywnego mapowania. Pula stron musi być wyrównana, zarezerwowana i dostępna pod adresem tożsamościowym. Testy hostowe sprawdzają strukturę wpisów, a nie rzeczywistą ochronę sprzętową procesora.
+
+Ważne ograniczenia do rozwiązania przed integracją:
+- obecny builder zakłada czteropoziomowe stronicowanie i 48-bitowe adresy wirtualne; etap aktywacji musi wykryć i odrzucić niezgodny stan CR4.LA57;
+- NX w wpisach wymaga wcześniejszego, bezpiecznego włączenia EFER.NXE; builder sam tego nie robi;
+- W^X jest obecnie kontrolowane dla pojedynczego mapowania wirtualnego; plan mapowania musi również zapobiec aliasom tego samego fizycznego obszaru z różnymi uprawnieniami;
+- builder nie przydziela stron samodzielnie z alokatora VGK i nie sprawdza jeszcze kolizji z wszystkimi strukturami startowymi;
+- nie wykonano jeszcze testu przełączenia CR3 ani testu ochrony stron w QEMU.
+
+Nie należy traktować tego modułu jako gotowego zarządcy pamięci wirtualnej.
 
 ## Stan wejściowy
 
