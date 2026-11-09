@@ -36,6 +36,7 @@ To potwierdza start w konkretnym środowisku emulatora. Nie jest jeszcze potwier
 - Własny wariant uruchamiania starszego BIOS/Legacy nie jest gotowy.
 - Jądro jest na razie minimalnym etapem diagnostycznym. Nie ma jeszcze pełnego zarządzania pamięcią i procesami, własnych tablic stron, obsługi przerwań, sterowników, systemu plików, sieci ani pulpitu.
 - Instalator, aplikacje, kopie zapasowe, środowisko ratunkowe i Inteligentny Opiekun Systemu są planowanymi elementami, a nie gotowymi funkcjami.
+- Plan obsługi grafiki, kart graficznych, sterowników i aplikacji multimedialnych jest dokumentacją projektową, a nie gotową implementacją.
 
 ## Budowanie
 
@@ -67,5 +68,6 @@ Wymagania dotyczące bezpieczeństwa, instalatora, aplikacji, kopii zapasowych, 
 - [Projekt trybu awaryjnego](docs/TRYB_AWARYJNY.md)
 - [Mechanizm bezpieczeństwa i zaufania](docs/BEZPIECZENSTWO.md)
 - [Protokół startowy VGK](docs/PROTOKOL_STARTOWY.md)
+- [Plan grafiki, sterowników i multimediów](docs/PLAN_GRAFIKI_I_MULTIMEDIOW.md)
 
 VGK pozostaje projektem w fazie rozwoju. Kolejne etapy będą oznaczane osobno jako zaimplementowane, sprawdzone w emulatorze i sprawdzone na sprzęcie.
