@@ -4,7 +4,8 @@
 /*
  * Tymczasowe procedury awaryjne dla wektorow 0..31.
  * Nie sa jeszcze podlaczone do IDT. Nie wracaja do kodu po wyjatku.
- * Wersja diagnostyczna zapisujaca rejestry i wywolujaca C bedzie osobnym etapem.
+ * Wspolny punkt awaryjny zachowuje rejestry ogolnego przeznaczenia,
+ * ale nie buduje jeszcze VGK_EXCEPTION_CONTEXT ani nie wywoluje C.
  */
 .macro VGK_EXCEPTION_NO_ERROR number
 .global vgk_exception_stub_\number
@@ -60,13 +61,33 @@ VGK_EXCEPTION_WITH_ERROR 30
 VGK_EXCEPTION_NO_ERROR 31
 
 /*
- * Bezpieczny punkt koncowy: brak powrotu do uszkodzonego kodu.
- * CLI zapobiega przerwaniu petli przez maskowalne IRQ.
+ * Punkt awaryjny: najpierw wylaczamy maskowalne IRQ, potem zachowujemy
+ * wszystkie rejestry ogolnego przeznaczenia (RSP nie jest pushowany).
+ *
+ * Od najnizszego adresu stosu po tych instrukcjach:
+ * R15..R8, RDI, RSI, RBP, RDX, RCX, RBX, RAX,
+ * wektor, kod bledu, RIP, CS, RFLAGS.
+ * RSP/SS z ramki CPU wystepuja tylko przy zmianie poziomu/IST.
  */
 .global vgk_exception_fatal_entry
 .type vgk_exception_fatal_entry, @function
 vgk_exception_fatal_entry:
     cli
+    pushq %rax
+    pushq %rbx
+    pushq %rcx
+    pushq %rdx
+    pushq %rbp
+    pushq %rsi
+    pushq %rdi
+    pushq %r8
+    pushq %r9
+    pushq %r10
+    pushq %r11
+    pushq %r12
+    pushq %r13
+    pushq %r14
+    pushq %r15
 1:
     hlt
     jmp 1b
