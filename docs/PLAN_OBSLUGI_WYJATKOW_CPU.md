@@ -144,4 +144,4 @@ Nie wolno wykonac LIDT, dopoki:
 - dla kazdego wektora znany jest typ ramki oraz numer IST;
 - testy QEMU potwierdzaja poprawny zapis kontekstu dla #UD, #DE, #PF i osobno dla wejscia przez IST.
 
-Obecne procedury w `boot/exception_stubs.S` nadal tylko przekazuja wektor i zatrzymuja procesor. Powyzszy opis jest specyfikacja nastepnego etapu, a nie deklaracja, ze pelny zapis rejestrow juz dziala.
+Obecne procedury w `boot/exception_stubs.S` normalizuja wektor i kod bledu, a wspolny punkt awaryjny zachowuje 15 rejestrow ogolnego przeznaczenia w kolejnosci opisanej w komentarzu asemblera. Test statyczny sprawdza te operacje. Nadal nie jest budowana pelna struktura `VGK_EXCEPTION_CONTEXT`: nie sa jeszcze jawnie zapisywane RIP/CS/RFLAGS do struktury, poprzedni RSP/SS zalezne od rodzaju ramki ani CR2 dla #PF. Nie ma tez wywolania C, diagnostyki COM1 ani instalacji IDT. Jest to ograniczony etap zachowania rejestrow, a nie aktywna obsluga wyjatkow.
