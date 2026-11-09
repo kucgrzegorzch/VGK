@@ -5,7 +5,7 @@
 #include <string.h>
 #include "vgk_paging.h"
 
-#define CHECK(x) do { if (!(x)) { fprintf(stderr, "FAIL %d: %s\n", __LINE__, #x); return 1; } } while (0)
+#define CHECK(x) do { if (!(x)) { fprintf(stderr, "FAIL %d: %s\\n", __LINE__, #x); return 1; } } while (0)
 
 static uint64_t *walk(VGK_PAGE_TABLES *t, uint64_t va)
 {
@@ -55,6 +55,12 @@ int main(void)
                          VGK_PAGE_WRITE) == VGK_PAGING_UNSUPPORTED);
     CHECK(vgk_paging_init(&t, pool, 1U, 31U, 1U) ==
           VGK_PAGING_INVALID_ARGUMENT);
+    CHECK(vgk_paging_init(&t,
+          (void *)(uintptr_t)UINT64_C(0x0001000000000000),
+          1U, 48U, 1U) == VGK_PAGING_BAD_ADDRESS);
+    CHECK(vgk_paging_init(&t,
+          (void *)(uintptr_t)UINT64_C(0x0000FFFFFFFFF000),
+          2U, 48U, 1U) == VGK_PAGING_BAD_ADDRESS);
     free(pool);
 
     CHECK(posix_memalign(&pool, 4096U, 4U * 4096U) == 0);
