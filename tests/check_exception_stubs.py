@@ -76,7 +76,7 @@ for vector in range(32):
 
     for index, expected_value in enumerate(expected_pushes):
         operand = instructions[index][1]
-        match = re.fullmatch(r"\\$(0x[0-9a-fA-F]+|[0-9]+)", operand)
+        match = re.fullmatch(r"\$(0x[0-9a-fA-F]+|[0-9]+)", operand)
         if not match or int(match.group(1), 0) != expected_value:
             raise SystemExit(
                 f"FAIL: {name} push {index} must place {expected_value}; "
