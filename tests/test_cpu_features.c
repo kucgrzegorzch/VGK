@@ -27,7 +27,7 @@ int main(void)
     EXPECT(features.physical_address_bits == 48U);
     EXPECT(features.nx_supported == 1U);
     EXPECT(features.reserved[0] == 0U && features.reserved[1] == 0U);
-    EXPECT(features.vendor[0] == '\\0' && features.vendor[12] == '\\0');
+    EXPECT(features.vendor[0] == '\0' && features.vendor[12] == '\0');
     EXPECT(features.avx_hardware_supported == 0U);
     EXPECT(features.avx_state_supported == 0U);
     EXPECT(features.avx2_usable == 0U);
