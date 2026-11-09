@@ -11,6 +11,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "vgk_framebuffer.h"
+
 #define VGK_BOOT_INFO_MAGIC UINT64_C(0x314F464E494B4756) /* "VGKINFO1" */
 #define VGK_BOOT_INFO_VERSION UINT32_C(2)
 #define VGK_BOOT_MAX_KERNEL_SEGMENTS 16U
@@ -104,7 +106,6 @@ static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
     uint64_t entry_count;
     uint64_t memory_map_end;
     uint64_t kernel_end;
-    uint64_t framebuffer_end;
     int entry_is_executable = 0;
 
     if (info == NULL ||
@@ -191,13 +192,12 @@ static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
     }
 
     if ((info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0) {
-        if (info->framebuffer_base == 0 || info->framebuffer_size == 0 ||
-            info->framebuffer_base > UINT64_MAX - info->framebuffer_size ||
-            info->framebuffer_width == 0 || info->framebuffer_height == 0 ||
-            info->framebuffer_stride < info->framebuffer_width)
-            return 0;
-        framebuffer_end = info->framebuffer_base + info->framebuffer_size;
-        if (framebuffer_end <= info->framebuffer_base)
+        if (!vgk_framebuffer_is_valid(
+                info->framebuffer_base, info->framebuffer_size,
+                info->framebuffer_width, info->framebuffer_height,
+                info->framebuffer_stride, info->framebuffer_format) ||
+            info->red_mask != 0 || info->green_mask != 0 ||
+            info->blue_mask != 0 || info->reserved_mask != 0)
             return 0;
     } else if (info->framebuffer_base != 0 || info->framebuffer_size != 0 ||
                info->framebuffer_width != 0 || info->framebuffer_height != 0 ||
