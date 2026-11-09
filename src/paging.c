@@ -148,6 +148,59 @@ VGK_PAGING_RESULT vgk_paging_map(
     return VGK_PAGING_OK;
 }
 
+VGK_PAGING_RESULT vgk_paging_map_range(
+    VGK_PAGE_TABLES *tables,
+    uint64_t virtual_address,
+    uint64_t physical_address,
+    uint64_t length,
+    uint32_t permissions)
+{
+    uint64_t rounded_length;
+    uint64_t virtual_end;
+    uint64_t physical_end;
+    uint64_t physical_limit;
+
+    if (tables == 0 || tables->pool == 0 || length == 0U)
+        return VGK_PAGING_INVALID_ARGUMENT;
+    if ((virtual_address & (VGK_PAGING_PAGE_SIZE - 1U)) != 0U ||
+        (physical_address & (VGK_PAGING_PAGE_SIZE - 1U)) != 0U)
+        return VGK_PAGING_BAD_ADDRESS;
+    if (length > UINT64_MAX - (VGK_PAGING_PAGE_SIZE - 1U))
+        return VGK_PAGING_BAD_ADDRESS;
+
+    rounded_length =
+        (length + VGK_PAGING_PAGE_SIZE - 1U) &
+        ~(VGK_PAGING_PAGE_SIZE - 1U);
+    if (rounded_length == 0U ||
+        virtual_address > UINT64_MAX - (rounded_length - 1U) ||
+        physical_address > UINT64_MAX - (rounded_length - 1U))
+        return VGK_PAGING_BAD_ADDRESS;
+
+    virtual_end = virtual_address + rounded_length - 1U;
+    physical_end = physical_address + rounded_length - 1U;
+    physical_limit = tables->physical_mask | (VGK_PAGING_PAGE_SIZE - 1U);
+
+    if (!canonical_address(virtual_address) ||
+        !canonical_address(virtual_end) ||
+        ((virtual_address >> 47) & 1U) != ((virtual_end >> 47) & 1U) ||
+        physical_end > physical_limit)
+        return VGK_PAGING_BAD_ADDRESS;
+
+    /*
+     * A later failure may leave earlier pages mapped. The caller must
+     * discard this inactive table set rather than trying to reuse it.
+     */
+    for (uint64_t offset = 0U; offset < rounded_length;
+         offset += VGK_PAGING_PAGE_SIZE) {
+        VGK_PAGING_RESULT result = vgk_paging_map(
+            tables, virtual_address + offset, physical_address + offset,
+            permissions);
+        if (result != VGK_PAGING_OK)
+            return result;
+    }
+    return VGK_PAGING_OK;
+}
+
 uint64_t vgk_paging_root_physical(const VGK_PAGE_TABLES *tables)
 {
     if (tables == 0 || tables->pool == 0)
