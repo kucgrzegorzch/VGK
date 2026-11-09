@@ -66,6 +66,8 @@ int main(void)
     EXPECT(stats.total_pages == 18U);
     EXPECT(stats.free_pages == 18U);
     EXPECT(stats.managed_range_count == 2U);
+    EXPECT(vgk_memory_free_pages(UINT64_C(0x121000), 1U) ==
+           VGK_MEMORY_OUT_OF_RANGE);
 
     /* Kernel pages stay reserved even if firmware labels them usable. */
     EXPECT(vgk_memory_alloc_pages(1U, 1U, &first_allocation) ==
