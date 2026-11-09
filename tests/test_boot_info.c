@@ -133,6 +133,71 @@ int main(void)
     }
 
     info = valid_info();
+    info.flags = VGK_BOOT_FLAG_PCI;
+    info.pci_device_count = 1;
+    info.pci_device_entry_size = sizeof(VGK_PCI_DEVICE);
+    info.pci_devices[0].vendor_id = UINT16_C(0x1234);
+    info.pci_devices[0].device_id = UINT16_C(0x5678);
+    info.pci_devices[0].bus = 0;
+    info.pci_devices[0].device = 2;
+    info.pci_devices[0].function = 0;
+    if (!vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: odrzucono poprawny inwentarz PCI");
+        ++failures;
+    }
+
+    info.pci_devices[0].device = 32;
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano niepoprawny numer urzadzenia PCI");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.flags = VGK_BOOT_FLAG_PCI;
+    info.pci_device_count = 1;
+    info.pci_device_entry_size = sizeof(VGK_PCI_DEVICE);
+    info.pci_devices[0].vendor_id = UINT16_C(0xFFFF);
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano nieobecne urzadzenie PCI");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.flags = VGK_BOOT_FLAG_PCI | VGK_BOOT_FLAG_PCI_TRUNCATED;
+    info.pci_device_count = 1;
+    info.pci_device_entry_size = sizeof(VGK_PCI_DEVICE);
+    info.pci_devices[0].vendor_id = UINT16_C(0x1234);
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano bledny znacznik obciecia listy PCI");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.flags = VGK_BOOT_FLAG_PCI;
+    info.pci_device_count = 1;
+    info.pci_device_entry_size = sizeof(VGK_PCI_DEVICE);
+    info.pci_devices[0].vendor_id = UINT16_C(0x1234);
+    info.pci_devices[1].vendor_id = UINT16_C(0x1234);
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano dane poza zakresem listy PCI");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.flags = VGK_BOOT_FLAG_PCI;
+    info.pci_device_count = 2;
+    info.pci_device_entry_size = sizeof(VGK_PCI_DEVICE);
+    info.pci_devices[0].vendor_id = UINT16_C(0x1234);
+    info.pci_devices[0].device_id = UINT16_C(0x1111);
+    info.pci_devices[0].device = 3;
+    info.pci_devices[1] = info.pci_devices[0];
+    info.pci_devices[1].device_id = UINT16_C(0x2222);
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano powtorzony adres funkcji PCI");
+        ++failures;
+    }
+
+    info = valid_info();
     info.flags = VGK_BOOT_FLAG_FRAMEBUFFER;
     info.framebuffer_base = UINT64_C(0xE0000000);
     info.framebuffer_size = UINT64_C(0x400000);
