@@ -35,6 +35,10 @@ jobs:
         run: make interrupts-test
       - name: Test x86 exception context and error-code classification
         run: make exception-test
+      - name: Test framebuffer format and memory bounds
+        run: make framebuffer-test
+      - name: Test boot protocol framebuffer validation
+        run: make boot-info-test
       - name: Prepare an ephemeral signed UEFI test release
         run: |
           set -eu
