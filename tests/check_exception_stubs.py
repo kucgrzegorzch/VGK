@@ -4,6 +4,10 @@ import subprocess
 import sys
 
 ERROR_CODE_VECTORS = {8, 10, 11, 12, 13, 14, 17, 20, 21, 29, 30}
+SAVED_REGISTERS = [
+    "rax", "rbx", "rcx", "rdx", "rbp", "rsi", "rdi",
+    "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
+]
 
 if len(sys.argv) != 2:
     raise SystemExit("usage: check_exception_stubs.py <kernel.elf>")
@@ -88,6 +92,11 @@ for vector in range(32):
 
 fatal = blocks.get("vgk_exception_fatal_entry", [])
 fatal_mnemonics = [mnemonic for mnemonic, _ in fatal]
+fatal_operands = [operand.replace("%", "").strip() for _, operand in fatal]
+expected_save = [f"push {register}" for register in SAVED_REGISTERS]
+actual_save = [
+    f"{mnemonic} {operand}" for mnemonic, operand in zip(fatal_mnemonics, fatal_operands)
+][1:1 + len(SAVED_REGISTERS)]
 hlt_positions = [
     index for index, mnemonic in enumerate(fatal_mnemonics)
     if mnemonic == "hlt"
@@ -100,6 +109,7 @@ backward_loop = any(
 if (
     not fatal_mnemonics
     or fatal_mnemonics[0] != "cli"
+    or actual_save != expected_save
     or not hlt_positions
     or not any(
         any(mnemonic == "jmp" for mnemonic, _ in fatal[index + 1:])
@@ -108,11 +118,11 @@ if (
     or not backward_loop
 ):
     raise SystemExit(
-        "FAIL: fatal entry must begin with CLI and contain an HLT/backward-JMP loop; "
+        "FAIL: fatal entry must CLI, save all 15 GPRs in order, then halt; "
         f"found {fatal}"
     )
 
 print(
-    "OK: 32 exception stubs have correct vector/error-code pushes; "
-    "fatal entry disables IRQs and halts"
+    "OK: 32 exception stubs normalize vector/error code; "
+    "fatal entry saves all 15 general-purpose registers and halts"
 )
