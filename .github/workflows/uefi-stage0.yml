@@ -39,6 +39,8 @@ jobs:
         run: make framebuffer-test
       - name: Test boot protocol framebuffer validation
         run: make boot-info-test
+      - name: Test PCI identity and class decoding
+        run: make pci-test
       - name: Prepare an ephemeral signed UEFI test release
         run: |
           set -eu
