@@ -163,3 +163,31 @@ Obiekty startowe mogą zajmować tę samą stronę 4 KiB, mimo że ich adresy ba
 - wykonać testy QEMU/OVMF z diagnostyką szeregową, nadal bez zmiany CR3.
 
 Dopiero osobny etap może dodać procedurę aktywacji. Musi ona działać z kodu i stosu już objętych nowymi mapowaniami, zachować mapowanie adresu powrotu i danych, ustawić NXE tylko po sprawdzeniu CPUID, ustawić CR0.WP i przeładować CR3. Testy awarii ochrony (zapis do strony RX i wykonanie strony NX) wymagają wcześniej działającej obsługi wyjątku #PF; bez niej próba naruszenia ochrony może zakończyć się potrójnym błędem procesora i resetem maszyny.
+
+## Korekta dotycząca puli tablic stron po analizie ładowacza UEFI
+
+Analiza `boot/uefi/bootx64.c` wykazała, że ładowacz pobiera końcową mapę pamięci dopiero po załadowaniu segmentów jądra i zamknięciu woluminu. Bufor surowej mapy, znormalizowana mapa VGK oraz `VGK_BOOT_INFO` są obecnie statycznymi obiektami obrazu ładowacza. Znormalizowana mapa klasyfikuje obszary UEFI LoaderCode/LoaderData jako `VGK_MEMORY_BOOTLOADER`, a więc nie jako pamięć wolną dla alokatora jądra.
+
+Nie wolno jednak wyciągać z tego wniosku, że dowolny adres zwrócony przez alokator po `ExitBootServices` jest bezpieczny do dereferencji. Alokator operuje na fizycznej mapie RAM, natomiast builder tablic stron zapisuje do puli przez wskaźniki. Sam przydział fizyczny nie dowodzi, że firmware pozostawiło tę stronę w aktywnym mapowaniu tożsamościowym. Obecny test alokatora, który przydziela i zwalnia stronę bez odczytu/zapisu pod tym adresem, tego nie sprawdza.
+
+### Decyzja projektowa dla pierwszego bezpiecznego przełączenia
+
+Puli tablic stron nie będziemy przydzielać po starcie jądra z ogólnego alokatora fizycznego. Ładowacz UEFI powinien zarezerwować ją przez `AllocatePages(EfiLoaderData)` **przed pobraniem końcowej mapy pamięci i przed pierwszą próbą `ExitBootServices`**, wyzerować ją jeszcze podczas działania Boot Services i przekazać jądru jej adres fizyczny oraz liczbę stron.
+
+Wymaga to kontrolowanej zmiany protokołu startowego:
+- podnieść wersję `VGK_BOOT_INFO` z 3 do 4;
+- dodać jawne pola adresu i rozmiaru puli tablic stron;
+- walidować wyrównanie, niezerowy rozmiar, przepełnienia i zgodność zakresu z mapą pamięci;
+- wymagać, aby zakres puli był sklasyfikowany jako pamięć ładowacza, a nie pamięć używalna;
+- zarezerwować ten zakres w kontrakcie startowym i używać go wyłącznie jako puli RW+NX;
+- dodać testy walidatora protokołu, normalizacji mapy i błędnych zakresów puli;
+- zapewnić, że pula nie zostanie zwolniona przed przejściem jądra na własne mapowanie.
+
+Rezerwację należy wykonać przed końcowym `GetMemoryMap`, ponieważ `AllocatePages` zmienia mapę i unieważnia poprzedni klucz mapy. Po przydziale nie wolno już wykonywać operacji alokujących pamięć pomiędzy końcowym pobraniem mapy a udanym `ExitBootServices`; istniejąca pętla ponawiania może nadal ponawiać wyłącznie pobranie mapy i samo wyjście.
+
+W pierwszej wersji rozmiar puli powinien być stałą, konserwatywną wartością określoną przez testy (np. 64 strony), a brak lub niewystarczający rozmiar ma zatrzymać start z diagnostyką. Nie wolno po cichu wracać do przydzielania puli z alokatora jądra. W przyszłości można dodać obliczanie wymaganego rozmiaru na podstawie planu mapowań.
+
+### Zakres tej decyzji
+
+To rozwiązanie dotyczy natywnego ładowacza UEFI. Dla Legacy BIOS trzeba zaprojektować równoważny kontrakt rezerwacji pamięci, zanim wspólne jądro będzie mogło bezpiecznie używać buildera na obu ścieżkach. Nie aktywujemy CR3 w ramach samej zmiany protokołu. Najpierw należy wdrożyć i przetestować przekazanie puli, a następnie zbudować i zweryfikować nieaktywne tablice w QEMU/OVMF.
+
