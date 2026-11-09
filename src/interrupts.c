@@ -27,5 +27,29 @@ VGK_INTERRUPT_STATUS vgk_idt_gate_build(
     return VGK_INTERRUPT_OK;
 }
 
+VGK_INTERRUPT_STATUS vgk_idt_build_exception_table(
+    VGK_IDT_GATE table[VGK_IDT_EXCEPTION_COUNT],
+    const uint64_t handlers[VGK_IDT_EXCEPTION_COUNT],
+    uint16_t code_selector)
+{
+    if (table == 0 || handlers == 0 || code_selector == 0)
+        return VGK_INTERRUPT_INVALID_ARGUMENT;
+
+    /* Najpierw sprawdzamy caly zestaw, aby blad nie zostawil pol-tablicy. */
+    for (uint32_t i = 0; i < VGK_IDT_EXCEPTION_COUNT; ++i) {
+        if (handlers[i] == 0)
+            return VGK_INTERRUPT_INVALID_ARGUMENT;
+    }
+
+    for (uint32_t i = 0; i < VGK_IDT_EXCEPTION_COUNT; ++i) {
+        if (vgk_idt_gate_build(&table[i], handlers[i], code_selector,
+                               0U, 0U, VGK_IDT_GATE_INTERRUPT, 1U) !=
+            VGK_INTERRUPT_OK)
+            return VGK_INTERRUPT_INVALID_ARGUMENT;
+    }
+
+    return VGK_INTERRUPT_OK;
+}
+
 _Static_assert(sizeof(VGK_IDT_GATE) == 16,
                "VGK IDT gate must be exactly 16 bytes");
