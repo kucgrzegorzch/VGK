@@ -4,7 +4,7 @@ VGK jest eksperymentalnym projektem własnego systemu operacyjnego dla komputer�
 
 ## Aktualny stan – listopad 2026
 
-**Własna ścieżka UEFI uruchomiła już natywne jądro VGK w emulatorze QEMU z firmware OVMF.** Test GitHub Actions nr 406 zakończył się powodzeniem (protokół startowy v2). Dziennik portu szeregowego potwierdził:
+**Własna ścieżka UEFI uruchomiła już natywne jądro VGK w emulatorze QEMU z firmware OVMF.** Wcześniejszy test GitHub Actions potwierdził start z protokołem v2. Obecnie rozwijana jest wersja 3 protokołu, która przenosi do jądra ograniczony inwentarz PCI. Walidacja nowej wersji w CI/QEMU jest w toku. Dziennik portu szeregowego wcześniejszego testu potwierdził:
 - sprawdzenie podpisu i plików wydania;
 - załadowanie i uruchomienie własnego jądra;
 - poprawną walidację protokołu `VGK_BOOT_INFO`;
@@ -23,7 +23,8 @@ To potwierdza start w konkretnym środowisku emulatora. Nie jest jeszcze potwier
 - Normalizacja mapy pamięci UEFI do wspólnego formatu VGK.
 - Wczesny zarządca fizycznych stron pamięci: wyznacza wolne zakresy, przydziela strony z wyrównaniem i scala zwalniane zakresy.
 - Walidacja segmentów jądra w protokole startowym: odrzucanie zakresów nakładających się, nieprawidłowego punktu wejścia i segmentów jednocześnie zapisywalnych oraz wykonywalnych.
-- Wersjonowany protokół przekazania danych startowych do jądra (wersja 2), z opisami segmentów ELF i ich uprawnieniami.
+- Wersjonowany protokół przekazania danych startowych do jądra (wersja 3), z opisami segmentów ELF, ich uprawnieniami oraz miejscem na maksymalnie 128 znormalizowanych identyfikatorów PCI.
+- Skaner UEFI PCI I/O odczytujący podstawowe identyfikatory urządzeń przed ExitBootServices; pełny przepływ do jądra jest obecnie weryfikowany w CI/QEMU.
 - Zakończenie usług startowych UEFI i przekazanie sterowania do własnego punktu wejścia jądra.
 - Własny stos jądra oraz diagnostyka przez port szeregowy COM1.
 - Test uruchomienia w QEMU/OVMF z tymczasowym kluczem i podpisanym wydaniem testowym.
@@ -33,6 +34,7 @@ To potwierdza start w konkretnym środowisku emulatora. Nie jest jeszcze potwier
 - Test QEMU używa tymczasowego klucza utworzonego wyłącznie w GitHub Actions. Nie jest to klucz produkcyjny VGK.
 - Oficjalny klucz publiczny wydawcy nie został jeszcze ustalony i zatwierdzony. Zwykły obraz `BOOTX64.EFI` bez klucza zaufania działa w trybie odmowy startu – nie uruchamia niezweryfikowanego jądra.
 - Nie wykonano jeszcze testu na fizycznym komputerze.
+- Wykrywanie PCI nie oznacza jeszcze obsługi sterowników; odczyt BAR/MMIO, DMA i sterowniki urządzeń pozostają odrębnymi etapami.
 - Własny wariant uruchamiania starszego BIOS/Legacy nie jest gotowy.
 - Jądro jest na razie minimalnym etapem diagnostycznym. Nie ma jeszcze pełnego zarządzania pamięcią i procesami, własnych tablic stron, obsługi przerwań, sterowników, systemu plików, sieci ani pulpitu.
 - Instalator, aplikacje, kopie zapasowe, środowisko ratunkowe i Inteligentny Opiekun Systemu są planowanymi elementami, a nie gotowymi funkcjami.
