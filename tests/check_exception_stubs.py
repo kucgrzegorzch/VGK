@@ -88,14 +88,27 @@ for vector in range(32):
 
 fatal = blocks.get("vgk_exception_fatal_entry", [])
 fatal_mnemonics = [mnemonic for mnemonic, _ in fatal]
+hlt_positions = [
+    index for index, mnemonic in enumerate(fatal_mnemonics)
+    if mnemonic == "hlt"
+]
+backward_loop = any(
+    mnemonic == "jmp"
+    and "vgk_exception_fatal_entry+" in operand
+    for mnemonic, operand in fatal
+)
 if (
-    len(fatal_mnemonics) < 3
+    not fatal_mnemonics
     or fatal_mnemonics[0] != "cli"
-    or "hlt" not in fatal_mnemonics[1:]
-    or fatal_mnemonics[-1] != "jmp"
+    or not hlt_positions
+    or not any(
+        any(mnemonic == "jmp" for mnemonic, _ in fatal[index + 1:])
+        for index in hlt_positions
+    )
+    or not backward_loop
 ):
     raise SystemExit(
-        "FAIL: fatal entry must begin with CLI, contain HLT, and end with JMP; "
+        "FAIL: fatal entry must begin with CLI and contain an HLT/backward-JMP loop; "
         f"found {fatal}"
     )
 
