@@ -137,3 +137,29 @@ Instrukcja XGETBV jest wykonywana dopiero po sprawdzeniu OSXSAVE. Dzięki temu V
 - Każdy wariant przyspieszony będzie musiał mieć odpowiednik podstawowy i testy na emulatorze oraz rzeczywistym sprzęcie.
 
 **Ograniczenie obecnego etapu:** wykrywanie możliwości nie oznacza jeszcze pełnej zgodności ze wszystkimi procesorami. Nie wykonaliśmy jeszcze testów na fizycznych komputerach Intel i AMD, a jądro nie przełącza się na kod AVX/AVX2.
+
+
+## Konkretny plan pierwszego zestawu mapowań (bez przełączania CR3)
+
+Przed integracją buildera jądro musi zbudować i sprawdzić mapowania w nowej, nadal nieaktywnej tablicy. Pierwszy zakres prac ograniczamy do pamięci RAM i struktur koniecznych do działania jądra:
+
+1. **Segmenty ELF jądra:** mapować każdy segment pod jego adresem tożsamościowym. Uprawnienia wynikają z flag segmentu: RX dla kodu, R+NX dla danych stałych, RW+NX dla danych i BSS. Stos `vgk_boot_stack` znajduje się w BSS, więc nie wymaga osobnego obszaru, o ile walidacja ELF potwierdzi jego przynależność do segmentu RW.
+2. **VGK_BOOT_INFO:** wyznaczyć zakres stron obejmujący cały obiekt, zaokrąglony w dół i w górę do granic 4 KiB; mapować R+NX.
+3. **Znormalizowana mapa pamięci:** analogicznie mapować cały bufor wskazywany przez `memory_map_address` i `memory_map_size` jako R+NX. Przed mapowaniem sprawdzić dzielenie rozmiaru przez rozmiar wpisu i przepełnienia.
+4. **Pula tablic stron:** przydzielić ją z alokatora VGK, zachować jej fizyczny zakres jako zarezerwowany i mapować RW+NX. Pamięć puli musi być dostępna tożsamościowo przed aktywacją nowych tablic, ponieważ builder zeruje i zapisuje wpisy przez wskaźniki.
+5. **Pozostałe obszary:** na tym etapie nie mapować framebuffer GOP ani tabel ACPI. Wymagają osobnej polityki pamięci urządzeń/cache oraz parsera ACPI z walidacją długości i zakresów.
+
+### Konflikty zakresów
+
+Obiekty startowe mogą zajmować tę samą stronę 4 KiB, mimo że ich adresy bajtowe są różne. Plan mapowania powinien więc najpierw utworzyć listę zakresów stron, posortować ją po adresie i połączyć zakresy zachodzące na siebie lub sąsiadujące, jeżeli mają identyczne uprawnienia. Nakładanie zakresów o różnych uprawnieniach musi zakończyć się błędem przed rozpoczęciem mapowania. Nie wolno rozwiązywać konfliktu przez nadpisanie wcześniejszego wpisu PTE.
+
+### Warunki przed testem przełączenia
+
+- potwierdzić, że bieżący kod, stos, `VGK_BOOT_INFO`, mapa pamięci i pula są objęte nowymi mapowaniami;
+- potwierdzić, że wszystkie adresy fizyczne mieszczą się w szerokości wykrytej przez CPUID;
+- sprawdzić, że żaden zakres nie mapuje RAM jako MMIO ani odwrotnie;
+- sprawdzić, że wszystkie strony puli zostały wyzerowane i nie należą do żadnego innego obiektu;
+- przejść po zbudowanych tablicach i porównać każdy wpis z oczekiwaną listą zakresów oraz uprawnień;
+- wykonać testy QEMU/OVMF z diagnostyką szeregową, nadal bez zmiany CR3.
+
+Dopiero osobny etap może dodać procedurę aktywacji. Musi ona działać z kodu i stosu już objętych nowymi mapowaniami, zachować mapowanie adresu powrotu i danych, ustawić NXE tylko po sprawdzeniu CPUID, ustawić CR0.WP i przeładować CR3. Testy awarii ochrony (zapis do strony RX i wykonanie strony NX) wymagają wcześniej działającej obsługi wyjątku #PF; bez niej próba naruszenia ochrony może zakończyć się potrójnym błędem procesora i resetem maszyny.
