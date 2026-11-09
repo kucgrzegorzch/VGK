@@ -17,7 +17,9 @@ if e_type != 2 or e_machine != 62:
     raise SystemExit("FAIL: expected x86-64 executable ELF")
 entry = struct.unpack_from("<Q", data, 24)[0]
 phoff = struct.unpack_from("<Q", data, 32)[0]
-ehsize, phentsize, phnum = struct.unpack_from("<HHH", data, 52)[0], struct.unpack_from("<H", data, 54)[0], struct.unpack_from("<H", data, 56)[0]
+ehsize = struct.unpack_from("<H", data, 52)[0]
+phentsize = struct.unpack_from("<H", data, 54)[0]
+phnum = struct.unpack_from("<H", data, 56)[0]
 if ehsize != 64 or phentsize != 56 or phnum < 1:
     raise SystemExit("FAIL: invalid ELF program header table")
 if phoff + phentsize * phnum > len(data):
@@ -37,6 +39,8 @@ for index in range(phnum):
             raise SystemExit("FAIL: expected identity-mapped, non-empty load segment")
         if p_paddr + p_memsz > 0x40000000:
             raise SystemExit("FAIL: load segment exceeds the initial low-memory window")
+        if (p_flags & 4) == 0 or (p_flags & ~7) != 0:
+            raise SystemExit("FAIL: PT_LOAD must use known ELF R/W/X permissions")
         loads.append((p_paddr, p_memsz, p_flags))
 
 if not loads:
@@ -45,5 +49,7 @@ if not any(start <= entry < start + size and (flags & 1) for start, size, flags 
     raise SystemExit("FAIL: entry is not in an executable PT_LOAD segment")
 if any(flags & 2 and flags & 1 for _, _, flags in loads):
     raise SystemExit("FAIL: writable executable segment detected")
+if not any((flags & 7) == 4 for _, _, flags in loads):
+    raise SystemExit("FAIL: expected a dedicated read-only, non-executable PT_LOAD segment")
 
-print(f"OK: native VGK ELF64 x86-64; entry=0x{entry:x}; PT_LOAD={len(loads)}")
+print(f"OK: native VGK ELF64 x86-64; entry=0x{entry:x}; PT_LOAD={len(loads)}; RX/R/RW permissions separated")
