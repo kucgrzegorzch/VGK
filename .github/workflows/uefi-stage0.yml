@@ -33,6 +33,8 @@ jobs:
         run: make cpu-features-test
       - name: Test x86 interrupt descriptor encoding
         run: make interrupts-test
+      - name: Test x86 exception context and error-code classification
+        run: make exception-test
       - name: Prepare an ephemeral signed UEFI test release
         run: |
           set -eu
