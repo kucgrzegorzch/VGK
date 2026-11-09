@@ -14,6 +14,18 @@ VGK ma zapewniać:
 
 Priorytetem jest stabilność, zgodność i bezpieczeństwo, a nie maksymalna wydajność na każdej karcie od pierwszego wydania. Warstwa graficzna jest oddzielona od sterowników, a aplikacje nie komunikują się bezpośrednio z rejestrami GPU. Brak dedykowanego sterownika nie może uniemożliwić uruchomienia systemu.
 
+## 1.1. Stan wykonania – pierwszy etap framebufferu
+
+W kodzie ładowacza UEFI dodano pobieranie bieżącego trybu Graphics Output Protocol (GOP) z uchwytu konsoli. Obecna implementacja:
+- rozpoznaje standardowe układy pikseli RGB i BGR, po 8 bitów na kanał;
+- sprawdza wskaźnik i rozmiar informacji o trybie;
+- sprawdza adres, rozmiar bufora, wymiary obrazu i liczbę pikseli w wierszu;
+- odrzuca tryby bit-mask i BLT-only, których formatów VGK jeszcze nie obsługuje;
+- przekazuje opis framebufferu w istniejącym protokole startowym, jeśli wszystkie kontrole przejdą;
+- pozostawia flagę framebuffer wyłączoną, gdy GOP jest niedostępny lub format nieobsługiwany.
+
+Dodano niezależne testy walidacji formatu, kroku wiersza, wymaganego rozmiaru i przepełnień adresów. To nadal tylko przekazanie opisu bufora. Jądro nie rysuje jeszcze pulpitu ani nie zmienia trybu ekranu. Wyniki testów CI dla tej zmiany są sprawdzane osobno.
+
 ## 2. Architektura grafiki
 
 ### 2.1. Warstwa obrazu podstawowego
