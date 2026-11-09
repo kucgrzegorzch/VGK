@@ -5,6 +5,7 @@ ENTRY(vgk_kernel_entry)
 PHDRS
 {
     text PT_LOAD FLAGS(5);
+    rodata PT_LOAD FLAGS(4);
     data PT_LOAD FLAGS(6);
 }
 
@@ -21,7 +22,7 @@ SECTIONS
     .rodata : ALIGN(0x1000)
     {
         *(.rodata*)
-    } :text
+    } :rodata
 
     .data : ALIGN(0x1000)
     {
