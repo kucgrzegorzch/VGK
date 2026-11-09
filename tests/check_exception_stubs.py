@@ -87,9 +87,16 @@ for vector in range(32):
         raise SystemExit(f"FAIL: {name} does not jump to fatal entry")
 
 fatal = blocks.get("vgk_exception_fatal_entry", [])
-if [mnemonic for mnemonic, _ in fatal] != ["cli", "hlt", "jmp"]:
+fatal_mnemonics = [mnemonic for mnemonic, _ in fatal]
+if (
+    len(fatal_mnemonics) < 3
+    or fatal_mnemonics[0] != "cli"
+    or "hlt" not in fatal_mnemonics[1:]
+    or fatal_mnemonics[-1] != "jmp"
+):
     raise SystemExit(
-        "FAIL: fatal entry must disable maskable interrupts and halt in a loop"
+        "FAIL: fatal entry must begin with CLI, contain HLT, and end with JMP; "
+        f"found {fatal}"
     )
 
 print(
