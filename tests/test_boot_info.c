@@ -152,6 +152,20 @@ int main(void)
     }
 
     info.framebuffer_stride = 1024;
+    info.framebuffer_size = UINT64_C(1024) * 768U * 4U - 1U;
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano bufor mniejszy od pelnego obrazu");
+        ++failures;
+    }
+
+    info.framebuffer_size = UINT64_C(0x400000);
+    info.framebuffer_format = UINT32_C(99);
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano nieznany format obrazu");
+        ++failures;
+    }
+
+    info.framebuffer_format = VGK_FRAMEBUFFER_FORMAT_RGBX8;
     info.framebuffer_base = UINT64_MAX - 15U;
     info.framebuffer_size = 64U;
     if (vgk_boot_info_is_valid(&info)) {
