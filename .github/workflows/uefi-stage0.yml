@@ -41,6 +41,8 @@ jobs:
         run: make boot-info-test
       - name: Test PCI identity and class decoding
         run: make pci-test
+      - name: Test UEFI PCI configuration access
+        run: make uefi-pci-test
       - name: Prepare an ephemeral signed UEFI test release
         run: |
           set -eu
