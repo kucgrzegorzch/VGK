@@ -58,6 +58,14 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
 
     serial_write("VGK: protokol startowy poprawny.\r\n");
 
+    if ((boot_info->flags & VGK_BOOT_FLAG_PCI) != 0) {
+        serial_write("VGK: otrzymano inwentarz urzadzen PCI z UEFI.\r\n");
+        if ((boot_info->flags & VGK_BOOT_FLAG_PCI_TRUNCATED) != 0)
+            serial_write("VGK: lista PCI zostala ograniczona do maksymalnej liczby wpisow.\r\n");
+    } else {
+        serial_write("VGK: firmware nie udostepnilo inwentarza PCI.\r\n");
+    }
+
     if ((boot_info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0) {
         serial_write("VGK: przekazano zweryfikowany framebuffer GOP.\r\n");
     } else {
