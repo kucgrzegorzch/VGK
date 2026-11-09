@@ -1,4 +1,4 @@
-# Protokół startowy VGK – wersja 2
+# Protokół startowy VGK – wersja 3
 
 ## Cel
 
@@ -9,7 +9,7 @@ Definicje znajdują się w `include/vgk_boot_info.h`.
 ## Zasady zgodności
 
 - Sygnatura: `VGK_BOOT_INFO_MAGIC`.
-- Wersja: `VGK_BOOT_INFO_VERSION = 2`.
+- Wersja: `VGK_BOOT_INFO_VERSION = 3`.
 - Adresy i rozmiary mają stałe pola 64-bitowe.
 - Rozmiar struktury jest przekazywany w polu `structure_size`.
 - Nieznane flagi oraz niezerowe pola zarezerwowane powodują odrzucenie danych.
@@ -24,6 +24,7 @@ Definicje znajdują się w `include/vgk_boot_info.h`.
 4. Adres wejścia jądra.
 5. Opcjonalny opis bufora obrazu: adres, rozmiar, wymiary, krok wiersza i format.
 6. Opcjonalny adres tabel RSDP ACPI.
+7. Ograniczona lista znormalizowanych identyfikatorów urządzeń PCI (maksymalnie 128), bez uchwytów i wskaźników firmware; flaga informuje o ewentualnym obcięciu listy.
 
 W obecnej ścieżce UEFI wypełniane są dane dotyczące firmware, mapy pamięci i jądra. Ładowacz próbuje również pobrać bieżący tryb UEFI GOP z uchwytu konsoli tekstowej. Jeśli bufor jest liniowy, ma format RGB/BGR 8-bit na kanał i przechodzi kontrolę wymiarów, kroku wiersza oraz zakresu pamięci, jego opis trafia do protokołu. Nieobsługiwany format lub brak GOP pozostawia flagę framebuffer wyzerowaną. Informacje ACPI pozostają nieaktywne.
 
@@ -38,7 +39,7 @@ Funkcja `vgk_boot_info_is_valid` sprawdza:
 - liczbę i zakresy segmentów jądra, ich wyrównanie, dozwolone flagi oraz brak nakładania stron;
 - zakaz segmentów jednocześnie zapisywalnych i wykonywalnych (W+X) oraz położenie punktu wejścia w segmencie wykonywalnym;
 - wyzerowanie nieużywanych opisów segmentów;
-- spójność opcjonalnych danych obrazu i ACPI;
+- spójność opcjonalnych danych obrazu, ACPI i inwentarza PCI, w tym rozmiar rekordu, limity, unikalność adresu funkcji oraz wyzerowanie nieużywanych wpisów;
 - wyzerowanie pól zarezerwowanych;
 - przepełnienia zakresów adresowych.
 
@@ -80,11 +81,14 @@ Walidacja struktury nie dowodzi sama w sobie, że wskazane adresy są dostępne 
 - [x] Pola protokołu dla framebufferu.
 - [x] Pobieranie i walidacja trybu GOP RGB/BGR w ładowaczu UEFI; tryby bit-mask i BLT-only są na razie odrzucane.
 - [ ] Przekazanie i wykorzystanie framebufferu przez jądro do rysowania obrazu.
-- [ ] Wykrywanie PCI/PCIe i dalsze informacje sprzętowe.
+- [x] Odczyt podstawowych identyfikatorów PCI przez protokół UEFI PCI I/O przed ExitBootServices.
+- [x] Przekazanie ograniczonego inwentarza PCI w protokole startowym v3, bez wskaźników firmware.
+- [ ] Potwierdzenie pełnego przepływu inwentarza PCI testem QEMU/OVMF i testami CI.
+- [ ] Odczyt dalszych informacji PCIe i sterowniki urządzeń.
 - [ ] Odczyt informacji ACPI.
 
 ## Granice obecnego testu
 
-Test QEMU potwierdza, że określony obraz UEFI, podpisane wydanie testowe i diagnostyczne jądro uruchomiły się w określonej konfiguracji emulatora OVMF. Klucz jest tworzony tymczasowo w GitHub Actions i nie jest kluczem produkcyjnym. Protokół v2 przekazuje uprawnienia segmentów do przyszłego zarządcy tablic stron; samo przekazanie flag nie oznacza jeszcze, że procesor egzekwuje te uprawnienia.
+Test QEMU potwierdza, że określony obraz UEFI, podpisane wydanie testowe i diagnostyczne jądro uruchomiły się w określonej konfiguracji emulatora OVMF. Klucz jest tworzony tymczasowo w GitHub Actions i nie jest kluczem produkcyjnym. Protokół v3 przekazuje uprawnienia segmentów do przyszłego zarządcy tablic stron; samo przekazanie flag nie oznacza jeszcze, że procesor egzekwuje te uprawnienia.
 
 Nie potwierdza to jeszcze zgodności ze wszystkimi wersjami firmware, procesorami Intel i AMD ani uruchomienia na fizycznym komputerze. Jądro pozostaje minimalnym etapem diagnostycznym, bez pełnego zarządzania pamięcią, przerwań, sterowników i usług systemowych.
