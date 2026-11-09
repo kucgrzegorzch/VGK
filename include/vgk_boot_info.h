@@ -12,9 +12,10 @@
 #include <stdint.h>
 
 #include "vgk_framebuffer.h"
+#include "vgk_pci.h"
 
 #define VGK_BOOT_INFO_MAGIC UINT64_C(0x314F464E494B4756) /* "VGKINFO1" */
-#define VGK_BOOT_INFO_VERSION UINT32_C(2)
+#define VGK_BOOT_INFO_VERSION UINT32_C(3)
 #define VGK_BOOT_MAX_KERNEL_SEGMENTS 16U
 #define VGK_KERNEL_SEGMENT_READ  UINT32_C(0x4)
 #define VGK_KERNEL_SEGMENT_WRITE UINT32_C(0x2)
@@ -23,8 +24,12 @@
 
 #define VGK_BOOT_FLAG_FRAMEBUFFER UINT64_C(0x0000000000000001)
 #define VGK_BOOT_FLAG_ACPI        UINT64_C(0x0000000000000002)
+#define VGK_BOOT_FLAG_PCI         UINT64_C(0x0000000000000004)
+#define VGK_BOOT_FLAG_PCI_TRUNCATED UINT64_C(0x0000000000000008)
+#define VGK_BOOT_MAX_PCI_DEVICES 128U
 #define VGK_BOOT_KNOWN_FLAGS \
-    (VGK_BOOT_FLAG_FRAMEBUFFER | VGK_BOOT_FLAG_ACPI)
+    (VGK_BOOT_FLAG_FRAMEBUFFER | VGK_BOOT_FLAG_ACPI | \
+     VGK_BOOT_FLAG_PCI | VGK_BOOT_FLAG_PCI_TRUNCATED)
 
 typedef enum {
     VGK_FIRMWARE_UEFI = 1,
@@ -99,6 +104,11 @@ typedef struct {
     uint32_t kernel_segment_count;
     uint32_t reserved2;
     VGK_KERNEL_SEGMENT kernel_segments[VGK_BOOT_MAX_KERNEL_SEGMENTS];
+
+    /* Normalized PCI inventory; no firmware pointers or handles. */
+    uint32_t pci_device_count;
+    uint32_t pci_device_entry_size;
+    VGK_PCI_DEVICE pci_devices[VGK_BOOT_MAX_PCI_DEVICES];
 } VGK_BOOT_INFO;
 
 static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
@@ -113,6 +123,8 @@ static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
         info->version != VGK_BOOT_INFO_VERSION ||
         info->structure_size < sizeof(VGK_BOOT_INFO) ||
         (info->flags & ~VGK_BOOT_KNOWN_FLAGS) != 0 ||
+        ((info->flags & VGK_BOOT_FLAG_PCI_TRUNCATED) != 0 &&
+         (info->flags & VGK_BOOT_FLAG_PCI) == 0) ||
         (info->firmware_type != VGK_FIRMWARE_UEFI &&
          info->firmware_type != VGK_FIRMWARE_BIOS) ||
         info->reserved0 != 0 || info->reserved1 != 0 ||
@@ -207,6 +219,48 @@ static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
         return 0;
     }
 
+    if ((info->flags & VGK_BOOT_FLAG_PCI) != 0) {
+        if (info->pci_device_entry_size != sizeof(VGK_PCI_DEVICE) ||
+            info->pci_device_count > VGK_BOOT_MAX_PCI_DEVICES ||
+            ((info->flags & VGK_BOOT_FLAG_PCI_TRUNCATED) != 0 &&
+             info->pci_device_count != VGK_BOOT_MAX_PCI_DEVICES))
+            return 0;
+        for (uint32_t i = 0; i < info->pci_device_count; ++i) {
+            const VGK_PCI_DEVICE *device = &info->pci_devices[i];
+            if (device->device > 31U || device->function > 7U ||
+                device->vendor_id == UINT16_C(0xFFFF))
+                return 0;
+            for (uint32_t j = 0; j < i; ++j) {
+                const VGK_PCI_DEVICE *prior = &info->pci_devices[j];
+                if (device->segment == prior->segment &&
+                    device->bus == prior->bus &&
+                    device->device == prior->device &&
+                    device->function == prior->function)
+                    return 0;
+            }
+        }
+        for (uint32_t i = info->pci_device_count;
+             i < VGK_BOOT_MAX_PCI_DEVICES; ++i) {
+            const uint8_t *bytes = (const uint8_t *)&info->pci_devices[i];
+            for (size_t j = 0; j < sizeof(info->pci_devices[i]); ++j) {
+                if (bytes[j] != 0)
+                    return 0;
+            }
+        }
+    } else {
+        if (info->pci_device_count != 0 ||
+            info->pci_device_entry_size != 0 ||
+            (info->flags & VGK_BOOT_FLAG_PCI_TRUNCATED) != 0)
+            return 0;
+        for (uint32_t i = 0; i < VGK_BOOT_MAX_PCI_DEVICES; ++i) {
+            const uint8_t *bytes = (const uint8_t *)&info->pci_devices[i];
+            for (size_t j = 0; j < sizeof(info->pci_devices[i]); ++j) {
+                if (bytes[j] != 0)
+                    return 0;
+            }
+        }
+    }
+
     if ((info->flags & VGK_BOOT_FLAG_ACPI) != 0) {
         if (info->acpi_rsdp_address == 0)
             return 0;
@@ -235,7 +289,10 @@ _Static_assert(offsetof(VGK_BOOT_INFO, acpi_rsdp_address) == 128,
                "VGK boot info ACPI offset changed");
 _Static_assert(sizeof(VGK_KERNEL_SEGMENT) == 24,
                "VGK kernel segment layout changed");
-_Static_assert(sizeof(VGK_BOOT_INFO) == 560,
+_Static_assert(sizeof(VGK_PCI_DEVICE) == 16,
+               "VGK PCI device layout changed");
+_Static_assert(sizeof(VGK_BOOT_INFO) ==
+                   560 + 8 + VGK_BOOT_MAX_PCI_DEVICES * sizeof(VGK_PCI_DEVICE),
                "VGK boot info size changed");
 
 #endif
