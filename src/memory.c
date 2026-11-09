@@ -172,7 +172,7 @@ VGK_MEMORY_RESULT vgk_memory_init(const VGK_BOOT_INFO *boot_info)
     const VGK_MEMORY_MAP_ENTRY *entries;
     size_t entry_count;
     uint64_t previous_end = 0;
-    VGK_RESERVED_RANGE reserved[VGK_BOOT_MAX_KERNEL_SEGMENTS + 2U];
+    VGK_RESERVED_RANGE reserved[VGK_BOOT_MAX_KERNEL_SEGMENTS + 4U];
     size_t reserved_count = 0;
 
     clear_allocator();
@@ -208,6 +208,21 @@ VGK_MEMORY_RESULT vgk_memory_init(const VGK_BOOT_INFO *boot_info)
             clear_allocator();
             return VGK_MEMORY_BAD_MAP;
         }
+    }
+    if ((boot_info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0 &&
+        reserve_range(reserved, &reserved_count,
+                      sizeof(reserved) / sizeof(reserved[0]),
+                      boot_info->framebuffer_base,
+                      boot_info->framebuffer_size) != 0) {
+        clear_allocator();
+        return VGK_MEMORY_BAD_MAP;
+    }
+    if ((boot_info->flags & VGK_BOOT_FLAG_ACPI) != 0 &&
+        reserve_range(reserved, &reserved_count,
+                      sizeof(reserved) / sizeof(reserved[0]),
+                      boot_info->acpi_rsdp_address, 1U) != 0) {
+        clear_allocator();
+        return VGK_MEMORY_BAD_MAP;
     }
     /* The exclusions are sorted to make interval subtraction deterministic. */
     for (size_t i = 1; i < reserved_count; ++i) {
