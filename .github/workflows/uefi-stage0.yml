@@ -29,6 +29,8 @@ jobs:
         run: make native-kernel-test
       - name: Test early physical memory allocator
         run: make memory-test
+      - name: Test inactive x86-64 page-table builder
+        run: make paging-test
       - name: Test x86 CPU feature detection
         run: make cpu-features-test
       - name: Test x86 interrupt descriptor encoding
