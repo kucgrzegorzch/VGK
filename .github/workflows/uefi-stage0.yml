@@ -87,6 +87,7 @@ jobs:
           cat build/qemu-serial.log
           grep -aF "VGK: uruchomiono wlasne jadro." build/qemu-serial.log
           grep -aF "VGK: protokol startowy poprawny." build/qemu-serial.log
+          grep -aF "VGK: otrzymano inwentarz urzadzen PCI z UEFI." build/qemu-serial.log
           grep -aF "VGK: procesor obsluguje NX;" build/qemu-serial.log
           grep -aF "VGK: menedzer pamieci uruchomiony." build/qemu-serial.log
       - name: Verify UEFI refuses a modified kernel
