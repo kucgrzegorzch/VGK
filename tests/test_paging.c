@@ -36,7 +36,7 @@ int main(void)
           VGK_PAGING_UNSUPPORTED);
     CHECK(vgk_paging_map(&t, 0x200000U, 0x300000U,
                          VGK_PAGE_EXEC) == VGK_PAGING_ALREADY_MAPPED);
-    CHECK(((*walk(&t, 0x200000U)) & (1U << 63)) == 0U);
+    CHECK(((*walk(&t, 0x200000U)) & (UINT64_C(1) << 63)) == 0U);
     CHECK(((*walk(&t, 0x200000U)) & 2U) == 0U);
     CHECK(((*walk(&t, 0x201000U)) & (1U << 63)) != 0U);
     CHECK(((*walk(&t, 0x201000U)) & 2U) != 0U);
