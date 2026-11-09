@@ -48,7 +48,19 @@ int main(void)
     CHECK(vgk_paging_init(&t, pool, 1U, 48U, 0U) == VGK_PAGING_OK);
     CHECK(vgk_paging_map(&t, 0x400000U, 0x400000U,
                          VGK_PAGE_WRITE) == VGK_PAGING_UNSUPPORTED);
+    CHECK(vgk_paging_init(&t, pool, 1U, 31U, 1U) ==
+          VGK_PAGING_INVALID_ARGUMENT);
     free(pool);
-    puts("OK: czteropoziomowe tablice stron – uprawnienia, NX, W^X i walidacja adresow.");
+
+    CHECK(posix_memalign(&pool, 4096U, 4U * 4096U) == 0);
+    CHECK(vgk_paging_init(&t, pool, 4U, 48U, 1U) == VGK_PAGING_OK);
+    CHECK(vgk_paging_map(&t, 0x200000U, 0x200000U,
+                         VGK_PAGE_EXEC) == VGK_PAGING_OK);
+    CHECK(t.used_pages == 4U);
+    CHECK(vgk_paging_map(&t, UINT64_C(0x0000008000000000),
+                         UINT64_C(0x80000000), VGK_PAGE_EXEC) ==
+          VGK_PAGING_NO_MEMORY);
+    free(pool);
+    puts("OK: tablice stron – uprawnienia, NX, W^X, granice i brak pamięci.");
     return 0;
 }
