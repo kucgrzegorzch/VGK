@@ -114,3 +114,34 @@ W praktycznym kodzie lista musi być zgodna z architekturą procesora i sprawdzo
 ## Kryterium zakończenia
 
 Etap można uznać za zakończony dopiero wtedy, gdy procedury wejściowe, TSS/IST, instalacja IDT, diagnostyka i testy kontrolowanych wyjątków przejdą w CI oraz QEMU/OVMF. Dopiero potem można rozpocząć osobny etap przerwań sprzętowych.
+
+
+## Szczegoly ukladu stosu i kontraktu asembler–C
+
+Przed napisaniem wspolnego punktu wejscia trzeba zachowac nastepujace rozroznienia:
+
+1. Dla wyjatku bez kodu bledu procesor zapisuje RIP, CS i RFLAGS. Procedura wektorowa doklada wartosc zastępcza kodu bledu (zero) oraz numer wektora.
+2. Dla wyjatku z kodem bledu procesor zapisuje kod bledu przed RIP, CS i RFLAGS. Procedura wektorowa doklada tylko numer wektora.
+3. Po tych operacjach poczatek znormalizowanej ramki jest taki sam: numer wektora, kod bledu, RIP, CS, RFLAGS.
+4. Nie wolno jednak zakladac, ze po RFLAGS zawsze znajduja sie zapisane przez procesor stare RSP i SS. Przy zwyklym wejsciu na ten sam poziom uprawnien bez IST procesor ich nie doklada. Przy zmianie stosu przez IST lub zmiane poziomu uprawnien zapisuje takze poprzednie RSP i SS.
+
+W konsekwencji wspolny zapis diagnostyczny musi otrzymywac jawna informacje o rodzaju ramki (czy procesor zmienil stos). Dla ramki bez zmiany stosu poprzedni RSP trzeba wyliczyc z adresu ramki, a SS pobrac jako aktualny selektor. Dla ramki ze zmiana stosu poprzednie RSP i SS pochodza z ramki sprzetowej. Nie wolno odczytywac tych pol wedlug jednego stalego przesuniecia.
+
+### Kolejnosc przygotowania wspolnego wejscia
+
+- Zachowac wszystkie rejestry ogolnego przeznaczenia przed uzyciem ich jako rejestrow roboczych.
+- Odczytac CR2 na samym poczatku wspolnej sciezki dla #PF; dla innych wektorow pole CR2 oznaczyc jako nieistotne albo zapisac zero.
+- Przekazac do kodu C wskaznik do jawnie zbudowanej struktury, a nie rzutowac bezposrednio surowego stosu CPU na VGK_EXCEPTION_CONTEXT.
+- Ustalic wyrownanie stosu zgodne z ABI przed wywolaniem C. Nie zakladac, ze stos przerwany w dowolnym miejscu ma wymagane wyrownanie.
+- Po zapisaniu kontekstu nie wracac z wyjatku w pierwszej wersji. Funkcja diagnostyczna ma zakonczyc sie kontrolowanym zatrzymaniem.
+
+### Warunki blokujace instalacje IDT
+
+Nie wolno wykonac LIDT, dopoki:
+- wszystkie 32 procedury maja sprawdzony kontrakt stosu;
+- wspolny punkt wejscia zachowuje rejestry i poprawnie wyrownuje stos;
+- GDT, TSS i stosy IST sa gotowe;
+- dla kazdego wektora znany jest typ ramki oraz numer IST;
+- testy QEMU potwierdzaja poprawny zapis kontekstu dla #UD, #DE, #PF i osobno dla wejscia przez IST.
+
+Obecne procedury w `boot/exception_stubs.S` nadal tylko przekazuja wektor i zatrzymuja procesor. Powyzszy opis jest specyfikacja nastepnego etapu, a nie deklaracja, ze pelny zapis rejestrow juz dziala.
