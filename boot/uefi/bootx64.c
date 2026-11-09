@@ -3,6 +3,8 @@
 
 #include "uefi_file.h"
 #include "uefi_services.h"
+#include "uefi_graphics.h"
+#include "vgk_framebuffer.h"
 #include "uefi_release_verify.h"
 #include "uefi_file_reader.h"
 #include "elf_loader.h"
@@ -99,6 +101,11 @@ static const VGK_EFI_GUID simple_file_system_guid = {
 
 /* Fixed storage is reserved before GetMemoryMap/ExitBootServices. */
 #if VGK_HAS_TRUSTED_PUBLIC_KEY
+static const VGK_EFI_GUID graphics_output_protocol_guid = {
+    UINT32_C(0x9042A9DE), UINT16_C(0x23DC), UINT16_C(0x4A38),
+    {0x96, 0xFB, 0x7A, 0xDE, 0xD0, 0x80, 0x51, 0x6A}
+};
+
 static uint8_t manifest_buffer[VGK_MANIFEST_MAX_SIZE];
 static uint8_t signature_buffer[VGK_RELEASE_SIGNATURE_SIZE];
 static uint8_t firmware_memory_map[VGK_MEMORY_MAP_BUFFER_SIZE]
@@ -202,6 +209,66 @@ static int find_kernel_entry(
         }
     }
     return -1;
+}
+
+
+/*
+ * Capture the firmware-selected GOP framebuffer while Boot Services are
+ * available. Unsupported pixel layouts leave the flag clear so the kernel
+ * can use its non-graphical fallback.
+ */
+static void capture_framebuffer(EFI_SYSTEM_TABLE *system_table)
+{
+    VGK_EFI_GRAPHICS_OUTPUT_PROTOCOL *graphics = 0;
+    VGK_EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE *mode;
+    VGK_EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *info;
+    uint32_t normalized_format;
+    EFI_STATUS status;
+
+    if (system_table == 0 || system_table->boot_services == 0 ||
+        system_table->boot_services->handle_protocol == 0 ||
+        system_table->console_out_handle == 0)
+        return;
+
+    status = system_table->boot_services->handle_protocol(
+        system_table->console_out_handle,
+        &graphics_output_protocol_guid, (void **)&graphics);
+    if (EFI_ERROR(status) || graphics == 0 || graphics->mode == 0)
+        return;
+
+    mode = graphics->mode;
+    info = mode->info;
+    if (info == 0 ||
+        mode->size_of_info < sizeof(VGK_EFI_GRAPHICS_OUTPUT_MODE_INFORMATION) ||
+        info->version != 0)
+        return;
+
+    if (info->pixel_format == VGK_EFI_GRAPHICS_PIXEL_RGB_RESERVED_8) {
+        normalized_format = VGK_FRAMEBUFFER_FORMAT_RGBX8;
+    } else if (info->pixel_format == VGK_EFI_GRAPHICS_PIXEL_BGR_RESERVED_8) {
+        normalized_format = VGK_FRAMEBUFFER_FORMAT_BGRX8;
+    } else {
+        /* Bit-mask and BLT-only modes need separate, explicit support. */
+        return;
+    }
+
+    if (!vgk_framebuffer_is_valid(
+            mode->framebuffer_base, mode->framebuffer_size,
+            info->horizontal_resolution, info->vertical_resolution,
+            info->pixels_per_scan_line, normalized_format))
+        return;
+
+    boot_info.framebuffer_base = mode->framebuffer_base;
+    boot_info.framebuffer_size = mode->framebuffer_size;
+    boot_info.framebuffer_width = info->horizontal_resolution;
+    boot_info.framebuffer_height = info->vertical_resolution;
+    boot_info.framebuffer_stride = info->pixels_per_scan_line;
+    boot_info.framebuffer_format = normalized_format;
+    boot_info.red_mask = 0;
+    boot_info.green_mask = 0;
+    boot_info.blue_mask = 0;
+    boot_info.reserved_mask = 0;
+    boot_info.flags |= VGK_BOOT_FLAG_FRAMEBUFFER;
 }
 
 static void release_loaded_kernel(
@@ -350,6 +417,8 @@ static EFI_STATUS start_verified_kernel(
         destination->flags = source->flags;
         destination->reserved = 0;
     }
+
+    capture_framebuffer(system_table);
 
     for (uint32_t attempt = 0;
          attempt < VGK_EXIT_BOOT_SERVICES_ATTEMPTS; ++attempt) {
