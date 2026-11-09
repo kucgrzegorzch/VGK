@@ -46,6 +46,18 @@ VGK_PAGING_RESULT vgk_paging_map(
     uint64_t physical_address,
     uint32_t permissions);
 
+/*
+ * Maps a page-aligned physical range at a page-aligned virtual address.
+ * Length is rounded up to whole pages. On a mapping failure, earlier
+ * pages may already be mapped; discard the inactive table set.
+ */
+VGK_PAGING_RESULT vgk_paging_map_range(
+    VGK_PAGE_TABLES *tables,
+    uint64_t virtual_address,
+    uint64_t physical_address,
+    uint64_t length,
+    uint32_t permissions);
+
 uint64_t vgk_paging_root_physical(const VGK_PAGE_TABLES *tables);
 
 #endif
