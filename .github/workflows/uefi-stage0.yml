@@ -31,6 +31,8 @@ jobs:
         run: make memory-test
       - name: Test x86 CPU feature detection
         run: make cpu-features-test
+      - name: Test x86 interrupt descriptor encoding
+        run: make interrupts-test
       - name: Prepare an ephemeral signed UEFI test release
         run: |
           set -eu
