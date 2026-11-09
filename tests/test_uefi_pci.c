@@ -21,7 +21,7 @@ static VGK_EFI_STATUS VGK_EFIAPI mock_read(
     memset(words, 0, 16U * sizeof(*words));
     words[0] = index == 0U ? UINT32_C(0x12348086) : UINT32_C(0x567810EC);
     words[2] = index == 0U ? UINT32_C(0x03000002) : UINT32_C(0x02000001);
-    words[3] = UINT32_C(0x00010000);
+    words[3] = UINT32_C(0x00810000);
     return 0;
 }
 
@@ -91,6 +91,8 @@ int main(void)
           "vendor/device decode failed");
     CHECK(device.class_code == 3U && device.subclass == 0U &&
           device.revision == 2U, "class/revision decode failed");
+    CHECK(device.header_type == 0x81U,
+          "multifunction header flag was not preserved");
     CHECK(vgk_pci_classify(&device) == VGK_PCI_CLASS_DISPLAY,
           "display class failed");
 
