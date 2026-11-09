@@ -18,6 +18,15 @@ typedef VGK_EFI_STATUS (VGK_EFIAPI *VGK_EFI_HANDLE_PROTOCOL)(
     const VGK_EFI_GUID *protocol,
     void **interface);
 
+typedef VGK_EFI_STATUS (VGK_EFIAPI *VGK_EFI_FREE_POOL)(void *buffer);
+
+typedef VGK_EFI_STATUS (VGK_EFIAPI *VGK_EFI_LOCATE_HANDLE_BUFFER)(
+    uint32_t search_type,
+    const VGK_EFI_GUID *protocol,
+    void *search_key,
+    VGK_EFI_UINTN *handle_count,
+    VGK_EFI_HANDLE **handles);
+
 typedef VGK_EFI_STATUS (VGK_EFIAPI *VGK_EFI_ALLOCATE_PAGES)(
     uint32_t allocate_type,
     uint32_t memory_type,
@@ -49,8 +58,7 @@ typedef struct {
 
 /*
  * UEFI Boot Services table prefix.
- * The first three 64-bit words are EFI_TABLE_HEADER.
- * Explicit slots preserve the firmware-defined offsets.
+ * Explicit slots preserve firmware-defined offsets; never compact this table.
  */
 typedef struct {
     uint64_t header[3];
@@ -58,10 +66,14 @@ typedef struct {
     VGK_EFI_ALLOCATE_PAGES allocate_pages;
     VGK_EFI_FREE_PAGES free_pages;
     VGK_EFI_GET_MEMORY_MAP get_memory_map;
-    void *before_handle_protocol[11];
+    void *allocate_pool;
+    VGK_EFI_FREE_POOL free_pool;
+    void *before_handle_protocol[9];
     VGK_EFI_HANDLE_PROTOCOL handle_protocol;
     void *before_exit_boot_services[9];
     VGK_EFI_EXIT_BOOT_SERVICES exit_boot_services;
+    void *before_locate_handle_buffer[9];
+    VGK_EFI_LOCATE_HANDLE_BUFFER locate_handle_buffer;
 } VGK_EFI_BOOT_SERVICES_PREFIX;
 
 /* UEFI memory descriptor; firmware may report a larger stride. */
@@ -87,6 +99,12 @@ enum {
     VGK_EFI_BOOT_SERVICES_DATA = 4
 };
 
+enum {
+    VGK_EFI_LOCATE_BY_REGISTER_NOTIFY = 1,
+    VGK_EFI_LOCATE_BY_PROTOCOL = 2,
+    VGK_EFI_LOCATE_BY_DEVICE_PATH = 3
+};
+
 _Static_assert(sizeof(VGK_EFI_GUID) == 16, "UEFI GUID must be 16 bytes");
 _Static_assert(offsetof(VGK_EFI_LOADED_IMAGE_PROTOCOL, device_handle) == 24,
                "unexpected Loaded Image device handle offset");
@@ -94,10 +112,14 @@ _Static_assert(offsetof(VGK_EFI_BOOT_SERVICES_PREFIX, allocate_pages) == 40,
                "unexpected Boot Services AllocatePages offset");
 _Static_assert(offsetof(VGK_EFI_BOOT_SERVICES_PREFIX, get_memory_map) == 56,
                "unexpected Boot Services GetMemoryMap offset");
+_Static_assert(offsetof(VGK_EFI_BOOT_SERVICES_PREFIX, free_pool) == 72,
+               "unexpected Boot Services FreePool offset");
 _Static_assert(offsetof(VGK_EFI_BOOT_SERVICES_PREFIX, handle_protocol) == 152,
                "unexpected Boot Services HandleProtocol offset");
 _Static_assert(offsetof(VGK_EFI_BOOT_SERVICES_PREFIX, exit_boot_services) == 232,
                "unexpected Boot Services ExitBootServices offset");
+_Static_assert(offsetof(VGK_EFI_BOOT_SERVICES_PREFIX, locate_handle_buffer) == 312,
+               "unexpected Boot Services LocateHandleBuffer offset");
 _Static_assert(sizeof(VGK_EFI_MEMORY_DESCRIPTOR) == 40,
                "unexpected UEFI memory descriptor size");
 
