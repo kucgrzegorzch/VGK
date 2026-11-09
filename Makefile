@@ -33,6 +33,9 @@ build/vgk-kernel.elf: build/entry.o build/kernel.o linker.ld
 build/entry_native.o: boot/entry_native.S | build
 	$(CC) -m64 -ffreestanding -fno-pic -fno-pie -c $< -o $@
 
+build/exception_stubs_native.o: boot/exception_stubs.S | build
+	$(CC) -m64 -ffreestanding -fno-pic -fno-pie -c $< -o $@
+
 build/kernel_native.o: src/kernel_native.c include/vgk_boot_info.h include/vgk_memory.h include/vgk_cpu_features.h | build
 	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
@@ -42,13 +45,14 @@ build/cpu_features_native.o: src/cpu_features.c include/vgk_cpu_features.h | bui
 build/memory_native.o: src/memory.c include/vgk_memory.h include/vgk_boot_info.h | build
 	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
-build/vgk-kernel-native.elf: build/entry_native.o build/kernel_native.o build/memory_native.o build/cpu_features_native.o linker-native.ld
-	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/kernel_native.o build/memory_native.o build/cpu_features_native.o
+build/vgk-kernel-native.elf: build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/cpu_features_native.o linker-native.ld
+	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/cpu_features_native.o
 
 native-kernel: build/vgk-kernel-native.elf
 
 native-kernel-test: build/vgk-kernel-native.elf
 	python3 tests/check_native_kernel.py build/vgk-kernel-native.elf
+	python3 tests/check_exception_stubs.py build/vgk-kernel-native.elf
 
 memory-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/memory.c tests/test_memory.c -o build/test_memory
