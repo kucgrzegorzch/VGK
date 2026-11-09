@@ -46,7 +46,7 @@ int main(void)
                          VGK_PAGE_EXEC) == VGK_PAGING_BAD_ADDRESS);
     CHECK(vgk_paging_map(&t, UINT64_C(0xFFFF800000000000), 0x400000U,
                          VGK_PAGE_EXEC) == VGK_PAGING_OK);
-    CHECK(((*walk(&t, UINT64_C(0xFFFF800000000000))) & 1U) != 0U);
+    CHECK(((*walk(&t, UINT64_C(0xFFFF800000000000))) & 1U) != 0U);\n    CHECK(vgk_paging_map_range(&t, 0x400000U, 0x500000U, 4097U,\n                               VGK_PAGE_WRITE) == VGK_PAGING_OK);\n    CHECK(((*walk(&t, 0x400000U)) & 2U) != 0U);\n    CHECK(((*walk(&t, 0x401000U)) & 2U) != 0U);\n    CHECK(vgk_paging_map_range(&t, UINT64_C(0x00007FFFFFFFF000),\n                               UINT64_C(0x600000), 8192U, VGK_PAGE_EXEC) ==\n          VGK_PAGING_BAD_ADDRESS);\n    CHECK(vgk_paging_map_range(&t, 0x600000U,\n                               UINT64_C(0x0000FFFFFFFFF000), 8192U,\n                               VGK_PAGE_EXEC) == VGK_PAGING_BAD_ADDRESS);
     free(pool);
 
     CHECK(posix_memalign(&pool, 4096U, 4096U) == 0);
