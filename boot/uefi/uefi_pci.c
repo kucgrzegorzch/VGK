@@ -1,5 +1,4 @@
 #include "uefi_pci.h"
-#include <string.h>
 static const VGK_EFI_GUID pci_io_protocol_guid = {
     UINT32_C(0x4CF5B200), UINT16_C(0x68B8), UINT16_C(0x4CA5),
     {0x9E,0xEC,0xB2,0x3E,0x3F,0x50,0x02,0x9A}
@@ -16,7 +15,7 @@ int vgk_uefi_pci_read_identity(VGK_EFI_PCI_IO_PROTOCOL *p, VGK_PCI_DEVICE *out)
     s=p->get_location(p,&seg,&bus,&dev,&fn);
     if ((s & UINT64_C(0x8000000000000000)) || seg>UINT16_MAX ||
         bus>UINT8_MAX || dev>31U || fn>7U) return -1;
-    memset(&d,0,sizeof(d));
+    for (size_t i=0;i<sizeof(d);++i) ((uint8_t *)&d)[i]=0;
     d.segment=(uint16_t)seg; d.bus=(uint8_t)bus; d.device=(uint8_t)dev; d.function=(uint8_t)fn;
     d.vendor_id=(uint16_t)cfg[0]; d.device_id=(uint16_t)(cfg[0]>>16);
     d.revision=(uint8_t)cfg[2]; d.programming_interface=(uint8_t)(cfg[2]>>8);
