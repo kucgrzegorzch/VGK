@@ -8,6 +8,7 @@ static unsigned failures;
 static VGK_EFI_PCI_IO_PROTOCOL protocols[2];
 static VGK_EFI_HANDLE handles[2] = {(void *)1, (void *)2};
 static uint32_t free_pool_calls;
+static int fail_free_pool;
 
 static VGK_EFI_STATUS VGK_EFIAPI mock_read(
     VGK_EFI_PCI_IO_PROTOCOL *p, uint32_t width, uint32_t offset,
@@ -66,7 +67,7 @@ static VGK_EFI_STATUS VGK_EFIAPI mock_free_pool(void *buffer)
     if (buffer != handles)
         return UINT64_C(0x8000000000000002);
     ++free_pool_calls;
-    return 0;
+    return fail_free_pool ? UINT64_C(0x8000000000000002) : 0;
 }
 
 int main(void)
@@ -124,6 +125,12 @@ int main(void)
           "zero-capacity inventory was not rejected");
     CHECK(count == 0U, "zero-capacity result count is incorrect");
     CHECK(free_pool_calls == 3U, "handle buffer leaked on zero capacity");
+
+    fail_free_pool = 1;
+    count = 99U;
+    CHECK(vgk_uefi_pci_enumerate(&services, inventory, 2U, &count) == -1,
+          "FreePool failure was not propagated");
+    CHECK(free_pool_calls == 4U, "FreePool failure path was not exercised");
 
     if (failures != 0U)
         return 1;
