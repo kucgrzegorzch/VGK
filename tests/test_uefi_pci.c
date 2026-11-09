@@ -131,6 +131,8 @@ int main(void)
     CHECK(vgk_uefi_pci_enumerate(&services, inventory, 2U, &count) == -1,
           "FreePool failure was not propagated");
     CHECK(free_pool_calls == 4U, "FreePool failure path was not exercised");
+    CHECK(count == 0U && inventory[0].vendor_id == 0U,
+          "firmware error exposed a partial PCI inventory");
 
     if (failures != 0U)
         return 1;
