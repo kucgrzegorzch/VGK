@@ -5,7 +5,7 @@
 #include <string.h>
 #include "vgk_paging.h"
 
-#define CHECK(x) do { if (!(x)) { fprintf(stderr, "FAIL %d: %s\\n", __LINE__, #x); return 1; } } while (0)
+#define CHECK(x) do { if (!(x)) { fprintf(stderr, "FAIL %d: %s\n", __LINE__, #x); return 1; } } while (0)
 
 static uint64_t *walk(VGK_PAGE_TABLES *t, uint64_t va)
 {
