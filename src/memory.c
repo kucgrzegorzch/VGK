@@ -87,11 +87,93 @@ static VGK_MEMORY_RESULT append_usable_range(
     return VGK_MEMORY_OK;
 }
 
+typedef struct {
+    uint64_t base;
+    uint64_t end;
+} VGK_RESERVED_RANGE;
+
+static int reserve_range(
+    VGK_RESERVED_RANGE *ranges,
+    size_t *count,
+    size_t capacity,
+    uint64_t base,
+    uint64_t length)
+{
+    uint64_t end;
+    uint64_t aligned_end;
+
+    if (length == 0)
+        return 0;
+    if (base > UINT64_MAX - length)
+        return -1;
+    end = base + length;
+    if (end > UINT64_MAX - (VGK_MEMORY_PAGE_SIZE - 1U))
+        return -1;
+    aligned_end = (end + VGK_MEMORY_PAGE_SIZE - 1U) &
+                  ~(VGK_MEMORY_PAGE_SIZE - 1U);
+    base &= ~(VGK_MEMORY_PAGE_SIZE - 1U);
+    if (base >= aligned_end)
+        return -1;
+    if (*count >= capacity)
+        return -1;
+    ranges[*count].base = base;
+    ranges[*count].end = aligned_end;
+    ++*count;
+    return 0;
+}
+
+/* Add usable memory around reserved physical intervals, never inside them. */
+static VGK_MEMORY_RESULT append_usable_excluding(
+    uint64_t base,
+    uint64_t end,
+    const VGK_RESERVED_RANGE *reserved,
+    size_t reserved_count)
+{
+    uint64_t cursor = base;
+
+    for (size_t i = 0; i < reserved_count; ++i) {
+        uint64_t cut_start = reserved[i].base;
+        uint64_t cut_end = reserved[i].end;
+        VGK_MEMORY_RESULT result;
+
+        if (cut_end <= cursor || cut_start >= end)
+            continue;
+        if (cut_start > cursor) {
+            uint64_t gap_pages = (cut_start - cursor) /
+                                 VGK_MEMORY_PAGE_SIZE;
+            result = append_usable_range(cursor, gap_pages);
+            if (result != VGK_MEMORY_OK)
+                return result;
+            if (total_pages > UINT64_MAX - gap_pages)
+                return VGK_MEMORY_OVERFLOW;
+            total_pages += gap_pages;
+        }
+        if (cut_end > cursor)
+            cursor = cut_end;
+        if (cursor >= end)
+            break;
+    }
+
+    if (cursor < end) {
+        uint64_t gap_pages = (end - cursor) / VGK_MEMORY_PAGE_SIZE;
+        VGK_MEMORY_RESULT result =
+            append_usable_range(cursor, gap_pages);
+        if (result != VGK_MEMORY_OK)
+            return result;
+        if (total_pages > UINT64_MAX - gap_pages)
+            return VGK_MEMORY_OVERFLOW;
+        total_pages += gap_pages;
+    }
+    return VGK_MEMORY_OK;
+}
+
 VGK_MEMORY_RESULT vgk_memory_init(const VGK_BOOT_INFO *boot_info)
 {
     const VGK_MEMORY_MAP_ENTRY *entries;
     size_t entry_count;
     uint64_t previous_end = 0;
+    VGK_RESERVED_RANGE reserved[VGK_BOOT_MAX_KERNEL_SEGMENTS + 2U];
+    size_t reserved_count = 0;
 
     clear_allocator();
 
@@ -105,6 +187,38 @@ VGK_MEMORY_RESULT vgk_memory_init(const VGK_BOOT_INFO *boot_info)
 
     entries = (const VGK_MEMORY_MAP_ENTRY *)(uintptr_t)
         boot_info->memory_map_address;
+
+    if (reserve_range(reserved, &reserved_count,
+                      sizeof(reserved) / sizeof(reserved[0]),
+                      (uint64_t)(uintptr_t)boot_info,
+                      sizeof(*boot_info)) != 0 ||
+        reserve_range(reserved, &reserved_count,
+                      sizeof(reserved) / sizeof(reserved[0]),
+                      boot_info->memory_map_address,
+                      boot_info->memory_map_size) != 0) {
+        clear_allocator();
+        return VGK_MEMORY_BAD_MAP;
+    }
+    for (uint32_t i = 0; i < boot_info->kernel_segment_count; ++i) {
+        const VGK_KERNEL_SEGMENT *segment = &boot_info->kernel_segments[i];
+        if (reserve_range(reserved, &reserved_count,
+                          sizeof(reserved) / sizeof(reserved[0]),
+                          segment->physical_base,
+                          segment->memory_size) != 0) {
+            clear_allocator();
+            return VGK_MEMORY_BAD_MAP;
+        }
+    }
+    /* The exclusions are sorted to make interval subtraction deterministic. */
+    for (size_t i = 1; i < reserved_count; ++i) {
+        VGK_RESERVED_RANGE item = reserved[i];
+        size_t j = i;
+        while (j != 0 && reserved[j - 1U].base > item.base) {
+            reserved[j] = reserved[j - 1U];
+            --j;
+        }
+        reserved[j] = item;
+    }
 
     for (size_t i = 0; i < entry_count; ++i) {
         const VGK_MEMORY_MAP_ENTRY *entry = &entries[i];
@@ -135,19 +249,13 @@ VGK_MEMORY_RESULT vgk_memory_init(const VGK_BOOT_INFO *boot_info)
             uint64_t usable_base = entry->base;
             if (usable_base < VGK_MEMORY_MIN_ALLOCATABLE_ADDRESS)
                 usable_base = VGK_MEMORY_MIN_ALLOCATABLE_ADDRESS;
-            page_count = (end - usable_base) / VGK_MEMORY_PAGE_SIZE;
-            result = append_usable_range(usable_base, page_count);
+            result = append_usable_excluding(
+                usable_base, end, reserved, reserved_count);
         }
-        if (total_pages > UINT64_MAX - page_count) {
-            clear_allocator();
-            return VGK_MEMORY_OVERFLOW;
-        }
-
         if (result != VGK_MEMORY_OK) {
             clear_allocator();
             return result;
         }
-        total_pages += page_count;
     }
 
     available_pages = total_pages;
