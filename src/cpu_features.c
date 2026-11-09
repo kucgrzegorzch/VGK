@@ -91,13 +91,72 @@ VGK_CPU_RESULT vgk_cpu_decode_features(
     return VGK_CPU_OK;
 }
 
+void vgk_cpu_decode_vector_features(
+    uint32_t leaf1_ecx,
+    uint32_t leaf1_edx,
+    uint32_t leaf7_ebx,
+    uint32_t xcr0_low,
+    uint8_t has_leaf1,
+    uint8_t has_leaf7,
+    VGK_CPU_FEATURES *features)
+{
+    uint8_t avx_os_state_enabled;
+
+    if (features == 0)
+        return;
+
+    features->sse2_supported = 0;
+    features->sse3_supported = 0;
+    features->ssse3_supported = 0;
+    features->sse4_1_supported = 0;
+    features->sse4_2_supported = 0;
+    features->avx_hardware_supported = 0;
+    features->avx_state_supported = 0;
+    features->avx2_hardware_supported = 0;
+    features->avx2_usable = 0;
+
+    if (has_leaf1 == 0U)
+        return;
+
+    features->sse2_supported =
+        (uint8_t)((leaf1_edx & VGK_CPUID_SSE2_BIT) != 0U);
+    features->sse3_supported =
+        (uint8_t)((leaf1_ecx & VGK_CPUID_SSE3_BIT) != 0U);
+    features->ssse3_supported =
+        (uint8_t)((leaf1_ecx & VGK_CPUID_SSSE3_BIT) != 0U);
+    features->sse4_1_supported =
+        (uint8_t)((leaf1_ecx & VGK_CPUID_SSE41_BIT) != 0U);
+    features->sse4_2_supported =
+        (uint8_t)((leaf1_ecx & VGK_CPUID_SSE42_BIT) != 0U);
+    features->avx_hardware_supported =
+        (uint8_t)((leaf1_ecx & VGK_CPUID_AVX_BIT) != 0U);
+
+    avx_os_state_enabled = (uint8_t)(
+        (leaf1_ecx & (VGK_CPUID_AVX_BIT | VGK_CPUID_OSXSAVE_BIT)) ==
+        (VGK_CPUID_AVX_BIT | VGK_CPUID_OSXSAVE_BIT));
+    features->avx_state_supported = (uint8_t)(
+        avx_os_state_enabled != 0U && (xcr0_low & 0x6U) == 0x6U);
+
+    if (has_leaf7 != 0U) {
+        features->avx2_hardware_supported =
+            (uint8_t)((leaf7_ebx & VGK_CPUID_AVX2_BIT) != 0U);
+    }
+
+    features->avx2_usable = (uint8_t)(
+        features->avx2_hardware_supported != 0U &&
+        features->avx_state_supported != 0U);
+}
+
 static void vgk_cpu_read_identity_and_optional_features(
     VGK_CPU_FEATURES *features)
 {
     uint32_t eax0, ebx0, ecx0, edx0;
-    uint32_t eax1, ebx1, ecx1, edx1;
+    uint32_t eax1 = 0, ebx1 = 0, ecx1 = 0, edx1 = 0;
     uint32_t eax7 = 0, ebx7 = 0;
+    uint32_t xcr0_low = 0;
     uint32_t base_family, base_model, extended_family, extended_model;
+    uint8_t has_leaf1;
+    uint8_t has_leaf7;
 
     vgk_cpuid(0, 0, &eax0, &ebx0, &ecx0, &edx0);
     features->max_basic_leaf = eax0;
@@ -113,56 +172,50 @@ static void vgk_cpu_read_identity_and_optional_features(
     features->vendor[9] = (char)((ecx0 >> 8) & 0xFFU);
     features->vendor[10] = (char)((ecx0 >> 16) & 0xFFU);
     features->vendor[11] = (char)((ecx0 >> 24) & 0xFFU);
-    features->vendor[12] = '\0';
+    features->vendor[12] = '\\0';
 
-    if (eax0 < 1U)
-        return;
+    has_leaf1 = (uint8_t)(eax0 >= 1U);
+    has_leaf7 = (uint8_t)(eax0 >= 7U);
 
-    vgk_cpuid(1, 0, &eax1, &ebx1, &ecx1, &edx1);
-    (void)ebx1;
-    base_family = (eax1 >> 8) & 0xFU;
-    base_model = (eax1 >> 4) & 0xFU;
-    extended_family = (eax1 >> 20) & 0xFFU;
-    extended_model = (eax1 >> 16) & 0xFU;
-    features->family = (uint16_t)(base_family == 0xFU
-        ? base_family + extended_family : base_family);
-    features->model = (uint16_t)((base_family == 0x6U || base_family == 0xFU)
-        ? (extended_model << 4) | base_model : base_model);
-    features->stepping = (uint8_t)(eax1 & 0xFU);
+    if (has_leaf1 != 0U) {
+        vgk_cpuid(1, 0, &eax1, &ebx1, &ecx1, &edx1);
+        (void)ebx1;
+        base_family = (eax1 >> 8) & 0xFU;
+        base_model = (eax1 >> 4) & 0xFU;
+        extended_family = (eax1 >> 20) & 0xFFU;
+        extended_model = (eax1 >> 16) & 0xFU;
+        features->family = (uint16_t)(base_family == 0xFU
+            ? base_family + extended_family : base_family);
+        features->model = (uint16_t)((base_family == 0x6U || base_family == 0xFU)
+            ? (extended_model << 4) | base_model : base_model);
+        features->stepping = (uint8_t)(eax1 & 0xFU);
 
-    features->sse2_supported = (uint8_t)((edx1 & VGK_CPUID_SSE2_BIT) != 0U);
-    features->sse3_supported = (uint8_t)((ecx1 & VGK_CPUID_SSE3_BIT) != 0U);
-    features->ssse3_supported = (uint8_t)((ecx1 & VGK_CPUID_SSSE3_BIT) != 0U);
-    features->sse4_1_supported = (uint8_t)((ecx1 & VGK_CPUID_SSE41_BIT) != 0U);
-    features->sse4_2_supported = (uint8_t)((ecx1 & VGK_CPUID_SSE42_BIT) != 0U);
-    features->avx_hardware_supported = (uint8_t)((ecx1 & VGK_CPUID_AVX_BIT) != 0U);
-
-    /*
-     * AVX instructions are safe only when the CPU has AVX, advertises
-     * OSXSAVE, and XCR0 enables both XMM and YMM state. Never execute XGETBV
-     * before checking OSXSAVE.
-     */
-    if ((ecx1 & (VGK_CPUID_AVX_BIT | VGK_CPUID_OSXSAVE_BIT)) ==
-        (VGK_CPUID_AVX_BIT | VGK_CPUID_OSXSAVE_BIT)) {
-        uint32_t xcr0_low, xcr0_high;
-        __asm__ volatile (
-            "xgetbv"
-            : "=a"(xcr0_low), "=d"(xcr0_high)
-            : "c"(0)
-        );
-        (void)xcr0_high;
-        features->avx_state_supported =
-            (uint8_t)((xcr0_low & 0x6U) == 0x6U);
+        /*
+         * XGETBV is executed only when both AVX and OSXSAVE are advertised.
+         * The pure decoder independently checks these bits before accepting
+         * the supplied XCR0 value.
+         */
+        if ((ecx1 & (VGK_CPUID_AVX_BIT | VGK_CPUID_OSXSAVE_BIT)) ==
+            (VGK_CPUID_AVX_BIT | VGK_CPUID_OSXSAVE_BIT)) {
+            uint32_t xcr0_high;
+            __asm__ volatile (
+                "xgetbv"
+                : "=a"(xcr0_low), "=d"(xcr0_high)
+                : "c"(0)
+            );
+            (void)xcr0_high;
+        }
+    } else {
+        features->family = 0;
+        features->model = 0;
+        features->stepping = 0;
     }
 
-    if (eax0 >= 7U) {
+    if (has_leaf7 != 0U)
         vgk_cpuid(7, 0, &eax7, &ebx7, 0, 0);
-        features->avx2_hardware_supported =
-            (uint8_t)((ebx7 & VGK_CPUID_AVX2_BIT) != 0U);
-        features->avx2_usable = (uint8_t)(
-            features->avx2_hardware_supported != 0U &&
-            features->avx_state_supported != 0U);
-    }
+
+    vgk_cpu_decode_vector_features(
+        ecx1, edx1, ebx7, xcr0_low, has_leaf1, has_leaf7, features);
 }
 
 VGK_CPU_RESULT vgk_cpu_detect_features(VGK_CPU_FEATURES *features)
