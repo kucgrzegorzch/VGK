@@ -25,7 +25,7 @@ Definicje znajdują się w `include/vgk_boot_info.h`.
 5. Opcjonalny opis bufora obrazu: adres, rozmiar, wymiary, krok wiersza i format.
 6. Opcjonalny adres tabel RSDP ACPI.
 
-W obecnej ścieżce UEFI wypełniane są dane dotyczące firmware, mapy pamięci i jądra. Informacje o framebufferze i ACPI pozostają nieaktywne – odpowiednie flagi są wyzerowane.
+W obecnej ścieżce UEFI wypełniane są dane dotyczące firmware, mapy pamięci i jądra. Ładowacz próbuje również pobrać bieżący tryb UEFI GOP z uchwytu konsoli tekstowej. Jeśli bufor jest liniowy, ma format RGB/BGR 8-bit na kanał i przechodzi kontrolę wymiarów, kroku wiersza oraz zakresu pamięci, jego opis trafia do protokołu. Nieobsługiwany format lub brak GOP pozostawia flagę framebuffer wyzerowaną. Informacje ACPI pozostają nieaktywne.
 
 ## Walidacja
 
@@ -77,7 +77,11 @@ Walidacja struktury nie dowodzi sama w sobie, że wskazane adresy są dostępne 
 - [ ] Potwierdzenie działania na fizycznym komputerze.
 - [ ] Produkcyjny klucz zaufania wydawcy i procedura jego rotacji.
 - [ ] Implementacja ładowacza starszego BIOS.
-- [ ] Rozszerzenie protokołu o framebuffer, ACPI i dalsze informacje sprzętowe.
+- [x] Pola protokołu dla framebufferu.
+- [x] Pobieranie i walidacja trybu GOP RGB/BGR w ładowaczu UEFI; tryby bit-mask i BLT-only są na razie odrzucane.
+- [ ] Przekazanie i wykorzystanie framebufferu przez jądro do rysowania obrazu.
+- [ ] Wykrywanie PCI/PCIe i dalsze informacje sprzętowe.
+- [ ] Odczyt informacji ACPI.
 
 ## Granice obecnego testu
 
