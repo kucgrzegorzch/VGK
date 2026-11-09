@@ -2,7 +2,7 @@
 
 ## Cel
 
-Następnym etapem po protokole startowym v2 jest przejęcie przez jądro kontroli nad mapowaniem pamięci w procesorze x86-64. Sam opis praw segmentów w protokole nie zmienia jeszcze uprawnień sprzętowych. Dopiero poprawne przygotowanie i aktywowanie tablic stron pozwoli rozdzielić pamięć wykonywalną od zapisywalnej.
+Następnym etapem po protokole startowym v3 jest przejęcie przez jądro kontroli nad mapowaniem pamięci w procesorze x86-64. Sam opis praw segmentów w protokole nie zmienia jeszcze uprawnień sprzętowych. Dopiero poprawne przygotowanie i aktywowanie tablic stron pozwoli rozdzielić pamięć wykonywalną od zapisywalnej.
 
 Ten dokument opisuje kolejność prac i warunki bezpieczeństwa.
 
@@ -67,7 +67,7 @@ Testy obejmują procesor bez NX, brak wymaganego liścia CPUID, niedopuszczalną
 | Stos jądra | tak | tak | nie |
 | Strony tablic stron | tak | tak | nie |
 
-Jeżeli dwa segmenty wymagają różnych uprawnień, nie mogą współdzielić tej samej strony 4 KiB. Protokół v2 już odrzuca nakładanie się zaokrąglonych zakresów segmentów, co pozwala zachować ich oddzielne uprawnienia.
+Jeżeli dwa segmenty wymagają różnych uprawnień, nie mogą współdzielić tej samej strony 4 KiB. Protokół v3 już odrzuca nakładanie się zaokrąglonych zakresów segmentów, co pozwala zachować ich oddzielne uprawnienia.
 
 ## Najważniejszy warunek: ciągłość mapowania
 
