@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
+import re
 import subprocess
 import sys
+
+ERROR_CODE_VECTORS = {8, 10, 11, 12, 13, 14, 17, 20, 21, 29, 30}
 
 if len(sys.argv) != 2:
     raise SystemExit("usage: check_exception_stubs.py <kernel.elf>")
 
-result = subprocess.run(
-    ["nm", "-S", "-g", "--defined-only", sys.argv[1]],
+elf = sys.argv[1]
+nm = subprocess.run(
+    ["nm", "-S", "-g", "--defined-only", elf],
     check=True, capture_output=True, text=True
 )
 
 symbols = {}
-for line in result.stdout.splitlines():
+for line in nm.stdout.splitlines():
     fields = line.split()
     if len(fields) >= 4:
         try:
@@ -36,4 +40,59 @@ for i in range(32):
     if symbols[f"vgk_exception_stub_{i}"][1].upper() != "T":
         raise SystemExit(f"FAIL: vector {i} stub is not in executable text")
 
-print("OK: 32 exception stubs, fatal stop entry and 32-entry table linked")
+disassembly = subprocess.run(
+    ["objdump", "-d", "--no-show-raw-insn", elf],
+    check=True, capture_output=True, text=True
+)
+
+blocks = {}
+current = None
+for line in disassembly.stdout.splitlines():
+    label = re.match(r"^[0-9a-fA-F]+ <([^>]+)>:$", line.strip())
+    if label:
+        current = label.group(1)
+        blocks[current] = []
+        continue
+    if current is not None:
+        instruction = re.match(
+            r"^\s*[0-9a-fA-F]+:\s*([a-z][a-z0-9.]*)\s*(.*?)\s*$",
+            line
+        )
+        if instruction:
+            blocks[current].append(
+                (instruction.group(1), instruction.group(2))
+            )
+
+for vector in range(32):
+    name = f"vgk_exception_stub_{vector}"
+    instructions = blocks.get(name, [])
+    expected_pushes = [vector] if vector in ERROR_CODE_VECTORS else [0, vector]
+    expected_mnemonics = ["push"] * len(expected_pushes) + ["jmp"]
+
+    if [mnemonic for mnemonic, _ in instructions] != expected_mnemonics:
+        raise SystemExit(
+            f"FAIL: {name} instruction sequence mismatch: {instructions}"
+        )
+
+    for index, expected_value in enumerate(expected_pushes):
+        operand = instructions[index][1]
+        match = re.fullmatch(r"\\$(0x[0-9a-fA-F]+|[0-9]+)", operand)
+        if not match or int(match.group(1), 0) != expected_value:
+            raise SystemExit(
+                f"FAIL: {name} push {index} must place {expected_value}; "
+                f"found {operand!r}"
+            )
+
+    if "vgk_exception_fatal_entry" not in instructions[-1][1]:
+        raise SystemExit(f"FAIL: {name} does not jump to fatal entry")
+
+fatal = blocks.get("vgk_exception_fatal_entry", [])
+if [mnemonic for mnemonic, _ in fatal] != ["cli", "hlt", "jmp"]:
+    raise SystemExit(
+        "FAIL: fatal entry must disable maskable interrupts and halt in a loop"
+    )
+
+print(
+    "OK: 32 exception stubs have correct vector/error-code pushes; "
+    "fatal entry disables IRQs and halts"
+)
