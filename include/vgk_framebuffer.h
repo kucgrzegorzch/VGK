@@ -30,8 +30,10 @@ static inline int vgk_framebuffer_is_valid(
          format != VGK_FRAMEBUFFER_FORMAT_BGRX8))
         return 0;
 
-    if ((uint64_t)stride > UINT64_MAX / VGK_FRAMEBUFFER_BYTES_PER_PIXEL)
-        return 0;
+    /*
+     * stride is uint32_t, so multiplying it by four cannot overflow uint64_t.
+     * The height multiplication below still needs an explicit overflow check.
+     */
     row_bytes = (uint64_t)stride * VGK_FRAMEBUFFER_BYTES_PER_PIXEL;
 
     if ((uint64_t)height > UINT64_MAX / row_bytes)
