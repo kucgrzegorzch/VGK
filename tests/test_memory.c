@@ -44,11 +44,11 @@ int main(void)
     boot_info.memory_map_address = (uint64_t)(uintptr_t)memory_map;
     boot_info.memory_map_size = sizeof(memory_map);
     boot_info.memory_map_entry_size = sizeof(VGK_MEMORY_MAP_ENTRY);
-    boot_info.kernel_physical_base = UINT64_C(0x200000);
+    boot_info.kernel_physical_base = UINT64_C(0x121000);
     boot_info.kernel_size = PAGE;
-    boot_info.kernel_entry = UINT64_C(0x200000);
+    boot_info.kernel_entry = UINT64_C(0x121000);
     boot_info.kernel_segment_count = 1;
-    boot_info.kernel_segments[0].physical_base = UINT64_C(0x200000);
+    boot_info.kernel_segments[0].physical_base = UINT64_C(0x121000);
     boot_info.kernel_segments[0].memory_size = PAGE;
     boot_info.kernel_segments[0].flags =
         VGK_KERNEL_SEGMENT_READ | VGK_KERNEL_SEGMENT_EXEC;
@@ -63,9 +63,15 @@ int main(void)
 
     EXPECT(vgk_memory_init(&boot_info) == VGK_MEMORY_OK);
     EXPECT(vgk_memory_get_stats(&stats) == VGK_MEMORY_OK);
-    EXPECT(stats.total_pages == 19U);
-    EXPECT(stats.free_pages == 19U);
+    EXPECT(stats.total_pages == 18U);
+    EXPECT(stats.free_pages == 18U);
     EXPECT(stats.managed_range_count == 2U);
+
+    /* Kernel pages stay reserved even if firmware labels them usable. */
+    EXPECT(vgk_memory_alloc_pages(1U, 1U, &first_allocation) ==
+           VGK_MEMORY_OK);
+    EXPECT(first_allocation == UINT64_C(0x101000));
+    EXPECT(vgk_memory_free_pages(first_allocation, 1U) == VGK_MEMORY_OK);
 
     EXPECT(vgk_memory_alloc_pages(1U, 3U, &first_allocation) ==
            VGK_MEMORY_INVALID_ARGUMENT);
@@ -84,7 +90,7 @@ int main(void)
     EXPECT(vgk_memory_free_pages(first_allocation, 2U) == VGK_MEMORY_OK);
     EXPECT(vgk_memory_free_pages(second_allocation, 3U) == VGK_MEMORY_OK);
     EXPECT(vgk_memory_get_stats(&stats) == VGK_MEMORY_OK);
-    EXPECT(stats.free_pages == 19U);
+    EXPECT(stats.free_pages == 18U);
     EXPECT(stats.free_range_count == 2U);
 
     EXPECT(vgk_memory_free_pages(second_allocation, 3U) ==
