@@ -10,6 +10,7 @@
 #define VGK_CPUID_SSE42_BIT (UINT32_C(1) << 20)
 #define VGK_CPUID_AVX_BIT (UINT32_C(1) << 28)
 #define VGK_CPUID_OSXSAVE_BIT (UINT32_C(1) << 27)
+#define VGK_CPUID_XSAVE_BIT (UINT32_C(1) << 26)
 #define VGK_CPUID_AVX2_BIT (UINT32_C(1) << 5)
 
 static void vgk_cpuid(
@@ -132,8 +133,8 @@ void vgk_cpu_decode_vector_features(
         (uint8_t)((leaf1_ecx & VGK_CPUID_AVX_BIT) != 0U);
 
     avx_os_state_enabled = (uint8_t)(
-        (leaf1_ecx & (VGK_CPUID_AVX_BIT | VGK_CPUID_OSXSAVE_BIT)) ==
-        (VGK_CPUID_AVX_BIT | VGK_CPUID_OSXSAVE_BIT));
+        (leaf1_ecx & (VGK_CPUID_AVX_BIT | VGK_CPUID_OSXSAVE_BIT | VGK_CPUID_XSAVE_BIT)) ==
+        (VGK_CPUID_AVX_BIT | VGK_CPUID_OSXSAVE_BIT | VGK_CPUID_XSAVE_BIT));
     features->avx_state_supported = (uint8_t)(
         avx_os_state_enabled != 0U && (xcr0_low & 0x6U) == 0x6U);
 
@@ -172,7 +173,7 @@ static void vgk_cpu_read_identity_and_optional_features(
     features->vendor[9] = (char)((ecx0 >> 8) & 0xFFU);
     features->vendor[10] = (char)((ecx0 >> 16) & 0xFFU);
     features->vendor[11] = (char)((ecx0 >> 24) & 0xFFU);
-    features->vendor[12] = '\\0';
+    features->vendor[12] = '\0';
 
     has_leaf1 = (uint8_t)(eax0 >= 1U);
     has_leaf7 = (uint8_t)(eax0 >= 7U);
@@ -195,8 +196,8 @@ static void vgk_cpu_read_identity_and_optional_features(
          * The pure decoder independently checks these bits before accepting
          * the supplied XCR0 value.
          */
-        if ((ecx1 & (VGK_CPUID_AVX_BIT | VGK_CPUID_OSXSAVE_BIT)) ==
-            (VGK_CPUID_AVX_BIT | VGK_CPUID_OSXSAVE_BIT)) {
+        if ((ecx1 & (VGK_CPUID_AVX_BIT | VGK_CPUID_OSXSAVE_BIT | VGK_CPUID_XSAVE_BIT)) ==
+            (VGK_CPUID_AVX_BIT | VGK_CPUID_OSXSAVE_BIT | VGK_CPUID_XSAVE_BIT)) {
             uint32_t xcr0_high;
             __asm__ volatile (
                 "xgetbv"
