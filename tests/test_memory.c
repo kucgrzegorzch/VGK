@@ -112,6 +112,18 @@ int main(void)
         return 1;
     }
 
+    /* ACPI RSDP may straddle a page boundary: reserve both pages. */
+    boot_info.flags = VGK_BOOT_FLAG_ACPI;
+    boot_info.acpi_rsdp_address = UINT64_C(0x122FF0);
+    EXPECT(vgk_memory_init(&boot_info) == VGK_MEMORY_OK);
+    EXPECT(vgk_memory_get_stats(&stats) == VGK_MEMORY_OK);
+    EXPECT(stats.total_pages == 1U);
+    EXPECT(vgk_memory_alloc_pages(1U, 1U, &first_allocation) ==
+           VGK_MEMORY_OK);
+    EXPECT(first_allocation == UINT64_C(0x120000));
+    EXPECT(vgk_memory_alloc_pages(1U, 1U, &second_allocation) ==
+           VGK_MEMORY_NO_MEMORY);
+
     puts("OK: allocator stron pamieci – zakresy, wyrownanie, scalanie i ochrona przed podwojnym zwolnieniem.");
     return 0;
 }
