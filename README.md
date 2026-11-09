@@ -69,5 +69,6 @@ Wymagania dotyczące bezpieczeństwa, instalatora, aplikacji, kopii zapasowych, 
 - [Mechanizm bezpieczeństwa i zaufania](docs/BEZPIECZENSTWO.md)
 - [Protokół startowy VGK](docs/PROTOKOL_STARTOWY.md)
 - [Plan grafiki, sterowników i multimediów](docs/PLAN_GRAFIKI_I_MULTIMEDIOW.md)
+- [Plan wykrywania urządzeń PCI/PCIe](docs/PLAN_WYKRYWANIA_PCI.md)
 
 VGK pozostaje projektem w fazie rozwoju. Kolejne etapy będą oznaczane osobno jako zaimplementowane, sprawdzone w emulatorze i sprawdzone na sprzęcie.
