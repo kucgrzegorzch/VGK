@@ -82,6 +82,29 @@ int main(void)
                          UINT64_C(0x80000000), VGK_PAGE_EXEC) ==
           VGK_PAGING_NO_MEMORY);
     free(pool);
+    /* Range mapping must report partial exhaustion without hiding it. */
+    CHECK(posix_memalign(&pool, 4096U, 4U * 4096U) == 0);
+    CHECK(vgk_paging_init(&t, pool, 4U, 48U, 1U) == VGK_PAGING_OK);
+    CHECK(vgk_paging_map_range(&t, 0x1FF000U, 0x5FF000U, 8192U,
+                               VGK_PAGE_EXEC) == VGK_PAGING_NO_MEMORY);
+    CHECK((*walk(&t, 0x1FF000U) & 1U) != 0U);
+    CHECK(walk(&t, 0x200000U) == 0);
+    free(pool);
+
+    CHECK(posix_memalign(&pool, 4096U, 8U * 4096U) == 0);
+    CHECK(vgk_paging_init(&t, pool, 8U, 48U, 1U) == VGK_PAGING_OK);
+    CHECK(vgk_paging_map_range(&t, 0x400001U, 0x500000U, 4096U,
+                               VGK_PAGE_EXEC) == VGK_PAGING_BAD_ADDRESS);
+    CHECK(vgk_paging_map_range(&t, 0x400000U, 0x500000U, 0U,
+                               VGK_PAGE_EXEC) == VGK_PAGING_INVALID_ARGUMENT);
+    CHECK(vgk_paging_map_range(&t, UINT64_C(0xFFFFFFFFFFFFF000),
+                               0x600000U, 8192U, VGK_PAGE_EXEC) ==
+          VGK_PAGING_BAD_ADDRESS);
+    CHECK(vgk_paging_map_range(&t, 0x600000U,
+                               UINT64_C(0xFFFFFFFFFFFFF000), 8192U,
+                               VGK_PAGE_EXEC) == VGK_PAGING_BAD_ADDRESS);
+    free(pool);
+
     puts("OK: tablice stron – uprawnienia, NX, W^X, granice i brak pamięci.");
     return 0;
 }
