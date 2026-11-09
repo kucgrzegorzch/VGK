@@ -15,6 +15,7 @@ typedef struct {
     uint8_t subclass;
     uint8_t programming_interface;
     uint8_t header_type;
+    uint16_t segment;
 } VGK_PCI_DEVICE;
 
 typedef enum {
