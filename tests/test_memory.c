@@ -67,6 +67,11 @@ int main(void)
     EXPECT(vgk_memory_init(&boot_info) == VGK_MEMORY_BAD_MAP);
     memory_map[2].type = VGK_MEMORY_BOOTLOADER;
 
+    /* The complete pool must stay inside loader-owned memory. */
+    boot_info.page_table_pool_base = UINT64_C(0x14F000);
+    EXPECT(vgk_memory_init(&boot_info) == VGK_MEMORY_BAD_MAP);
+    boot_info.page_table_pool_base = UINT64_C(0x110000);
+
     EXPECT(vgk_memory_init(&boot_info) == VGK_MEMORY_OK);
     EXPECT(vgk_memory_get_stats(&stats) == VGK_MEMORY_OK);
     EXPECT(stats.total_pages == 33U);
