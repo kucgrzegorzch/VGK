@@ -21,7 +21,7 @@ Moduł tworzy czteropoziomowe mapowanie stron 4 KiB w pamięci przekazanej przez
 Ważne ograniczenia do rozwiązania przed integracją:
 - obecny builder zakłada czteropoziomowe stronicowanie i 48-bitowe adresy wirtualne; etap aktywacji musi wykryć i odrzucić niezgodny stan CR4.LA57;
 - NX w wpisach wymaga wcześniejszego, bezpiecznego włączenia EFER.NXE; builder sam tego nie robi;
-- W^X jest kontrolowane dla pojedynczego mapowania oraz dla aliasów: builder odrzuca ponowne mapowanie tej samej strony fizycznej z innymi uprawnieniami zapisu lub wykonania. Ochrona dotyczy obecnie stron 4 KiB i czteropoziomowych tablic tworzonych przez ten builder;
+- W^X jest kontrolowane dla pojedynczego mapowania oraz dla aliasów: builder odrzuca ponowne mapowanie tej samej strony fizycznej z innymi uprawnieniami zapisu lub wykonania. Wskaźniki tabel pośrednich są dodatkowo sprawdzane względem aktualnie użytej części zarezerwowanej puli, aby uszkodzony wpis nie spowodował dereferencji poza pulą. Ochrona dotyczy obecnie stron 4 KiB i czteropoziomowych tablic tworzonych przez ten builder;
 - builder nie przydziela stron samodzielnie z alokatora VGK i nie sprawdza jeszcze kolizji z wszystkimi strukturami startowymi;
 - nie wykonano jeszcze testu przełączenia CR3 ani testu ochrony stron w QEMU.
 
