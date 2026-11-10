@@ -68,7 +68,7 @@ int main(void)
     memory_map[2].type = VGK_MEMORY_BOOTLOADER;
 
     /* The complete pool must stay inside loader-owned memory. */
-    boot_info.page_table_pool_base = UINT64_C(0x14F000);
+    boot_info.page_table_pool_base = UINT64_C(0x120000);
     EXPECT(vgk_memory_init(&boot_info) == VGK_MEMORY_BAD_MAP);
     boot_info.page_table_pool_base = UINT64_C(0x110000);
 
