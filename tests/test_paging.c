@@ -116,6 +116,15 @@ int main(void)
     /* Corrupt intermediate entries must not be dereferenced outside the pool. */
     CHECK(posix_memalign(&pool, 4096U, 4U * 4096U) == 0);
     CHECK(vgk_paging_init(&t, pool, 4U, 48U, 1U) == VGK_PAGING_OK);
+    t.used_pages = 5U;
+    CHECK(vgk_paging_map(&t, 0x700000U, 0x700000U,
+                         VGK_PAGE_EXEC) == VGK_PAGING_INVALID_ARGUMENT);
+    t.used_pages = 1U;
+    /* NX is not a valid flag on an intermediate table entry. */
+    t.pool[0] = ((uint64_t)(uintptr_t)pool + 4096U) |
+                UINT64_C(0x003) | (UINT64_C(1) << 63);
+    CHECK(vgk_paging_map(&t, 0x700000U, 0x700000U,
+                         VGK_PAGE_EXEC) == VGK_PAGING_UNSUPPORTED);
     t.pool[0] = UINT64_C(0x1000) | UINT64_C(0x003);
     CHECK(vgk_paging_map(&t, 0x700000U, 0x700000U,
                          VGK_PAGE_EXEC) == VGK_PAGING_UNSUPPORTED);
@@ -124,6 +133,17 @@ int main(void)
                 UINT64_C(0x003);
     CHECK(vgk_paging_map(&t, 0x701000U, 0x701000U,
                          VGK_PAGE_EXEC) == VGK_PAGING_UNSUPPORTED);
+    free(pool);
+
+    /* Alias policy must also cover a different PML4 branch. */
+    CHECK(posix_memalign(&pool, 4096U, 8U * 4096U) == 0);
+    CHECK(vgk_paging_init(&t, pool, 8U, 48U, 1U) == VGK_PAGING_OK);
+    CHECK(vgk_paging_map(&t, 0x200000U, 0x200000U,
+                         VGK_PAGE_EXEC) == VGK_PAGING_OK);
+    CHECK(vgk_paging_map(&t, UINT64_C(0xFFFF800000000000), 0x200000U,
+                         VGK_PAGE_EXEC) == VGK_PAGING_OK);
+    CHECK(vgk_paging_map(&t, UINT64_C(0xFFFF800000001000), 0x200000U,
+                         VGK_PAGE_WRITE) == VGK_PAGING_UNSUPPORTED);
     free(pool);
 
     puts("OK: tablice stron – uprawnienia, NX, W^X, granice i brak pamięci.");
