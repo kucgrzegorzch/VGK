@@ -486,9 +486,6 @@ static EFI_STATUS start_verified_kernel(
             (void)services->free_pages(
                 page_table_pool_address,
                 (VGK_EFI_UINTN)VGK_BOOT_PAGE_TABLE_POOL_PAGES);
-            (void)services->free_pages(
-                page_table_pool_address,
-                (VGK_EFI_UINTN)VGK_BOOT_PAGE_TABLE_POOL_PAGES);
             release_loaded_kernel(&allocator, &loaded_image);
             return EFI_LOAD_ERROR;
         }
@@ -498,6 +495,9 @@ static EFI_STATUS start_verified_kernel(
         if (!vgk_boot_info_is_valid(&boot_info)) {
             if (attempt != 0)
                 halt_after_exit_boot_services_failure();
+            (void)services->free_pages(
+                page_table_pool_address,
+                (VGK_EFI_UINTN)VGK_BOOT_PAGE_TABLE_POOL_PAGES);
             release_loaded_kernel(&allocator, &loaded_image);
             return EFI_LOAD_ERROR;
         }
