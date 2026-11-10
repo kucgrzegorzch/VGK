@@ -17,6 +17,8 @@ static VGK_BOOT_INFO valid_info(void)
     info.kernel_physical_base = UINT64_C(0x200000);
     info.kernel_size = UINT64_C(0x40000);
     info.kernel_entry = UINT64_C(0x200100);
+    info.page_table_pool_base = UINT64_C(0x300000);
+    info.page_table_pool_pages = VGK_BOOT_PAGE_TABLE_POOL_PAGES;
     info.kernel_segment_count = 1;
     info.kernel_segments[0].physical_base = UINT64_C(0x200000);
     info.kernel_segments[0].memory_size = UINT64_C(0x1000);
@@ -47,6 +49,48 @@ int main(void)
         puts("FAIL: zaakceptowano nieznana wersje");
         ++failures;
     }
+    info = valid_info();
+    info.page_table_pool_pages = 0;
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano pusta pule tablic stron");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.page_table_pool_base++;
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano niewyrownana pule tablic stron");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.page_table_pool_base = UINT64_MAX - UINT64_C(0xFFF);
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano przepelnienie zakresu puli tablic stron");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.page_table_pool_base = UINT64_C(0x220000);
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano pule nachodzaca na zakres jadra");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.page_table_pool_base = UINT64_C(0x100000);
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano pule nachodzaca na mape pamieci");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.page_table_pool_pages--;
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano nieoczekiwany rozmiar puli tablic stron");
+        ++failures;
+    }
+
     info = valid_info();
 
     info.memory_map_size++;
