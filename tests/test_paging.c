@@ -119,6 +119,11 @@ int main(void)
     t.pool[0] = UINT64_C(0x1000) | UINT64_C(0x003);
     CHECK(vgk_paging_map(&t, 0x700000U, 0x700000U,
                          VGK_PAGE_EXEC) == VGK_PAGING_UNSUPPORTED);
+    /* Reserved capacity is not enough: the target page must be in use. */
+    t.pool[0] = ((uint64_t)(uintptr_t)pool + UINT64_C(3) * 4096U) |
+                UINT64_C(0x003);
+    CHECK(vgk_paging_map(&t, 0x701000U, 0x701000U,
+                         VGK_PAGE_EXEC) == VGK_PAGING_UNSUPPORTED);
     free(pool);
 
     puts("OK: tablice stron – uprawnienia, NX, W^X, granice i brak pamięci.");
