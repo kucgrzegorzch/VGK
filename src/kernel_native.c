@@ -84,6 +84,28 @@ static int page_table_pool_is_zeroed(const VGK_BOOT_INFO *boot_info)
     return 1;
 }
 
+static VGK_PAGING_RESULT map_identity_object(
+    VGK_PAGE_TABLES *tables,
+    uint64_t address,
+    uint64_t length,
+    uint32_t permissions)
+{
+    const uint64_t page_mask = VGK_PAGING_PAGE_SIZE - 1U;
+    uint64_t page_base;
+    uint64_t offset;
+
+    if (address == 0U || length == 0U)
+        return VGK_PAGING_INVALID_ARGUMENT;
+
+    page_base = address & ~page_mask;
+    offset = address - page_base;
+    if (length > UINT64_MAX - offset)
+        return VGK_PAGING_BAD_ADDRESS;
+
+    return vgk_paging_map_range(
+        tables, page_base, page_base, length + offset, permissions);
+}
+
 static int build_inactive_page_tables(
     const VGK_BOOT_INFO *boot_info,
     const VGK_CPU_FEATURES *cpu_features,
@@ -145,9 +167,9 @@ static int build_inactive_page_tables(
     serial_write("VGK: adres VGK_BOOT_INFO = ");
     serial_write_hex((uint64_t)(uintptr_t)boot_info);
     serial_write("\r\n");
-    result = vgk_paging_map_range(
+    result = map_identity_object(
         tables, (uint64_t)(uintptr_t)boot_info,
-        (uint64_t)(uintptr_t)boot_info, sizeof(*boot_info), 0U);
+        sizeof(*boot_info), 0U);
     if (result != VGK_PAGING_OK) {
         serial_write("VGK: blad mapowania VGK_BOOT_INFO, kod = ");
         serial_write_hex((uint64_t)result);
@@ -156,9 +178,9 @@ static int build_inactive_page_tables(
     }
     serial_write("VGK: VGK_BOOT_INFO zmapowany.\\r\\n");
 
-    result = vgk_paging_map_range(
+    result = map_identity_object(
         tables, boot_info->memory_map_address,
-        boot_info->memory_map_address, boot_info->memory_map_size, 0U);
+        boot_info->memory_map_size, 0U);
     if (result != VGK_PAGING_OK)
         return 0;
     serial_write("VGK: mapa pamieci zmapowana.\\r\\n");
