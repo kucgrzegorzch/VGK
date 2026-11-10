@@ -47,6 +47,22 @@ static void serial_write(const char *message)
         serial_write_char(*message++);
 }
 
+static void serial_write_hex(uint64_t value)
+{
+    static const char digits[] = "0123456789ABCDEF";
+    char buffer[16];
+    size_t count = 0;
+
+    do {
+        buffer[count++] = digits[value & 0xFU];
+        value >>= 4;
+    } while (value != 0U && count < sizeof(buffer));
+
+    serial_write("0x");
+    while (count != 0U)
+        serial_write_char(buffer[--count]);
+}
+
 static int page_table_pool_is_zeroed(const VGK_BOOT_INFO *boot_info)
 {
     const volatile uint64_t *words;
@@ -126,11 +142,18 @@ static int build_inactive_page_tables(
     serial_write("VGK: segmenty ELF zmapowane.\\r\\n");
 
     /* Boot protocol and normalized map are read-only and non-executable. */
+    serial_write("VGK: adres VGK_BOOT_INFO = ");
+    serial_write_hex((uint64_t)(uintptr_t)boot_info);
+    serial_write("\\r\\n");
     result = vgk_paging_map_range(
         tables, (uint64_t)(uintptr_t)boot_info,
         (uint64_t)(uintptr_t)boot_info, sizeof(*boot_info), 0U);
-    if (result != VGK_PAGING_OK)
+    if (result != VGK_PAGING_OK) {
+        serial_write("VGK: blad mapowania VGK_BOOT_INFO, kod = ");
+        serial_write_hex((uint64_t)result);
+        serial_write("\\r\\n");
         return 0;
+    }
     serial_write("VGK: VGK_BOOT_INFO zmapowany.\\r\\n");
 
     result = vgk_paging_map_range(
