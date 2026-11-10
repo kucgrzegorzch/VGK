@@ -113,6 +113,14 @@ int main(void)
                                VGK_PAGE_EXEC) == VGK_PAGING_BAD_ADDRESS);
     free(pool);
 
+    /* Corrupt intermediate entries must not be dereferenced outside the pool. */
+    CHECK(posix_memalign(&pool, 4096U, 4U * 4096U) == 0);
+    CHECK(vgk_paging_init(&t, pool, 4U, 48U, 1U) == VGK_PAGING_OK);
+    t.pool[0] = UINT64_C(0x1000) | UINT64_C(0x003);
+    CHECK(vgk_paging_map(&t, 0x700000U, 0x700000U,
+                         VGK_PAGE_EXEC) == VGK_PAGING_UNSUPPORTED);
+    free(pool);
+
     puts("OK: tablice stron – uprawnienia, NX, W^X, granice i brak pamięci.");
     return 0;
 }
