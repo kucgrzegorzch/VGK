@@ -1,6 +1,8 @@
 .section .text
 .code64
 .global vgk_kernel_entry
+.global vgk_boot_stack
+.global vgk_boot_stack_top
 .type vgk_kernel_entry, @function
 .extern vgk_kernel_main
 
