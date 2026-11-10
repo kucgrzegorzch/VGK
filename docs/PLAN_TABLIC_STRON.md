@@ -37,7 +37,7 @@ Obecny ładowacz UEFI przekazuje jądru:
 - flagi odczytu, zapisu i wykonania każdego segmentu;
 - wersję i rozmiar protokołu, które jądro może sprawdzić.
 
-Walidator odrzuca segmenty W+X, nieprawidłowy punkt wejścia, nakładające się zakresy stron i niezerowe niewykorzystane pola. Protokół startowy v3 jest testowany w CI.
+Walidator odrzuca segmenty W+X, nieprawidłowy punkt wejścia, nakładające się zakresy stron i niezerowe niewykorzystane pola. Protokół startowy v4 jest testowany w CI.
 
 ## Zasady pierwszej wersji
 
@@ -67,7 +67,7 @@ Testy obejmują procesor bez NX, brak wymaganego liścia CPUID, niedopuszczalną
 | Stos jądra | tak | tak | nie |
 | Strony tablic stron | tak | tak | nie |
 
-Jeżeli dwa segmenty wymagają różnych uprawnień, nie mogą współdzielić tej samej strony 4 KiB. Protokół v3 już odrzuca nakładanie się zaokrąglonych zakresów segmentów, co pozwala zachować ich oddzielne uprawnienia.
+Jeżeli dwa segmenty wymagają różnych uprawnień, nie mogą współdzielić tej samej strony 4 KiB. Protokół v4 już odrzuca nakładanie się zaokrąglonych zakresów segmentów, co pozwala zachować ich oddzielne uprawnienia.
 
 ## Najważniejszy warunek: ciągłość mapowania
 
