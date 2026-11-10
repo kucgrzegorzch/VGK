@@ -178,21 +178,33 @@ static int build_inactive_page_tables(
     }
     serial_write("VGK: VGK_BOOT_INFO zmapowany.\\r\\n");
 
+    serial_write("VGK: adres mapy pamieci = ");
+    serial_write_hex(boot_info->memory_map_address);
+    serial_write("; rozmiar = ");
+    serial_write_hex(boot_info->memory_map_size);
+    serial_write("\\r\\n");
     result = map_identity_object(
         tables, boot_info->memory_map_address,
         boot_info->memory_map_size, 0U);
-    if (result != VGK_PAGING_OK)
+    if (result != VGK_PAGING_OK) {
+        serial_write("VGK: blad mapowania mapy pamieci, kod = ");
+        serial_write_hex((uint64_t)result);
+        serial_write("\\r\\n");
         return 0;
+    }
     serial_write("VGK: mapa pamieci zmapowana.\\r\\n");
 
     /* The builder must remain able to access its own reserved pool. */
-    result = vgk_paging_map_range(
+    result = map_identity_object(
         tables, boot_info->page_table_pool_base,
-        boot_info->page_table_pool_base,
         boot_info->page_table_pool_pages * VGK_BOOT_PAGE_SIZE,
         VGK_PAGE_WRITE);
-    if (result != VGK_PAGING_OK)
+    if (result != VGK_PAGING_OK) {
+        serial_write("VGK: blad mapowania puli tablic, kod = ");
+        serial_write_hex((uint64_t)result);
+        serial_write("\\r\\n");
         return 0;
+    }
     serial_write("VGK: pula tablic zmapowana RW+NX.\\r\\n");
 
     return vgk_paging_root_physical(tables) ==
