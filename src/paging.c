@@ -14,8 +14,18 @@ static int canonical_address(uint64_t address)
 
 static uint64_t *table_from_entry(const VGK_PAGE_TABLES *tables, uint64_t entry)
 {
-    uint64_t address = entry & tables->physical_mask;
-    return (uint64_t *)(uintptr_t)address;
+    uintptr_t address = (uintptr_t)(entry & tables->physical_mask);
+    uintptr_t base = (uintptr_t)tables->pool;
+    size_t used_bytes;
+
+    if (tables->used_pages > SIZE_MAX / (size_t)VGK_PAGING_PAGE_SIZE)
+        return 0;
+    used_bytes = tables->used_pages * (size_t)VGK_PAGING_PAGE_SIZE;
+    if (address < base || (address & (uintptr_t)(VGK_PAGING_PAGE_SIZE - 1U)) != 0U)
+        return 0;
+    if (address - base >= used_bytes)
+        return 0;
+    return (uint64_t *)address;
 }
 
 /*
@@ -44,6 +54,8 @@ static int physical_alias_permissions_compatible(
             if ((entry & PTE_LARGE) != 0U)
                 return 0;
             next = (const uint64_t *)table_from_entry(tables, entry);
+            if (next == 0)
+                return 0;
             if (!physical_alias_permissions_compatible(
                     tables, next, level + 1U, physical_address,
                     requested_flags))
@@ -175,6 +187,8 @@ VGK_PAGING_RESULT vgk_paging_map(
             if ((entry & PTE_LARGE) != 0U)
                 return VGK_PAGING_UNSUPPORTED;
             current = table_from_entry(tables, entry);
+            if (current == 0)
+                return VGK_PAGING_UNSUPPORTED;
         }
     }
 
