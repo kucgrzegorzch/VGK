@@ -42,16 +42,23 @@ static int physical_alias_permissions_compatible(
 {
     for (size_t i = 0; i < 512U; ++i) {
         uint64_t entry = table[i];
+        uint64_t allowed = tables->physical_mask | PTE_PRESENT | PTE_WRITE;
         if ((entry & PTE_PRESENT) == 0U)
             continue;
+        if (level == 3U)
+            allowed |= PTE_NX;
+        if ((entry & ~allowed) != 0U)
+            return 0;
         if (level == 3U) {
             uint64_t mapped = entry & tables->physical_mask;
+            if (tables->nx_supported == 0U && (entry & PTE_NX) != 0U)
+                return 0;
             if (mapped == physical_address &&
                 ((entry ^ requested_flags) & (PTE_WRITE | PTE_NX)) != 0U)
                 return 0;
         } else {
             const uint64_t *next;
-            if ((entry & PTE_LARGE) != 0U)
+            if ((entry & PTE_WRITE) == 0U)
                 return 0;
             next = (const uint64_t *)table_from_entry(tables, entry);
             if (next == 0)
@@ -145,6 +152,11 @@ VGK_PAGING_RESULT vgk_paging_map(
     uint64_t physical_limit;
 
     if (tables == 0 || tables->pool == 0)
+        return VGK_PAGING_INVALID_ARGUMENT;
+    if (tables->pool_pages == 0U || tables->used_pages == 0U ||
+        tables->used_pages > tables->pool_pages ||
+        ((uintptr_t)tables->pool & (uintptr_t)(VGK_PAGING_PAGE_SIZE - 1U)) != 0U ||
+        tables->pool_pages > SIZE_MAX / (size_t)VGK_PAGING_PAGE_SIZE)
         return VGK_PAGING_INVALID_ARGUMENT;
     if ((virtual_address & (VGK_PAGING_PAGE_SIZE - 1U)) != 0 ||
         (physical_address & (VGK_PAGING_PAGE_SIZE - 1U)) != 0 ||
