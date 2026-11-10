@@ -148,7 +148,8 @@ int main(void)
                              VGK_PAGE_WRITE) == VGK_PAGING_UNSUPPORTED);
         /* A rejected alias must not allocate tables or create a leaf. */
         CHECK(t.used_pages == used_before);
-        CHECK(walk(&t, UINT64_C(0xFFFF800000001000)) == 0);
+        CHECK(walk(&t, UINT64_C(0xFFFF800000001000)) != 0);
+        CHECK((*walk(&t, UINT64_C(0xFFFF800000001000)) & 1U) == 0U);
     }
     free(pool);
 
