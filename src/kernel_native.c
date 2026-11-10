@@ -6,6 +6,9 @@
 
 #define COM1_PORT 0x3F8U
 
+extern char vgk_boot_stack[];
+extern char vgk_boot_stack_top[];
+
 static inline void outb(uint16_t port, uint8_t value)
 {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -71,10 +74,27 @@ static int build_inactive_page_tables(
     VGK_PAGE_TABLES *tables)
 {
     VGK_PAGING_RESULT result;
+    uint64_t stack_start = (uint64_t)(uintptr_t)vgk_boot_stack;
+    uint64_t stack_end = (uint64_t)(uintptr_t)vgk_boot_stack_top;
+    int stack_is_writable = 0;
 
     if (boot_info == 0 || cpu_features == 0 || tables == 0 ||
         cpu_features->nx_supported == 0U ||
-        cpu_features->physical_address_bits < 32U)
+        cpu_features->physical_address_bits < 32U ||
+        stack_start == 0U || stack_end <= stack_start)
+        return 0;
+
+    for (uint32_t i = 0; i < boot_info->kernel_segment_count; ++i) {
+        const VGK_KERNEL_SEGMENT *segment = &boot_info->kernel_segments[i];
+        uint64_t segment_end = segment->physical_base + segment->memory_size;
+        if ((segment->flags & VGK_KERNEL_SEGMENT_WRITE) != 0U &&
+            (segment->flags & VGK_KERNEL_SEGMENT_EXEC) == 0U &&
+            stack_start >= segment->physical_base && stack_end <= segment_end) {
+            stack_is_writable = 1;
+            break;
+        }
+    }
+    if (!stack_is_writable)
         return 0;
 
     result = vgk_paging_init(
