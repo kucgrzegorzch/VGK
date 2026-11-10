@@ -2,6 +2,7 @@
 #include "vgk_boot_info.h"
 #include "vgk_memory.h"
 #include "vgk_cpu_features.h"
+#include "vgk_paging.h"
 
 #define COM1_PORT 0x3F8U
 
@@ -64,9 +65,75 @@ static int page_table_pool_is_zeroed(const VGK_BOOT_INFO *boot_info)
     return 1;
 }
 
+static int build_inactive_page_tables(
+    const VGK_BOOT_INFO *boot_info,
+    const VGK_CPU_FEATURES *cpu_features,
+    VGK_PAGE_TABLES *tables)
+{
+    VGK_PAGING_RESULT result;
+
+    if (boot_info == 0 || cpu_features == 0 || tables == 0 ||
+        cpu_features->nx_supported == 0U ||
+        cpu_features->physical_address_bits < 32U)
+        return 0;
+
+    result = vgk_paging_init(
+        tables,
+        (void *)(uintptr_t)boot_info->page_table_pool_base,
+        (size_t)boot_info->page_table_pool_pages,
+        cpu_features->physical_address_bits,
+        cpu_features->nx_supported);
+    if (result != VGK_PAGING_OK)
+        return 0;
+
+    for (uint32_t i = 0; i < boot_info->kernel_segment_count; ++i) {
+        const VGK_KERNEL_SEGMENT *segment = &boot_info->kernel_segments[i];
+        uint32_t permissions = 0;
+
+        if ((segment->flags & VGK_KERNEL_SEGMENT_WRITE) != 0U)
+            permissions |= VGK_PAGE_WRITE;
+        if ((segment->flags & VGK_KERNEL_SEGMENT_EXEC) != 0U)
+            permissions |= VGK_PAGE_EXEC;
+
+        result = vgk_paging_map_range(
+            tables, segment->physical_base, segment->physical_base,
+            segment->memory_size, permissions);
+        if (result != VGK_PAGING_OK)
+            return 0;
+    }
+
+    /* Boot protocol and normalized map are read-only and non-executable. */
+    result = vgk_paging_map_range(
+        tables, (uint64_t)(uintptr_t)boot_info,
+        (uint64_t)(uintptr_t)boot_info, sizeof(*boot_info), 0U);
+    if (result != VGK_PAGING_OK)
+        return 0;
+
+    result = vgk_paging_map_range(
+        tables, boot_info->memory_map_address,
+        boot_info->memory_map_address, boot_info->memory_map_size, 0U);
+    if (result != VGK_PAGING_OK)
+        return 0;
+
+    /* The builder must remain able to access its own reserved pool. */
+    result = vgk_paging_map_range(
+        tables, boot_info->page_table_pool_base,
+        boot_info->page_table_pool_base,
+        boot_info->page_table_pool_pages * VGK_BOOT_PAGE_SIZE,
+        VGK_PAGE_WRITE);
+    if (result != VGK_PAGING_OK)
+        return 0;
+
+    return vgk_paging_root_physical(tables) ==
+           boot_info->page_table_pool_base;
+}
+
 __attribute__((noreturn))
 void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
 {
+    VGK_CPU_FEATURES cpu_features;
+    int cpu_features_valid;
+
     serial_init();
     serial_write("\r\nVGK: uruchomiono wlasne jadro.\r\n");
 
@@ -93,9 +160,10 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
         serial_write("VGK: brak obslugiwanej ramki GOP; pozostaje tryb tekstowo-diagnostyczny.\r\n");
     }
 
+    cpu_features_valid =
+        vgk_cpu_detect_features(&cpu_features) == VGK_CPU_OK;
     {
-        VGK_CPU_FEATURES cpu_features;
-        if (vgk_cpu_detect_features(&cpu_features) == VGK_CPU_OK) {
+        if (cpu_features_valid) {
             serial_write("VGK: procesor obsluguje NX; wykryto szerokosc adresu fizycznego.\r\n");
             if (cpu_features.sse2_supported != 0U)
                 serial_write("VGK: wykryto SSE2.\r\n");
@@ -136,6 +204,20 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
         }
     }
     serial_write("VGK: pula tablic stron jest dostepna, wyzerowana i zarezerwowana.\r\n");
+    if (cpu_features_valid) {
+        VGK_PAGE_TABLES inactive_tables;
+        if (!build_inactive_page_tables(
+                boot_info, &cpu_features, &inactive_tables)) {
+            serial_write("VGK: BLAD budowania nieaktywnych mapowan stron.\r\n");
+            for (;;) {
+                __asm__ volatile ("cli; hlt");
+            }
+        }
+        serial_write("VGK: nieaktywne mapowania jadra, stosu, danych startowych i puli sa gotowe.\r\n");
+        /* Deliberately do not load CR3 or change CPU protection registers. */
+    } else {
+        serial_write("VGK: pomijam budowanie mapowan ochronnych; brak potwierdzonego NX.\r\n");
+    }
     serial_write("VGK: menedzer pamieci uruchomiony.\r\n");
     serial_write("VGK: etap diagnostyczny; sterowniki i uslugi nie sa jeszcze gotowe.\r\n");
 
