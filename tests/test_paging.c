@@ -133,6 +133,22 @@ int main(void)
                 UINT64_C(0x003);
     CHECK(vgk_paging_map(&t, 0x701000U, 0x701000U,
                          VGK_PAGE_EXEC) == VGK_PAGING_UNSUPPORTED);
+
+    /* A corrupted intermediate entry must not create a self-referential tree. */
+    CHECK(vgk_paging_init(&t, pool, 4U, 48U, 1U) == VGK_PAGING_OK);
+    t.pool[0] = (uint64_t)(uintptr_t)pool | UINT64_C(0x003);
+    CHECK(vgk_paging_map(&t, 0x700000U, 0x700000U,
+                         VGK_PAGE_EXEC) == VGK_PAGING_UNSUPPORTED);
+    CHECK(t.used_pages == 1U);
+
+    /* Nor may a child table point back to its root ancestor. */
+    memset(pool, 0, 4U * 4096U);
+    t.used_pages = 2U;
+    t.pool[0] = (uint64_t)(uintptr_t)pool + 4096U | UINT64_C(0x003);
+    t.pool[512] = (uint64_t)(uintptr_t)pool | UINT64_C(0x003);
+    CHECK(vgk_paging_map(&t, 0x700000U, 0x700000U,
+                         VGK_PAGE_EXEC) == VGK_PAGING_UNSUPPORTED);
+    CHECK(t.used_pages == 2U);
     free(pool);
 
     /* Alias policy must also cover a different PML4 branch. */
