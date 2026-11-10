@@ -124,6 +124,8 @@ static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
     uint64_t kernel_end;
     uint64_t page_table_pool_size;
     uint64_t page_table_pool_end;
+    uint64_t boot_info_address;
+    uint64_t boot_info_end;
     int entry_is_executable = 0;
 
     if (info == NULL ||
@@ -156,12 +158,18 @@ static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
     if (info->page_table_pool_base > UINT64_MAX - page_table_pool_size)
         return 0;
     page_table_pool_end = info->page_table_pool_base + page_table_pool_size;
+    boot_info_address = (uint64_t)(uintptr_t)info;
+    if (boot_info_address > UINT64_MAX - sizeof(*info))
+        return 0;
+    boot_info_end = boot_info_address + sizeof(*info);
 
     if (memory_map_end <= info->memory_map_address ||
         (info->page_table_pool_base < kernel_end &&
          info->kernel_physical_base < page_table_pool_end) ||
         (info->page_table_pool_base < memory_map_end &&
          info->memory_map_address < page_table_pool_end) ||
+        (info->page_table_pool_base < boot_info_end &&
+         boot_info_address < page_table_pool_end) ||
         info->kernel_entry < info->kernel_physical_base ||
         info->kernel_entry >= kernel_end)
         return 0;
@@ -225,6 +233,13 @@ static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
     }
 
     if ((info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0) {
+        uint64_t framebuffer_end;
+        if (info->framebuffer_base > UINT64_MAX - info->framebuffer_size)
+            return 0;
+        framebuffer_end = info->framebuffer_base + info->framebuffer_size;
+        if (info->page_table_pool_base < framebuffer_end &&
+            info->framebuffer_base < page_table_pool_end)
+            return 0;
         if (!vgk_framebuffer_is_valid(
                 info->framebuffer_base, info->framebuffer_size,
                 info->framebuffer_width, info->framebuffer_height,
