@@ -310,6 +310,7 @@ static EFI_STATUS start_verified_kernel(
     VGK_ELF_LOADED_IMAGE loaded_image;
     VGK_UEFI_ELF_ALLOCATOR allocator;
     uint64_t kernel_buffer_address = 0;
+    uint64_t page_table_pool_address = 0;
     uint64_t kernel_buffer_pages;
     size_t kernel_bytes_read = 0;
     uint64_t kernel_min = UINT64_MAX;
@@ -395,6 +396,29 @@ static EFI_STATUS start_verified_kernel(
         return EFI_LOAD_ERROR;
     }
 
+    /*
+     * Reserve the page-table pool while Boot Services are available.
+     * This allocation must precede the final GetMemoryMap/ExitBootServices
+     * sequence; the pool remains loader-owned and is never freed on success.
+     */
+    status = services->allocate_pages(
+        VGK_EFI_ALLOCATE_ANY_PAGES, VGK_EFI_LOADER_DATA,
+        (VGK_EFI_UINTN)VGK_BOOT_PAGE_TABLE_POOL_PAGES,
+        &page_table_pool_address);
+    if (EFI_ERROR(status) || page_table_pool_address == 0) {
+        release_loaded_kernel(&allocator, &loaded_image);
+        return EFI_LOAD_ERROR;
+    }
+    {
+        volatile uint64_t *pool_words =
+            (volatile uint64_t *)(uintptr_t)page_table_pool_address;
+        const uint64_t word_count =
+            VGK_BOOT_PAGE_TABLE_POOL_PAGES *
+            (VGK_BOOT_PAGE_SIZE / sizeof(uint64_t));
+        for (uint64_t i = 0; i < word_count; ++i)
+            pool_words[i] = 0;
+    }
+
     /* Close the volume before taking the final firmware memory map. */
     if (root != 0 && root->close != 0)
         (void)root->close(root);
@@ -409,6 +433,8 @@ static EFI_STATUS start_verified_kernel(
     boot_info.kernel_physical_base = kernel_min;
     boot_info.kernel_size = kernel_max - kernel_min;
     boot_info.kernel_entry = load_plan.entry;
+    boot_info.page_table_pool_base = page_table_pool_address;
+    boot_info.page_table_pool_pages = VGK_BOOT_PAGE_TABLE_POOL_PAGES;
     boot_info.kernel_segment_count = load_plan.segment_count;
     boot_info.reserved2 = 0;
     for (uint32_t i = 0; i < load_plan.segment_count; ++i) {
@@ -457,6 +483,12 @@ static EFI_STATUS start_verified_kernel(
                 &normalized_count) != 0) {
             if (attempt != 0)
                 halt_after_exit_boot_services_failure();
+            (void)services->free_pages(
+                page_table_pool_address,
+                (VGK_EFI_UINTN)VGK_BOOT_PAGE_TABLE_POOL_PAGES);
+            (void)services->free_pages(
+                page_table_pool_address,
+                (VGK_EFI_UINTN)VGK_BOOT_PAGE_TABLE_POOL_PAGES);
             release_loaded_kernel(&allocator, &loaded_image);
             return EFI_LOAD_ERROR;
         }
