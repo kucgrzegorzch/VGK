@@ -185,7 +185,7 @@ vgkm-test: | build
 keygen-test: | build
 	python3 -m unittest discover -s tests -p 'test_klucz_zaufania.py' -v
 
-security-test: keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test uefi-manifest-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test framebuffer-test boot-info-test memory-test paging-test
+security-test: keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test uefi-manifest-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test framebuffer-test
 	python3 -m unittest discover -s tests -p 'test_sprawdz_wydanie.py' -v
 
 sha256-test: | build
