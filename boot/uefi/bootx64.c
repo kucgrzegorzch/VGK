@@ -409,6 +409,14 @@ static EFI_STATUS start_verified_kernel(
         release_loaded_kernel(&allocator, &loaded_image);
         return EFI_LOAD_ERROR;
     }
+    if (page_table_pool_address >
+        UINT64_MAX - VGK_BOOT_PAGE_TABLE_POOL_PAGES * VGK_BOOT_PAGE_SIZE) {
+        (void)services->free_pages(
+            page_table_pool_address,
+            (VGK_EFI_UINTN)VGK_BOOT_PAGE_TABLE_POOL_PAGES);
+        release_loaded_kernel(&allocator, &loaded_image);
+        return EFI_LOAD_ERROR;
+    }
     {
         volatile uint64_t *pool_words =
             (volatile uint64_t *)(uintptr_t)page_table_pool_address;
