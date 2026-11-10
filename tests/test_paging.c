@@ -144,7 +144,7 @@ int main(void)
     /* Nor may a child table point back to its root ancestor. */
     memset(pool, 0, 4U * 4096U);
     t.used_pages = 2U;
-    t.pool[0] = (uint64_t)(uintptr_t)pool + 4096U | UINT64_C(0x003);
+    t.pool[0] = ((uint64_t)(uintptr_t)pool + 4096U) | UINT64_C(0x003);
     t.pool[512] = (uint64_t)(uintptr_t)pool | UINT64_C(0x003);
     CHECK(vgk_paging_map(&t, 0x700000U, 0x700000U,
                          VGK_PAGE_EXEC) == VGK_PAGING_UNSUPPORTED);
