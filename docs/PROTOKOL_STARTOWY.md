@@ -1,4 +1,4 @@
-# Protokół startowy VGK – wersja 3
+# Protokół startowy VGK – wersja 4
 
 ## Cel
 
@@ -9,7 +9,7 @@ Definicje znajdują się w `include/vgk_boot_info.h`.
 ## Zasady zgodności
 
 - Sygnatura: `VGK_BOOT_INFO_MAGIC`.
-- Wersja: `VGK_BOOT_INFO_VERSION = 3`.
+- Wersja: `VGK_BOOT_INFO_VERSION = 4`.
 - Adresy i rozmiary mają stałe pola 64-bitowe.
 - Rozmiar struktury jest przekazywany w polu `structure_size`.
 - Nieznane flagi oraz niezerowe pola zarezerwowane powodują odrzucenie danych.
@@ -21,6 +21,7 @@ Definicje znajdują się w `include/vgk_boot_info.h`.
 1. Typ firmware: UEFI albo BIOS.
 2. Adres, rozmiar i format znormalizowanej mapy pamięci.
 3. Fizyczny adres i rozmiar załadowanego obrazu jądra.
+4. Fizyczny adres i liczbę stron zarezerwowanej puli tablic stron (64 strony po 4 KiB). Pula jest przydzielana jako pamięć ładowacza przez UEFI, zerowana przed zakończeniem usług firmware i pozostaje zarezerwowana dla buildera tablic stron.
 4. Adres wejścia jądra.
 5. Opcjonalny opis bufora obrazu: adres, rozmiar, wymiary, krok wiersza i format.
 6. Opcjonalny adres tabel RSDP ACPI.
@@ -41,7 +42,8 @@ Funkcja `vgk_boot_info_is_valid` sprawdza:
 - wyzerowanie nieużywanych opisów segmentów;
 - spójność opcjonalnych danych obrazu, ACPI i inwentarza PCI, w tym rozmiar rekordu, limity, unikalność adresu funkcji oraz wyzerowanie nieużywanych wpisów;
 - wyzerowanie pól zarezerwowanych;
-- przepełnienia zakresów adresowych.
+- przepełnienia zakresów adresowych;
+- wyrównanie, dokładny rozmiar i brak kolizji puli tablic stron z jądrem oraz mapą pamięci. Dodatkowo inicjalizacja menedżera pamięci wymaga, aby cała pula była objęta wpisem lub ciągłym zestawem wpisów typu `VGK_MEMORY_BOOTLOADER`.
 
 Walidacja struktury nie dowodzi sama w sobie, że wskazane adresy są dostępne lub bezpieczne. Ładowacz musi zapewnić poprawne mapowanie, zakresy pamięci i czas życia danych. Jądro musi dodatkowo sprawdzać zakresy przed dereferencją.
 
@@ -52,14 +54,19 @@ Walidacja struktury nie dowodzi sama w sobie, że wskazane adresy są dostępne 
 3. Odczytuje plik jądra do ograniczonego bufora i ponownie sprawdza jego rozmiar oraz SHA-256.
 4. Waliduje ELF64 x86-64, planuje segmenty i przydziela dokładne zakresy pamięci przez `AllocatePages`.
 5. Kopiuje segmenty do pamięci i zeruje obszary BSS.
+6. Przydziela przez `AllocatePages(EfiLoaderData)` 64 strony puli tablic stron i zeruje cały obszar, zanim pobierze końcową mapę pamięci.
 6. Normalizuje mapę pamięci UEFI i wypełnia `VGK_BOOT_INFO`.
-7. Pobiera aktualną mapę bezpośrednio przed `ExitBootServices`. Przy `EFI_INVALID_PARAMETER` ponawia pobranie mapy i próbę w ograniczonej pętli. Po nieudanej pierwszej próbie nie wykonuje innych usług firmware; przy nieoczekiwanym błędzie zatrzymuje procesor.
-8. Po udanym zakończeniu usług UEFI most asemblerowy przekazuje wskaźnik `VGK_BOOT_INFO` w rejestrze RDI i skacze do punktu wejścia jądra. Jest to własny kontrakt VGK, a nie ABI GRUB/Multiboot2.
-9. Punkt wejścia jądra ustawia własny stos, wywołuje funkcję diagnostyczną i sprawdza protokół przed użyciem danych.
+8. Pobiera aktualną mapę bezpośrednio przed `ExitBootServices`. Przy `EFI_INVALID_PARAMETER` ponawia pobranie mapy i próbę w ograniczonej pętli. Po nieudanej pierwszej próbie nie wykonuje innych usług firmware; przy nieoczekiwanym błędzie zatrzymuje procesor.
+9. Po udanym zakończeniu usług UEFI most asemblerowy przekazuje wskaźnik `VGK_BOOT_INFO` w rejestrze RDI i skacze do punktu wejścia jądra. Jest to własny kontrakt VGK, a nie ABI GRUB/Multiboot2.
+10. Punkt wejścia jądra ustawia własny stos, wywołuje funkcję diagnostyczną i sprawdza protokół przed użyciem danych.
 
 ## Status implementacji
 
 - [x] Definicja wersjonowanej struktury.
+- [x] Protokół v4: jawny adres i liczba stron 64-stronicowej puli tablic stron.
+- [x] Rezerwacja i zerowanie puli przez UEFI przed końcowym pobraniem mapy pamięci.
+- [x] Walidacja zakresu puli oraz wymaganie klasyfikacji jako pamięć ładowacza w inicjalizacji menedżera pamięci.
+- [ ] Potwierdzenie pełnego przepływu v4 w CI/QEMU i testach regresyjnych.
 - [x] Definicja wspólnego wpisu mapy pamięci.
 - [x] Walidacja podstawowej spójności i przepełnień.
 - [x] Testy przypadków poprawnych i błędnych.
@@ -86,6 +93,10 @@ Walidacja struktury nie dowodzi sama w sobie, że wskazane adresy są dostępne 
 - [ ] Potwierdzenie pełnego przepływu inwentarza PCI testem QEMU/OVMF i testami CI.
 - [ ] Odczyt dalszych informacji PCIe i sterowniki urządzeń.
 - [ ] Odczyt informacji ACPI.
+
+## Zgodność z Legacy BIOS
+
+Wersja 4 wymaga przekazania puli tablic stron przez każdy ładowacz. Obecnie zrealizowano wyłącznie ścieżkę UEFI. Przyszły ładowacz Legacy BIOS musi przygotować równoważny, wyrównany i wyłączony z alokatora zakres pamięci oraz przekazać go w tych samych polach protokołu. Nie wolno traktować pól puli jako opcjonalnych ani aktywować CR3, dopóki ścieżka BIOS nie spełni tego kontraktu.
 
 ## Granice obecnego testu
 
