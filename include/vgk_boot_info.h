@@ -15,7 +15,9 @@
 #include "vgk_pci.h"
 
 #define VGK_BOOT_INFO_MAGIC UINT64_C(0x314F464E494B4756) /* "VGKINFO1" */
-#define VGK_BOOT_INFO_VERSION UINT32_C(3)
+#define VGK_BOOT_INFO_VERSION UINT32_C(4)
+#define VGK_BOOT_PAGE_TABLE_POOL_PAGES UINT64_C(64)
+#define VGK_BOOT_PAGE_SIZE UINT64_C(4096)
 #define VGK_BOOT_MAX_KERNEL_SEGMENTS 16U
 #define VGK_KERNEL_SEGMENT_READ  UINT32_C(0x4)
 #define VGK_KERNEL_SEGMENT_WRITE UINT32_C(0x2)
@@ -109,6 +111,10 @@ typedef struct {
     uint32_t pci_device_count;
     uint32_t pci_device_entry_size;
     VGK_PCI_DEVICE pci_devices[VGK_BOOT_MAX_PCI_DEVICES];
+
+    /* Reserved, identity-addressable storage for inactive page tables. */
+    uint64_t page_table_pool_base;
+    uint64_t page_table_pool_pages;
 } VGK_BOOT_INFO;
 
 static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
@@ -116,6 +122,8 @@ static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
     uint64_t entry_count;
     uint64_t memory_map_end;
     uint64_t kernel_end;
+    uint64_t page_table_pool_size;
+    uint64_t page_table_pool_end;
     int entry_is_executable = 0;
 
     if (info == NULL ||
@@ -134,13 +142,26 @@ static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
         (info->memory_map_address & 7U) != 0 ||
         info->kernel_physical_base == 0 || info->kernel_size == 0 ||
         info->kernel_entry == 0 ||
+        info->page_table_pool_base == 0 ||
+        info->page_table_pool_pages != VGK_BOOT_PAGE_TABLE_POOL_PAGES ||
+        (info->page_table_pool_base & (VGK_BOOT_PAGE_SIZE - 1U)) != 0 ||
+        info->page_table_pool_pages > UINT64_MAX / VGK_BOOT_PAGE_SIZE ||
         info->memory_map_address > UINT64_MAX - info->memory_map_size ||
         info->kernel_physical_base > UINT64_MAX - info->kernel_size)
         return 0;
 
     memory_map_end = info->memory_map_address + info->memory_map_size;
     kernel_end = info->kernel_physical_base + info->kernel_size;
+    page_table_pool_size = info->page_table_pool_pages * VGK_BOOT_PAGE_SIZE;
+    if (info->page_table_pool_base > UINT64_MAX - page_table_pool_size)
+        return 0;
+    page_table_pool_end = info->page_table_pool_base + page_table_pool_size;
+
     if (memory_map_end <= info->memory_map_address ||
+        (info->page_table_pool_base < kernel_end &&
+         info->kernel_physical_base < page_table_pool_end) ||
+        (info->page_table_pool_base < memory_map_end &&
+         info->memory_map_address < page_table_pool_end) ||
         info->kernel_entry < info->kernel_physical_base ||
         info->kernel_entry >= kernel_end)
         return 0;
@@ -292,7 +313,7 @@ _Static_assert(sizeof(VGK_KERNEL_SEGMENT) == 24,
 _Static_assert(sizeof(VGK_PCI_DEVICE) == 14,
                "VGK PCI device layout changed");
 _Static_assert(sizeof(VGK_BOOT_INFO) ==
-                   560 + 8 + VGK_BOOT_MAX_PCI_DEVICES * sizeof(VGK_PCI_DEVICE),
+                   560 + 8 + VGK_BOOT_MAX_PCI_DEVICES * sizeof(VGK_PCI_DEVICE) + 16,
                "VGK boot info size changed");
 
 #endif
