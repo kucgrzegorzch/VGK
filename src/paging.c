@@ -223,8 +223,16 @@ VGK_PAGING_RESULT vgk_paging_map(
 
     {
         size_t index = (size_t)((virtual_address >> shifts[3]) & 0x1FFU);
-        if ((current[index] & PTE_PRESENT) != 0U)
-            return VGK_PAGING_ALREADY_MAPPED;
+        if ((current[index] & PTE_PRESENT) != 0U) {
+            uint64_t existing = current[index];
+            uint64_t expected =
+                (physical_address & tables->physical_mask) | leaf_flags;
+            uint64_t compare_mask =
+                tables->physical_mask | PTE_PRESENT | PTE_WRITE | PTE_NX;
+            return (existing & compare_mask) == (expected & compare_mask)
+                ? VGK_PAGING_OK
+                : VGK_PAGING_ALREADY_MAPPED;
+        }
         current[index] = (physical_address & tables->physical_mask) | leaf_flags;
     }
     return VGK_PAGING_OK;
