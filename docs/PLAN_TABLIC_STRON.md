@@ -2,7 +2,7 @@
 
 ## Cel
 
-Następnym etapem po protokole startowym v3 jest przejęcie przez jądro kontroli nad mapowaniem pamięci w procesorze x86-64. Sam opis praw segmentów w protokole nie zmienia jeszcze uprawnień sprzętowych. Dopiero poprawne przygotowanie i aktywowanie tablic stron pozwoli rozdzielić pamięć wykonywalną od zapisywalnej.
+Następnym etapem po protokole startowym v4 jest przejęcie przez jądro kontroli nad mapowaniem pamięci w procesorze x86-64. Sam opis praw segmentów w protokole nie zmienia jeszcze uprawnień sprzętowych. Dopiero poprawne przygotowanie i aktywowanie tablic stron pozwoli rozdzielić pamięć wykonywalną od zapisywalnej.
 
 Ten dokument opisuje kolejność prac i warunki bezpieczeństwa.
 
@@ -172,7 +172,7 @@ Nie wolno jednak wyciągać z tego wniosku, że dowolny adres zwrócony przez al
 
 ### Decyzja projektowa dla pierwszego bezpiecznego przełączenia
 
-Puli tablic stron nie będziemy przydzielać po starcie jądra z ogólnego alokatora fizycznego. Ładowacz UEFI powinien zarezerwować ją przez `AllocatePages(EfiLoaderData)` **przed pobraniem końcowej mapy pamięci i przed pierwszą próbą `ExitBootServices`**, wyzerować ją jeszcze podczas działania Boot Services i przekazać jądru jej adres fizyczny oraz liczbę stron.
+Puli tablic stron nie będziemy przydzielać po starcie jądra z ogólnego alokatora fizycznego. **Na gałęzi rozwojowej wdrożono kontrakt v4 i rezerwację UEFI**: ładowacz przydziela ją przez `AllocatePages(EfiLoaderData)` przed pobraniem końcowej mapy pamięci i przed pierwszą próbą `ExitBootServices`, zeruje ją jeszcze podczas działania Boot Services i przekazuje jądru jej adres fizyczny oraz liczbę stron. Pełna poprawność tej ścieżki pozostaje do potwierdzenia kompilacją, testami i uruchomieniem QEMU/OVMF; nie oznaczamy jej jeszcze jako zweryfikowanej.
 
 Wymaga to kontrolowanej zmiany protokołu startowego:
 - podnieść wersję `VGK_BOOT_INFO` z 3 do 4;
