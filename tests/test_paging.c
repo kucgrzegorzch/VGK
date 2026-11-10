@@ -142,8 +142,26 @@ int main(void)
                          VGK_PAGE_EXEC) == VGK_PAGING_OK);
     CHECK(vgk_paging_map(&t, UINT64_C(0xFFFF800000000000), 0x200000U,
                          VGK_PAGE_EXEC) == VGK_PAGING_OK);
-    CHECK(vgk_paging_map(&t, UINT64_C(0xFFFF800000001000), 0x200000U,
-                         VGK_PAGE_WRITE) == VGK_PAGING_UNSUPPORTED);
+    {
+        size_t used_before = t.used_pages;
+        CHECK(vgk_paging_map(&t, UINT64_C(0xFFFF800000001000), 0x200000U,
+                             VGK_PAGE_WRITE) == VGK_PAGING_UNSUPPORTED);
+        /* A rejected alias must not allocate tables or create a leaf. */
+        CHECK(t.used_pages == used_before);
+        CHECK(walk(&t, UINT64_C(0xFFFF800000001000)) == 0);
+    }
+    free(pool);
+
+    /* A W^X conflict on the second page of a range is reported explicitly. */
+    CHECK(posix_memalign(&pool, 4096U, 8U * 4096U) == 0);
+    CHECK(vgk_paging_init(&t, pool, 8U, 48U, 1U) == VGK_PAGING_OK);
+    CHECK(vgk_paging_map(&t, 0xA01000U, 0x901000U,
+                         VGK_PAGE_EXEC) == VGK_PAGING_OK);
+    CHECK(vgk_paging_map_range(&t, 0x800000U, 0x900000U, 8192U,
+                               VGK_PAGE_WRITE) == VGK_PAGING_UNSUPPORTED);
+    CHECK((*walk(&t, 0x800000U) & 1U) != 0U);
+    CHECK(walk(&t, 0x801000U) != 0);
+    CHECK((*walk(&t, 0x801000U) & 1U) == 0U);
     free(pool);
 
     puts("OK: tablice stron – uprawnienia, NX, W^X, granice i brak pamięci.");
