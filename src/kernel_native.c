@@ -43,6 +43,27 @@ static void serial_write(const char *message)
         serial_write_char(*message++);
 }
 
+static int page_table_pool_is_zeroed(const VGK_BOOT_INFO *boot_info)
+{
+    const volatile uint64_t *words;
+    uint64_t word_count;
+
+    if (boot_info == 0 ||
+        boot_info->page_table_pool_base == 0 ||
+        boot_info->page_table_pool_pages != VGK_BOOT_PAGE_TABLE_POOL_PAGES)
+        return 0;
+
+    words = (const volatile uint64_t *)(uintptr_t)
+        boot_info->page_table_pool_base;
+    word_count = boot_info->page_table_pool_pages *
+                 (VGK_BOOT_PAGE_SIZE / sizeof(uint64_t));
+    for (uint64_t i = 0; i < word_count; ++i) {
+        if (words[i] != 0)
+            return 0;
+    }
+    return 1;
+}
+
 __attribute__((noreturn))
 void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
 {
@@ -96,6 +117,10 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
             vgk_memory_get_stats(&memory_stats) != VGK_MEMORY_OK ||
             memory_stats.total_pages == 0 ||
             vgk_memory_alloc_pages(1U, 1U, &test_page) != VGK_MEMORY_OK ||
+            (test_page >= boot_info->page_table_pool_base &&
+             test_page < boot_info->page_table_pool_base +
+                         boot_info->page_table_pool_pages *
+                             VGK_BOOT_PAGE_SIZE) ||
             vgk_memory_free_pages(test_page, 1U) != VGK_MEMORY_OK) {
             serial_write("VGK: BLAD inicjalizacji menedzera pamieci.\r\n");
             for (;;) {
@@ -104,6 +129,13 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
         }
     }
 
+    if (!page_table_pool_is_zeroed(boot_info)) {
+        serial_write("VGK: BLAD dostepu do puli tablic stron lub pula nie jest wyzerowana.\r\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("VGK: pula tablic stron jest dostepna, wyzerowana i zarezerwowana.\r\n");
     serial_write("VGK: menedzer pamieci uruchomiony.\r\n");
     serial_write("VGK: etap diagnostyczny; sterowniki i uslugi nie sa jeszcze gotowe.\r\n");
 
