@@ -38,7 +38,8 @@ static int physical_alias_permissions_compatible(
     const uint64_t *table,
     unsigned level,
     uint64_t physical_address,
-    uint64_t requested_flags)
+    uint64_t requested_flags,
+    const uint64_t *ancestors[4])
 {
     for (size_t i = 0; i < 512U; ++i) {
         uint64_t entry = table[i];
@@ -60,12 +61,19 @@ static int physical_alias_permissions_compatible(
             const uint64_t *next;
             if ((entry & PTE_WRITE) == 0U)
                 return 0;
+            const uint64_t *next_ancestors[4];
             next = (const uint64_t *)table_from_entry(tables, entry);
             if (next == 0)
                 return 0;
+            for (size_t ancestor = 0; ancestor <= level; ++ancestor) {
+                if (next == ancestors[ancestor])
+                    return 0;
+                next_ancestors[ancestor] = ancestors[ancestor];
+            }
+            next_ancestors[level + 1U] = next;
             if (!physical_alias_permissions_compatible(
                     tables, next, level + 1U, physical_address,
-                    requested_flags))
+                    requested_flags, next_ancestors))
                 return 0;
         }
     }
@@ -148,6 +156,7 @@ VGK_PAGING_RESULT vgk_paging_map(
 {
     static const unsigned shifts[4] = {39U, 30U, 21U, 12U};
     uint64_t *current;
+    const uint64_t *ancestors[4];
     uint64_t leaf_flags = PTE_PRESENT;
     uint64_t physical_limit;
 
@@ -177,8 +186,10 @@ VGK_PAGING_RESULT vgk_paging_map(
     if ((permissions & VGK_PAGE_WRITE) != 0U)
         leaf_flags |= PTE_WRITE;
 
+    ancestors[0] = tables->pool;
     if (!physical_alias_permissions_compatible(
-            tables, tables->pool, 0U, physical_address, leaf_flags))
+            tables, tables->pool, 0U, physical_address, leaf_flags,
+            ancestors))
         return VGK_PAGING_UNSUPPORTED;
 
     current = tables->pool;
@@ -194,6 +205,7 @@ VGK_PAGING_RESULT vgk_paging_map(
             next_address = (uint64_t)(uintptr_t)next;
             current[index] = (next_address & tables->physical_mask) |
                              PTE_PRESENT | PTE_WRITE;
+            ancestors[level + 1U] = next;
             current = next;
         } else {
             if ((entry & PTE_LARGE) != 0U)
@@ -201,6 +213,11 @@ VGK_PAGING_RESULT vgk_paging_map(
             current = table_from_entry(tables, entry);
             if (current == 0)
                 return VGK_PAGING_UNSUPPORTED;
+            for (size_t ancestor = 0; ancestor <= level; ++ancestor) {
+                if (current == ancestors[ancestor])
+                    return VGK_PAGING_UNSUPPORTED;
+            }
+            ancestors[level + 1U] = current;
         }
     }
 
