@@ -139,31 +139,26 @@ Instrukcja XGETBV jest wykonywana dopiero po sprawdzeniu OSXSAVE. Dzięki temu V
 **Ograniczenie obecnego etapu:** wykrywanie możliwości nie oznacza jeszcze pełnej zgodności ze wszystkimi procesorami. Nie wykonaliśmy jeszcze testów na fizycznych komputerach Intel i AMD, a jądro nie przełącza się na kod AVX/AVX2.
 
 
-## Konkretny plan pierwszego zestawu mapowań (bez przełączania CR3)
+## Pierwszy zestaw nieaktywnych mapowań — implementacja diagnostyczna
 
-Przed integracją buildera jądro musi zbudować i sprawdzić mapowania w nowej, nadal nieaktywnej tablicy. Pierwszy zakres prac ograniczamy do pamięci RAM i struktur koniecznych do działania jądra:
+Jądro buduje już pierwszy zestaw mapowań tożsamościowych w zarezerwowanej puli, ale nadal nie aktywuje go przez CR3. Funkcja przygotowująca mapowania wykonuje następujące kroki:
 
-1. **Segmenty ELF jądra:** mapować każdy segment pod jego adresem tożsamościowym. Uprawnienia wynikają z flag segmentu: RX dla kodu, R+NX dla danych stałych, RW+NX dla danych i BSS. Stos `vgk_boot_stack` znajduje się w BSS, więc nie wymaga osobnego obszaru, o ile walidacja ELF potwierdzi jego przynależność do segmentu RW.
-2. **VGK_BOOT_INFO:** wyznaczyć zakres stron obejmujący cały obiekt, zaokrąglony w dół i w górę do granic 4 KiB; mapować R+NX.
-3. **Znormalizowana mapa pamięci:** analogicznie mapować cały bufor wskazywany przez `memory_map_address` i `memory_map_size` jako R+NX. Przed mapowaniem sprawdzić dzielenie rozmiaru przez rozmiar wpisu i przepełnienia.
-4. **Pula tablic stron:** przydzielić ją z alokatora VGK, zachować jej fizyczny zakres jako zarezerwowany i mapować RW+NX. Pamięć puli musi być dostępna tożsamościowo przed aktywacją nowych tablic, ponieważ builder zeruje i zapisuje wpisy przez wskaźniki.
-5. **Pozostałe obszary:** na tym etapie nie mapować framebuffer GOP ani tabel ACPI. Wymagają osobnej polityki pamięci urządzeń/cache oraz parsera ACPI z walidacją długości i zakresów.
+1. **Segmenty ELF jądra:** mapuje każdy segment pod adresem tożsamościowym. Flagi ELF są przekładane na RX dla kodu, R+NX dla danych stałych oraz RW+NX dla danych i BSS.
+2. **Stos startowy:** symbole `vgk_boot_stack` i `vgk_boot_stack_top` są jawnie sprawdzane. Cały stos musi mieścić się w segmencie RW bez prawa wykonania.
+3. **VGK_BOOT_INFO i mapa pamięci:** oba zakresy są mapowane jako R+NX.
+4. **Pula tablic stron:** pula zarezerwowana przez UEFI jest mapowana tożsamościowo jako RW+NX. Nie pochodzi z ogólnego alokatora jądra.
 
-### Konflikty zakresów
+Jeżeli wykrywanie procesora nie potwierdzi NX, budowanie ochronnych mapowań jest pomijane; podstawowy start systemu nie jest z tego powodu blokowany. Błąd budowania przy potwierdzonym NX zatrzymuje etap diagnostyczny. Każdy błąd po częściowym mapowaniu oznacza porzucenie całego nieaktywnego zestawu.
 
-Obiekty startowe mogą zajmować tę samą stronę 4 KiB, mimo że ich adresy bajtowe są różne. Plan mapowania powinien więc najpierw utworzyć listę zakresów stron, posortować ją po adresie i połączyć zakresy zachodzące na siebie lub sąsiadujące, jeżeli mają identyczne uprawnienia. Nakładanie zakresów o różnych uprawnieniach musi zakończyć się błędem przed rozpoczęciem mapowania. Nie wolno rozwiązywać konfliktu przez nadpisanie wcześniejszego wpisu PTE.
+### Ograniczenia i dalsze warunki
 
-### Warunki przed testem przełączenia
+- Tożsamościowe mapowania obejmują obecnie wyłącznie segmenty jądra, stos, obiekt startowy, znormalizowaną mapę pamięci i pulę. Framebuffer GOP, MMIO i ACPI wymagają odrębnej polityki.
+- Konflikty uprawnień są wykrywane przez builder podczas dodawania mapowań. Nie ma jeszcze osobnego, wstępnego planu zakresów, który wykrywałby wszystkie konflikty przed pierwszym wpisem; przy błędzie cały zestaw należy odrzucić.
+- Trzeba zweryfikować w QEMU/OVMF, że mapowania powstają poprawnie po `ExitBootServices`, oraz potwierdzić zachowanie na fizycznych komputerach.
+- Należy przejść po całym drzewie tablic i porównać wpisy z oczekiwanymi zakresami i prawami.
+- Trzeba sprawdzić, czy adresy wszystkich obiektów mieszczą się zarówno w szerokości fizycznej procesora, jak i w kanonicznym zakresie adresów wirtualnych.
 
-- potwierdzić, że bieżący kod, stos, `VGK_BOOT_INFO`, mapa pamięci i pula są objęte nowymi mapowaniami;
-- potwierdzić, że wszystkie adresy fizyczne mieszczą się w szerokości wykrytej przez CPUID;
-- sprawdzić, że żaden zakres nie mapuje RAM jako MMIO ani odwrotnie;
-- sprawdzić, że wszystkie strony puli zostały wyzerowane i nie należą do żadnego innego obiektu;
-- przejść po zbudowanych tablicach i porównać każdy wpis z oczekiwaną listą zakresów oraz uprawnień;
-- wykonać testy QEMU/OVMF z diagnostyką szeregową, nadal bez zmiany CR3.
-
-Dopiero osobny etap może dodać procedurę aktywacji. Musi ona działać z kodu i stosu już objętych nowymi mapowaniami, zachować mapowanie adresu powrotu i danych, ustawić NXE tylko po sprawdzeniu CPUID, ustawić CR0.WP i przeładować CR3. Testy awarii ochrony (zapis do strony RX i wykonanie strony NX) wymagają wcześniej działającej obsługi wyjątku #PF; bez niej próba naruszenia ochrony może zakończyć się potrójnym błędem procesora i resetem maszyny.
-
+**CR3 pozostaje niezmieniony.** Osobny etap aktywacji będzie wymagał mapowania kodu i stosu na czas przełączenia, bezpiecznej obsługi #PF, włączenia EFER.NXE po sprawdzeniu CPUID, ustawienia CR0.WP i dopiero wtedy przeładowania CR3. Testy naruszeń RX/NX należy wykonać dopiero po przygotowaniu kontrolowanej obsługi wyjątków.
 ## Korekta dotycząca puli tablic stron po analizie ładowacza UEFI
 
 Analiza `boot/uefi/bootx64.c` wykazała, że ładowacz pobiera końcową mapę pamięci dopiero po załadowaniu segmentów jądra i zamknięciu woluminu. Bufor surowej mapy, znormalizowana mapa VGK oraz `VGK_BOOT_INFO` są obecnie statycznymi obiektami obrazu ładowacza. Znormalizowana mapa klasyfikuje obszary UEFI LoaderCode/LoaderData jako `VGK_MEMORY_BOOTLOADER`, a więc nie jako pamięć wolną dla alokatora jądra.
