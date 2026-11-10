@@ -92,6 +92,27 @@ int main(void)
     }
 
     info = valid_info();
+    info.page_table_pool_base =
+        (uint64_t)(uintptr_t)&info & ~(VGK_BOOT_PAGE_SIZE - 1U);
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano pule nachodzaca na strukture startowa");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.flags = VGK_BOOT_FLAG_FRAMEBUFFER;
+    info.framebuffer_base = UINT64_C(0x300000);
+    info.framebuffer_size = UINT64_C(0x400000);
+    info.framebuffer_width = 1024;
+    info.framebuffer_height = 768;
+    info.framebuffer_stride = 1024;
+    info.framebuffer_format = VGK_FRAMEBUFFER_FORMAT_RGBX8;
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano pule nachodzaca na framebuffer");
+        ++failures;
+    }
+
+    info = valid_info();
 
     info.memory_map_size++;
     if (vgk_boot_info_is_valid(&info)) {
