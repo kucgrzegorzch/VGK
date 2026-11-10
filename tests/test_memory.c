@@ -71,7 +71,7 @@ int main(void)
     EXPECT(vgk_memory_get_stats(&stats) == VGK_MEMORY_OK);
     EXPECT(stats.total_pages == 33U);
     EXPECT(stats.free_pages == 33U);
-    EXPECT(stats.managed_range_count == 2U);
+    EXPECT(stats.managed_range_count == 3U);
     EXPECT(vgk_memory_free_pages(UINT64_C(0x161000), 1U) ==
            VGK_MEMORY_OUT_OF_RANGE);
 
@@ -99,7 +99,7 @@ int main(void)
     EXPECT(vgk_memory_free_pages(second_allocation, 3U) == VGK_MEMORY_OK);
     EXPECT(vgk_memory_get_stats(&stats) == VGK_MEMORY_OK);
     EXPECT(stats.free_pages == 33U);
-    EXPECT(stats.free_range_count == 2U);
+    EXPECT(stats.free_range_count == 3U);
 
     EXPECT(vgk_memory_free_pages(second_allocation, 3U) ==
            VGK_MEMORY_DOUBLE_FREE);
