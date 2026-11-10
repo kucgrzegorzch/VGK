@@ -74,7 +74,7 @@ exception-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/exception.c tests/test_exception.c -o build/test_exception
 	./build/test_exception
 
-build/bootx64.obj: boot/uefi/bootx64.c boot/uefi/uefi_graphics.h include/vgk_framebuffer.h boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/crypto/manifest.h | build
+build/bootx64.obj: boot/uefi/bootx64.c include/vgk_boot_info.h boot/uefi/uefi_graphics.h include/vgk_framebuffer.h boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/crypto/manifest.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iinclude -Iboot/uefi -Iboot/crypto -c $< -o $@
 
 # Most UEFI functions use Microsoft x64 ABI; this bridge prepares the native
