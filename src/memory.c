@@ -167,12 +167,49 @@ static VGK_MEMORY_RESULT append_usable_excluding(
     return VGK_MEMORY_OK;
 }
 
+
+static int page_table_pool_is_loader_memory(
+    const VGK_MEMORY_MAP_ENTRY *entries,
+    size_t entry_count,
+    uint64_t base,
+    uint64_t pages)
+{
+    uint64_t length;
+    uint64_t end;
+    uint64_t cursor = base;
+
+    if (entries == 0 || pages == 0 ||
+        pages > UINT64_MAX / VGK_MEMORY_PAGE_SIZE)
+        return 0;
+    length = pages * VGK_MEMORY_PAGE_SIZE;
+    if (base > UINT64_MAX - length)
+        return 0;
+    end = base + length;
+
+    for (size_t i = 0; i < entry_count; ++i) {
+        uint64_t entry_end;
+        if (entries[i].length == 0 ||
+            entries[i].base > UINT64_MAX - entries[i].length)
+            return 0;
+        entry_end = entries[i].base + entries[i].length;
+        if (entry_end <= cursor)
+            continue;
+        if (entries[i].base > cursor ||
+            entries[i].type != VGK_MEMORY_BOOTLOADER)
+            return 0;
+        cursor = entry_end < end ? entry_end : end;
+        if (cursor == end)
+            return 1;
+    }
+    return 0;
+}
+
 VGK_MEMORY_RESULT vgk_memory_init(const VGK_BOOT_INFO *boot_info)
 {
     const VGK_MEMORY_MAP_ENTRY *entries;
     size_t entry_count;
     uint64_t previous_end = 0;
-    VGK_RESERVED_RANGE reserved[VGK_BOOT_MAX_KERNEL_SEGMENTS + 4U];
+    VGK_RESERVED_RANGE reserved[VGK_BOOT_MAX_KERNEL_SEGMENTS + 5U];
     size_t reserved_count = 0;
 
     clear_allocator();
@@ -188,6 +225,13 @@ VGK_MEMORY_RESULT vgk_memory_init(const VGK_BOOT_INFO *boot_info)
     entries = (const VGK_MEMORY_MAP_ENTRY *)(uintptr_t)
         boot_info->memory_map_address;
 
+    if (!page_table_pool_is_loader_memory(
+            entries, entry_count, boot_info->page_table_pool_base,
+            boot_info->page_table_pool_pages)) {
+        clear_allocator();
+        return VGK_MEMORY_BAD_MAP;
+    }
+
     if (reserve_range(reserved, &reserved_count,
                       sizeof(reserved) / sizeof(reserved[0]),
                       (uint64_t)(uintptr_t)boot_info,
@@ -199,6 +243,15 @@ VGK_MEMORY_RESULT vgk_memory_init(const VGK_BOOT_INFO *boot_info)
         clear_allocator();
         return VGK_MEMORY_BAD_MAP;
     }
+    if (reserve_range(reserved, &reserved_count,
+                      sizeof(reserved) / sizeof(reserved[0]),
+                      boot_info->page_table_pool_base,
+                      boot_info->page_table_pool_pages *
+                          VGK_MEMORY_PAGE_SIZE) != 0) {
+        clear_allocator();
+        return VGK_MEMORY_BAD_MAP;
+    }
+
     for (uint32_t i = 0; i < boot_info->kernel_segment_count; ++i) {
         const VGK_KERNEL_SEGMENT *segment = &boot_info->kernel_segments[i];
         if (reserve_range(reserved, &reserved_count,
