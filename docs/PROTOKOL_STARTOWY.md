@@ -22,10 +22,10 @@ Definicje znajdują się w `include/vgk_boot_info.h`.
 2. Adres, rozmiar i format znormalizowanej mapy pamięci.
 3. Fizyczny adres i rozmiar załadowanego obrazu jądra.
 4. Fizyczny adres i liczbę stron zarezerwowanej puli tablic stron (64 strony po 4 KiB). Pula jest przydzielana jako pamięć ładowacza przez UEFI, zerowana przed zakończeniem usług firmware i pozostaje zarezerwowana dla buildera tablic stron.
-4. Adres wejścia jądra.
-5. Opcjonalny opis bufora obrazu: adres, rozmiar, wymiary, krok wiersza i format.
-6. Opcjonalny adres tabel RSDP ACPI.
-7. Ograniczona lista znormalizowanych identyfikatorów urządzeń PCI (maksymalnie 128), bez uchwytów i wskaźników firmware; flaga informuje o ewentualnym obcięciu listy.
+5. Adres wejścia jądra.
+6. Opcjonalny opis bufora obrazu: adres, rozmiar, wymiary, krok wiersza i format.
+7. Opcjonalny adres tabel RSDP ACPI.
+8. Ograniczona lista znormalizowanych identyfikatorów urządzeń PCI (maksymalnie 128), bez uchwytów i wskaźników firmware; flaga informuje o ewentualnym obcięciu listy.
 
 W obecnej ścieżce UEFI wypełniane są dane dotyczące firmware, mapy pamięci i jądra. Ładowacz próbuje również pobrać bieżący tryb UEFI GOP z uchwytu konsoli tekstowej. Jeśli bufor jest liniowy, ma format RGB/BGR 8-bit na kanał i przechodzi kontrolę wymiarów, kroku wiersza oraz zakresu pamięci, jego opis trafia do protokołu. Nieobsługiwany format lub brak GOP pozostawia flagę framebuffer wyzerowaną. Informacje ACPI pozostają nieaktywne.
 
