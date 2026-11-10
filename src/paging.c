@@ -18,6 +18,41 @@ static uint64_t *table_from_entry(const VGK_PAGE_TABLES *tables, uint64_t entry)
     return (uint64_t *)(uintptr_t)address;
 }
 
+/*
+ * The same physical page must not acquire conflicting write/execute
+ * permissions through two virtual aliases. Intermediate entries created
+ * by this builder are ordinary four-level tables; large pages are rejected.
+ */
+static int physical_alias_permissions_compatible(
+    const VGK_PAGE_TABLES *tables,
+    const uint64_t *table,
+    unsigned level,
+    uint64_t physical_address,
+    uint64_t requested_flags)
+{
+    for (size_t i = 0; i < 512U; ++i) {
+        uint64_t entry = table[i];
+        if ((entry & PTE_PRESENT) == 0U)
+            continue;
+        if (level == 3U) {
+            uint64_t mapped = entry & tables->physical_mask;
+            if (mapped == physical_address &&
+                ((entry ^ requested_flags) & (PTE_WRITE | PTE_NX)) != 0U)
+                return 0;
+        } else {
+            const uint64_t *next;
+            if ((entry & PTE_LARGE) != 0U)
+                return 0;
+            next = (const uint64_t *)table_from_entry(tables, entry);
+            if (!physical_alias_permissions_compatible(
+                    tables, next, level + 1U, physical_address,
+                    requested_flags))
+                return 0;
+        }
+    }
+    return 1;
+}
+
 static uint64_t *allocate_table(VGK_PAGE_TABLES *tables)
 {
     uint64_t *page;
@@ -117,6 +152,10 @@ VGK_PAGING_RESULT vgk_paging_map(
     }
     if ((permissions & VGK_PAGE_WRITE) != 0U)
         leaf_flags |= PTE_WRITE;
+
+    if (!physical_alias_permissions_compatible(
+            tables, tables->pool, 0U, physical_address, leaf_flags))
+        return VGK_PAGING_UNSUPPORTED;
 
     current = tables->pool;
     for (size_t level = 0; level < 3U; ++level) {
