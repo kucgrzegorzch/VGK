@@ -55,7 +55,7 @@ Walidacja struktury nie dowodzi sama w sobie, że wskazane adresy są dostępne 
 4. Waliduje ELF64 x86-64, planuje segmenty i przydziela dokładne zakresy pamięci przez `AllocatePages`.
 5. Kopiuje segmenty do pamięci i zeruje obszary BSS.
 6. Przydziela przez `AllocatePages(EfiLoaderData)` 64 strony puli tablic stron i zeruje cały obszar, zanim pobierze końcową mapę pamięci.
-6. Normalizuje mapę pamięci UEFI i wypełnia `VGK_BOOT_INFO`.
+7. Normalizuje mapę pamięci UEFI i wypełnia `VGK_BOOT_INFO`, w tym adres i liczbę stron puli.
 8. Pobiera aktualną mapę bezpośrednio przed `ExitBootServices`. Przy `EFI_INVALID_PARAMETER` ponawia pobranie mapy i próbę w ograniczonej pętli. Po nieudanej pierwszej próbie nie wykonuje innych usług firmware; przy nieoczekiwanym błędzie zatrzymuje procesor.
 9. Po udanym zakończeniu usług UEFI most asemblerowy przekazuje wskaźnik `VGK_BOOT_INFO` w rejestrze RDI i skacze do punktu wejścia jądra. Jest to własny kontrakt VGK, a nie ABI GRUB/Multiboot2.
 10. Punkt wejścia jądra ustawia własny stos, wywołuje funkcję diagnostyczną i sprawdza protokół przed użyciem danych.
