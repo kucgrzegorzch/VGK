@@ -144,14 +144,14 @@ static int build_inactive_page_tables(
     /* Boot protocol and normalized map are read-only and non-executable. */
     serial_write("VGK: adres VGK_BOOT_INFO = ");
     serial_write_hex((uint64_t)(uintptr_t)boot_info);
-    serial_write("\\r\\n");
+    serial_write("\r\n");
     result = vgk_paging_map_range(
         tables, (uint64_t)(uintptr_t)boot_info,
         (uint64_t)(uintptr_t)boot_info, sizeof(*boot_info), 0U);
     if (result != VGK_PAGING_OK) {
         serial_write("VGK: blad mapowania VGK_BOOT_INFO, kod = ");
         serial_write_hex((uint64_t)result);
-        serial_write("\\r\\n");
+        serial_write("\r\n");
         return 0;
     }
     serial_write("VGK: VGK_BOOT_INFO zmapowany.\\r\\n");
