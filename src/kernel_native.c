@@ -96,6 +96,7 @@ static int build_inactive_page_tables(
     }
     if (!stack_is_writable)
         return 0;
+    serial_write("VGK: zakres stosu potwierdzony jako RW+NX.\\r\\n");
 
     result = vgk_paging_init(
         tables,
@@ -105,6 +106,7 @@ static int build_inactive_page_tables(
         cpu_features->nx_supported);
     if (result != VGK_PAGING_OK)
         return 0;
+    serial_write("VGK: utworzono korzen nieaktywnych tablic stron.\\r\\n");
 
     for (uint32_t i = 0; i < boot_info->kernel_segment_count; ++i) {
         const VGK_KERNEL_SEGMENT *segment = &boot_info->kernel_segments[i];
@@ -121,6 +123,7 @@ static int build_inactive_page_tables(
         if (result != VGK_PAGING_OK)
             return 0;
     }
+    serial_write("VGK: segmenty ELF zmapowane.\\r\\n");
 
     /* Boot protocol and normalized map are read-only and non-executable. */
     result = vgk_paging_map_range(
@@ -128,12 +131,14 @@ static int build_inactive_page_tables(
         (uint64_t)(uintptr_t)boot_info, sizeof(*boot_info), 0U);
     if (result != VGK_PAGING_OK)
         return 0;
+    serial_write("VGK: VGK_BOOT_INFO zmapowany.\\r\\n");
 
     result = vgk_paging_map_range(
         tables, boot_info->memory_map_address,
         boot_info->memory_map_address, boot_info->memory_map_size, 0U);
     if (result != VGK_PAGING_OK)
         return 0;
+    serial_write("VGK: mapa pamieci zmapowana.\\r\\n");
 
     /* The builder must remain able to access its own reserved pool. */
     result = vgk_paging_map_range(
@@ -143,6 +148,7 @@ static int build_inactive_page_tables(
         VGK_PAGE_WRITE);
     if (result != VGK_PAGING_OK)
         return 0;
+    serial_write("VGK: pula tablic zmapowana RW+NX.\\r\\n");
 
     return vgk_paging_root_physical(tables) ==
            boot_info->page_table_pool_base;
