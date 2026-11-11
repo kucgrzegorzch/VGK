@@ -11,7 +11,7 @@ UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machin
 CRYPTO_DIR := boot/crypto
 MONOCYPHER_DIR := $(CRYPTO_DIR)/monocypher
 
-.PHONY: all clean iso check-tools test native-kernel native-kernel-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test cpu-features-test interrupts-test exception-test framebuffer-test pci-test uefi-pci-test paging-test
+.PHONY: all clean iso check-tools test native-kernel native-kernel-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test cpu-features-test interrupts-test exception-test framebuffer-test pci-test uefi-pci-test paging-test acpi-test
 all: build/vgk-kernel.elf
 
 test: build/vgk-kernel.elf
@@ -36,7 +36,7 @@ build/entry_native.o: boot/entry_native.S | build
 build/exception_stubs_native.o: boot/exception_stubs.S | build
 	$(CC) -m64 -ffreestanding -fno-pic -fno-pie -c $< -o $@
 
-build/kernel_native.o: src/kernel_native.c include/vgk_boot_info.h include/vgk_memory.h include/vgk_cpu_features.h include/vgk_paging.h | build
+build/kernel_native.o: src/kernel_native.c include/vgk_boot_info.h include/vgk_acpi.h include/vgk_memory.h include/vgk_cpu_features.h include/vgk_paging.h | build
 	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
 build/cpu_features_native.o: src/cpu_features.c include/vgk_cpu_features.h | build
@@ -45,11 +45,14 @@ build/cpu_features_native.o: src/cpu_features.c include/vgk_cpu_features.h | bui
 build/memory_native.o: src/memory.c include/vgk_memory.h include/vgk_boot_info.h | build
 	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
+build/acpi_native.o: src/acpi.c include/vgk_acpi.h include/vgk_boot_info.h | build
+	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
+
 build/paging_native.o: src/paging.c include/vgk_paging.h | build
 	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
-build/vgk-kernel-native.elf: build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/cpu_features_native.o build/paging_native.o linker-native.ld
-	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/cpu_features_native.o build/paging_native.o
+build/vgk-kernel-native.elf: build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o linker-native.ld
+	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o
 
 native-kernel: build/vgk-kernel-native.elf
 
@@ -60,6 +63,10 @@ native-kernel-test: build/vgk-kernel-native.elf
 memory-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/memory.c tests/test_memory.c -o build/test_memory
 	./build/test_memory
+
+acpi-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/acpi.c tests/test_acpi.c -o build/test_acpi
+	./build/test_acpi
 
 paging-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/paging.c tests/test_paging.c -o build/test_paging
