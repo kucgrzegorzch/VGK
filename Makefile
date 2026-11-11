@@ -177,6 +177,10 @@ uefi-elf-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi boot/uefi/elf_loader.c tests/test_elf_loader.c -o build/test_elf_loader
 	./build/test_elf_loader
 
+uefi-elf-allocator-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi boot/uefi/uefi_elf_allocator.c tests/test_uefi_elf_allocator.c -o build/test_uefi_elf_allocator
+	./build/test_uefi_elf_allocator
+
 uefi-memory-map-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude -Iboot/uefi boot/uefi/uefi_memory_map.c tests/test_uefi_memory_map.c -o build/test_uefi_memory_map
 	./build/test_uefi_memory_map
