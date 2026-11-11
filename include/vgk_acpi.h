@@ -15,6 +15,7 @@ int vgk_acpi_rsdp_validate(
     const VGK_MEMORY_MAP_ENTRY *memory_map,
     size_t memory_map_count,
     uint64_t physical_address,
+    uint8_t physical_address_bits,
     const volatile uint8_t *bytes,
     uint64_t *length_out);
 
