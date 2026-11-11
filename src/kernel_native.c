@@ -106,6 +106,42 @@ static VGK_PAGING_RESULT map_identity_object(
         tables, page_base, page_base, length + offset, permissions);
 }
 
+/*
+ * PCD+PWT selects PAT entry 3 on PAT-capable CPUs. Verify that this
+ * entry is UC before preparing a framebuffer mapping with those bits.
+ * On CPUs without PAT, the legacy PCD=1/PWT=1 encoding is UC.
+ */
+static int framebuffer_pcd_pwt_is_uncacheable(void)
+{
+    uint32_t max_basic;
+    uint32_t feature_edx;
+    uint32_t pat_low;
+    uint32_t pat_high;
+    uint64_t pat_value;
+
+    __asm__ volatile ("cpuid"
+        : "=a"(max_basic)
+        : "a"(0U), "c"(0U)
+        : "rbx", "rdx");
+    if (max_basic < 1U)
+        return 1;
+
+    __asm__ volatile ("cpuid"
+        : "=a"(max_basic), "=d"(feature_edx)
+        : "a"(1U), "c"(0U)
+        : "rbx");
+    if ((feature_edx & (UINT32_C(1) << 16)) == 0U)
+        return 1;
+
+    __asm__ volatile ("rdmsr"
+        : "=a"(pat_low), "=d"(pat_high)
+        : "c"(UINT32_C(0x277)));
+    pat_value = ((uint64_t)pat_high << 32) | pat_low;
+
+    /* PAT entry 3 occupies bits 24..31; memory type 0 is UC. */
+    return ((pat_value >> 24) & UINT64_C(0xFF)) == 0U;
+}
+
 static int build_inactive_page_tables(
     const VGK_BOOT_INFO *boot_info,
     const VGK_CPU_FEATURES *cpu_features,
@@ -209,21 +245,25 @@ static int build_inactive_page_tables(
 
     /*
      * GOP framebuffer is device memory, not ordinary cacheable RAM.
-     * Use PCD+PWT (architectural UC with the default PAT layout), RW+NX.
+     * PCD+PWT is used only after confirming that its effective type is UC.
      */
     if ((boot_info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0U) {
-        result = map_identity_object(
-            tables, boot_info->framebuffer_base,
-            boot_info->framebuffer_size,
-            VGK_PAGE_WRITE | VGK_PAGE_CACHE_DISABLE |
-                VGK_PAGE_WRITE_THROUGH);
-        if (result != VGK_PAGING_OK) {
-            serial_write("VGK: blad mapowania framebufferu GOP, kod = ");
-            serial_write_hex((uint64_t)result);
-            serial_write("\r\n");
-            return 0;
+        if (!framebuffer_pcd_pwt_is_uncacheable()) {
+            serial_write("VGK: pomijam mapowanie framebufferu; PAT entry 3 nie jest UC.\\r\\n");
+        } else {
+            result = map_identity_object(
+                tables, boot_info->framebuffer_base,
+                boot_info->framebuffer_size,
+                VGK_PAGE_WRITE | VGK_PAGE_CACHE_DISABLE |
+                    VGK_PAGE_WRITE_THROUGH);
+            if (result != VGK_PAGING_OK) {
+                serial_write("VGK: blad mapowania framebufferu GOP, kod = ");
+                serial_write_hex((uint64_t)result);
+                serial_write("\\r\\n");
+                return 0;
+            }
+            serial_write("VGK: framebuffer GOP zmapowany RW+NX; PCD+PWT zweryfikowane jako UC.\\r\\n");
         }
-        serial_write("VGK: framebuffer GOP zmapowany RW+NX z PCD+PWT (UC przy domyslnym PAT).\r\n");
     }
 
     return vgk_paging_root_physical(tables) ==
