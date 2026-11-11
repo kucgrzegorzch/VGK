@@ -139,7 +139,7 @@ Nie wolno przedstawiać samego udanego budowania programu jako dowodu skutecznej
 7. Dodać dziennik zdarzeń oraz procedurę bezpiecznego odzyskiwania.
 8. Przetestować przypadki: plik poprawny, plik zmieniony, brak wykazu, błędny podpis, nieznany klucz, starsze wydanie i uszkodzony nośnik.
 
-Na obecnym etapie VGK ma własny punkt wejścia UEFI Stage 0 oraz pomocnicze narzędzie do sprawdzania podpisanego wydania. Sam mechanizm startowy nie sprawdza jeszcze podpisu ani nie ładuje jądra.
+Na obecnym etapie natywna ścieżka UEFI VGK sprawdza podpis Ed25519 wykazu VGKM i skróty SHA-256 plików, waliduje ELF64, ładuje jądro i przekazuje mu sterowanie. Przebiegi GitHub Actions 830 i 831 z 11.11.2026 potwierdziły uruchomienie jądra diagnostycznego w QEMU/OVMF. Osobny test zmodyfikował jeden bajt jądra i potwierdził odmowę startu. Jest to nadal eksperymentalna ścieżka UEFI, nie pełna ochrona całego systemu ani test na fizycznym komputerze.
 
 
 ## Sprawdzanie integralności plików w języku C
@@ -217,7 +217,7 @@ Klucz prywatny jest własnością wydawcy i nigdy nie może trafić do repozytor
 
 Następnie ładowacz ponownie odczytuje jądro do bufora, sprawdza jego skrót, waliduje ELF64, przydziela dokładne zakresy pamięci, kopiuje segmenty i zeruje BSS. Po przygotowaniu mapy pamięci wypełnia `VGK_BOOT_INFO`, kończy usługi startowe UEFI i przekazuje sterowanie do jądra.
 
-GitHub Actions buduje osobny obraz testowy z tymczasowym kluczem Ed25519 i uruchamia go w QEMU/OVMF. Test nr 349 potwierdził komunikat jądra i poprawność protokołu startowego.
+GitHub Actions buduje osobny obraz testowy z tymczasowym kluczem Ed25519 i uruchamia go w QEMU/OVMF. Przebiegi 830 i 831 z 11.11.2026 potwierdziły komunikaty jądra, poprawność protokołu startowego, dostępność zarezerwowanej puli stron, przygotowanie nieaktywnych mapowań i uruchomienie menedżera pamięci. Test podmienionego jądra potwierdził odmowę startu przy niezgodnym skrócie. Emulator nie zastępuje testu na fizycznym komputerze.
 
 **Ograniczenia:** zwykły obraz UEFI nie zawiera produkcyjnego klucza publicznego i odmawia startu, jeśli klucza zaufania brakuje. Test CI nie jest wydaniem produkcyjnym, nie potwierdza działania na fizycznym komputerze i nie oznacza jeszcze ochrony sterowników, systemu plików ani kodu działającego już w pamięci.
 
