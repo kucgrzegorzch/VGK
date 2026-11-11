@@ -117,6 +117,21 @@ int main(void)
     EXPECT(!vgk_acpi_rsdp_validate(
         memory_map, 0U, UINT64_C(0x1800), 48U, rsdp, &length));
 
+    /* A non-canonical map must be rejected even if the target is covered. */
+    {
+        VGK_MEMORY_MAP_ENTRY saved[4];
+        memcpy(saved, memory_map, sizeof(saved));
+        memory_map[0] = saved[1];
+        memory_map[1] = saved[0];
+        EXPECT(!validate(UINT64_C(0x1800), &length));
+        memcpy(memory_map, saved, sizeof(saved));
+
+        memory_map[1].base = UINT64_C(0x1800);
+        memory_map[1].length = UINT64_C(0x1000);
+        EXPECT(!validate(UINT64_C(0x1800), &length));
+        memcpy(memory_map, saved, sizeof(saved));
+    }
+
     if (failures != 0) {
         fprintf(stderr, "VGK ACPI RSDP: %u test(s) failed\n", failures);
         return 1;
