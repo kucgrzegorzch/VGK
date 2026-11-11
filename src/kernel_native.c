@@ -207,6 +207,25 @@ static int build_inactive_page_tables(
     }
     serial_write("VGK: pula tablic zmapowana RW+NX.\\r\\n");
 
+    /*
+     * GOP framebuffer is device memory, not ordinary cacheable RAM.
+     * Use PCD+PWT (architectural UC with the default PAT layout), RW+NX.
+     */
+    if ((boot_info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0U) {
+        result = map_identity_object(
+            tables, boot_info->framebuffer_base,
+            boot_info->framebuffer_size,
+            VGK_PAGE_WRITE | VGK_PAGE_CACHE_DISABLE |
+                VGK_PAGE_WRITE_THROUGH);
+        if (result != VGK_PAGING_OK) {
+            serial_write("VGK: blad mapowania framebufferu GOP, kod = ");
+            serial_write_hex((uint64_t)result);
+            serial_write("\\r\\n");
+            return 0;
+        }
+        serial_write("VGK: framebuffer GOP zmapowany RW+NX jako UC.\\r\\n");
+    }
+
     return vgk_paging_root_physical(tables) ==
            boot_info->page_table_pool_base;
 }
