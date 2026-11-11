@@ -33,7 +33,7 @@ static void make_rsdp(uint8_t revision, uint32_t length)
     rsdp[21] = (uint8_t)(length >> 8);
     rsdp[22] = (uint8_t)(length >> 16);
     rsdp[23] = (uint8_t)(length >> 24);
-    if (revision >= 2U) {
+    if (revision >= 2U && length >= 36U && length <= sizeof(rsdp)) {
         set_checksum(rsdp, 20U, 8U);
         set_checksum(rsdp, length, 32U);
     } else {
