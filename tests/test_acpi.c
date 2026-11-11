@@ -6,7 +6,7 @@
 
 #define EXPECT(condition) do { \
     if (!(condition)) { \
-        fprintf(stderr, "FAIL line %d: %s\\n", __LINE__, #condition); \
+        fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #condition); \
         ++failures; \
     } \
 } while (0)
@@ -106,7 +106,7 @@ int main(void)
         memory_map, 0U, UINT64_C(0x1800), rsdp, &length));
 
     if (failures != 0) {
-        fprintf(stderr, "VGK ACPI RSDP: %u test(s) failed\\n", failures);
+        fprintf(stderr, "VGK ACPI RSDP: %u test(s) failed\n", failures);
         return 1;
     }
 
