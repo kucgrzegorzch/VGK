@@ -93,6 +93,7 @@ jobs:
           grep -aF "VGK: procesor obsluguje NX;" build/qemu-serial.log
           grep -aF "VGK: pula tablic stron jest dostepna, wyzerowana i zarezerwowana." build/qemu-serial.log
           grep -aF "VGK: nieaktywne mapowania jadra, stosu, danych startowych i puli sa gotowe." build/qemu-serial.log
+          grep -aF "VGK: framebuffer GOP zmapowany RW+NX jako UC." build/qemu-serial.log
           grep -aF "VGK: menedzer pamieci uruchomiony." build/qemu-serial.log
       - name: Verify UEFI refuses a modified kernel
         run: |
