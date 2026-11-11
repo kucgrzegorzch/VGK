@@ -145,6 +145,7 @@ static int framebuffer_pcd_pwt_is_uncacheable(void)
 
 static int map_acpi_root_pointer(
     const VGK_BOOT_INFO *boot_info,
+    const VGK_CPU_FEATURES *cpu_features,
     VGK_PAGE_TABLES *tables)
 {
     const VGK_MEMORY_MAP_ENTRY *memory_map;
@@ -152,7 +153,7 @@ static int map_acpi_root_pointer(
     size_t memory_map_count;
     uint64_t length = 0;
 
-    if (boot_info == 0 || tables == 0 ||
+    if (boot_info == 0 || cpu_features == 0 || tables == 0 ||
         boot_info->memory_map_address == 0 ||
         boot_info->memory_map_size == 0 ||
         boot_info->memory_map_size % sizeof(VGK_MEMORY_MAP_ENTRY) != 0)
@@ -167,7 +168,8 @@ static int map_acpi_root_pointer(
 
     if (!vgk_acpi_rsdp_validate(
             memory_map, memory_map_count,
-            boot_info->acpi_rsdp_address, rsdp, &length))
+            boot_info->acpi_rsdp_address,
+            cpu_features->physical_address_bits, rsdp, &length))
         return 0;
 
     return map_identity_object(
@@ -264,7 +266,7 @@ static int build_inactive_page_tables(
     serial_write("VGK: mapa pamieci zmapowana.\r\n");
 
     if ((boot_info->flags & VGK_BOOT_FLAG_ACPI) != 0U) {
-        if (!map_acpi_root_pointer(boot_info, tables)) {
+        if (!map_acpi_root_pointer(boot_info, cpu_features, tables)) {
             serial_write("VGK: blad mapowania wskaznika ACPI RSDP.\r\n");
             return 0;
         }
