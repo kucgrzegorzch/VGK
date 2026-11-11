@@ -249,7 +249,7 @@ static int build_inactive_page_tables(
      */
     if ((boot_info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0U) {
         if (!framebuffer_pcd_pwt_is_uncacheable()) {
-            serial_write("VGK: pomijam mapowanie framebufferu; PAT entry 3 nie jest UC.\\r\\n");
+            serial_write("VGK: pomijam mapowanie framebufferu; PAT entry 3 nie jest UC.\r\n");
         } else {
             result = map_identity_object(
                 tables, boot_info->framebuffer_base,
@@ -259,10 +259,10 @@ static int build_inactive_page_tables(
             if (result != VGK_PAGING_OK) {
                 serial_write("VGK: blad mapowania framebufferu GOP, kod = ");
                 serial_write_hex((uint64_t)result);
-                serial_write("\\r\\n");
+                serial_write("\r\n");
                 return 0;
             }
-            serial_write("VGK: framebuffer GOP zmapowany RW+NX; PCD+PWT zweryfikowane jako UC.\\r\\n");
+            serial_write("VGK: framebuffer GOP zmapowany RW+NX; PCD+PWT zweryfikowane jako UC.\r\n");
         }
     }
 
