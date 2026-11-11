@@ -102,6 +102,16 @@ int main(void)
         ++failures;
     }
 
+    put_descriptor(&raw[0], 0, UINT64_C(0xB000), 1, 0);
+    count = 0;
+    if (vgk_uefi_normalize_memory_map(
+            raw, sizeof(TEST_DESCRIPTOR_STRIDE),
+            sizeof(TEST_DESCRIPTOR_STRIDE), 1, output, 4, &count) != 0 ||
+        count != 1U || output[0].type != VGK_MEMORY_RESERVED) {
+        puts("FAIL: EfiReservedMemoryType musi pozostac pamiecia RESERVED");
+        ++failures;
+    }
+
     if (failures != 0)
         return 1;
 
