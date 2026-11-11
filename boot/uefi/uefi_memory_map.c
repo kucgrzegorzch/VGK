@@ -23,6 +23,7 @@ static uint64_t normalize_type(uint32_t type)
     case 10: /* EfiACPIMemoryNVS */
         return VGK_MEMORY_ACPI_NVS;
     case 0:  /* EfiReservedMemoryType */
+        return VGK_MEMORY_RESERVED;
     case 11: /* EfiMemoryMappedIO */
         return VGK_MEMORY_MMIO;
     case 12: /* EfiMemoryMappedIOPortSpace */
