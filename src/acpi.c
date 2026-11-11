@@ -19,15 +19,21 @@ static int range_is_readable_acpi_memory(
     const VGK_MEMORY_MAP_ENTRY *entries,
     size_t entry_count,
     uint64_t address,
-    uint64_t length)
+    uint64_t length,
+    uint8_t physical_address_bits)
 {
     uint64_t end;
+    uint64_t physical_limit;
     uint64_t cursor = address;
 
     if (entries == 0 || entry_count == 0 || length == 0 ||
+        physical_address_bits < 32U || physical_address_bits > 63U ||
         address > UINT64_MAX - length)
         return 0;
+    physical_limit = (UINT64_C(1) << physical_address_bits) - 1U;
     end = address + length;
+    if (end == 0U || end - 1U > physical_limit)
+        return 0;
 
     for (size_t i = 0; i < entry_count; ++i) {
         uint64_t entry_end;
@@ -66,6 +72,7 @@ int vgk_acpi_rsdp_validate(
     const VGK_MEMORY_MAP_ENTRY *memory_map,
     size_t memory_map_count,
     uint64_t physical_address,
+    uint8_t physical_address_bits,
     const volatile uint8_t *bytes,
     uint64_t *length_out)
 {
@@ -76,7 +83,8 @@ int vgk_acpi_rsdp_validate(
 
     if (physical_address == 0 || bytes == 0 || length_out == 0 ||
         !range_is_readable_acpi_memory(
-            memory_map, memory_map_count, physical_address, length))
+            memory_map, memory_map_count, physical_address, length,
+            physical_address_bits))
         return 0;
 
     if (bytes[0] != 'R' || bytes[1] != 'S' ||
@@ -92,7 +100,7 @@ int vgk_acpi_rsdp_validate(
     if (bytes[15] >= 2U) {
         if (!range_is_readable_acpi_memory(
                 memory_map, memory_map_count, physical_address,
-                VGK_ACPI_RSDP_EXTENDED_PREFIX))
+                VGK_ACPI_RSDP_EXTENDED_PREFIX, physical_address_bits))
             return 0;
 
         length = (uint64_t)bytes[20] |
@@ -101,7 +109,8 @@ int vgk_acpi_rsdp_validate(
                  ((uint64_t)bytes[23] << 24);
         if (length < 36U || length > VGK_ACPI_RSDP_MAX_LENGTH ||
             !range_is_readable_acpi_memory(
-                memory_map, memory_map_count, physical_address, length))
+                memory_map, memory_map_count, physical_address, length,
+                physical_address_bits))
             return 0;
 
         if (!checksum_is_zero(bytes, length))
