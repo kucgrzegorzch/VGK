@@ -95,6 +95,7 @@ static const VGK_EFI_GUID loaded_image_guid = {
     {0x8E, 0x3F, 0x00, 0xA0, 0xC9, 0x69, 0x72, 0x3B}
 };
 
+#if VGK_HAS_TRUSTED_PUBLIC_KEY
 static const VGK_EFI_GUID acpi_20_table_guid = {
     UINT32_C(0x8868E871), UINT16_C(0xE4F1), UINT16_C(0x11D3),
     {0x9A, 0x16, 0x00, 0x90, 0x27, 0x3F, 0xC1, 0x4D}
@@ -119,12 +120,14 @@ typedef struct {
     uint64_t xsdt_address;
     uint8_t extended_checksum;
     uint8_t reserved[3];
-} VGK_ACPI_RSDP;
+} __attribute__((packed)) VGK_ACPI_RSDP;
 
 _Static_assert(sizeof(EFI_CONFIGURATION_TABLE) == 24,
                "unexpected EFI configuration table size");
 _Static_assert(sizeof(VGK_ACPI_RSDP) == 36,
                "unexpected ACPI 2.0 RSDP size");
+
+#endif
 
 static const VGK_EFI_GUID simple_file_system_guid = {
     UINT32_C(0x964E5B22), UINT16_C(0x6459), UINT16_C(0x11D2),
@@ -147,6 +150,7 @@ static VGK_MEMORY_MAP_ENTRY vgk_memory_map[VGK_MEMORY_MAP_ENTRY_CAPACITY]
 static VGK_BOOT_INFO boot_info;
 #endif
 
+#if VGK_HAS_TRUSTED_PUBLIC_KEY
 static int guid_equal(const VGK_EFI_GUID *left, const VGK_EFI_GUID *right)
 {
     const uint8_t *a = (const uint8_t *)left;
@@ -223,6 +227,8 @@ static void capture_acpi_rsdp(EFI_SYSTEM_TABLE *system_table)
         boot_info.flags |= VGK_BOOT_FLAG_ACPI;
     }
 }
+
+#endif
 
 static void print_text(EFI_SYSTEM_TABLE *system_table, CHAR16 *message)
 {
