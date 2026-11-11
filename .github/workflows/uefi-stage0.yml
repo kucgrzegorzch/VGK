@@ -33,6 +33,8 @@ jobs:
           objdump -d --start-address=0x200c80 --stop-address=0x200d50 build/vgk-kernel-native.elf
       - name: Test early physical memory allocator
         run: make memory-test
+      - name: Test ACPI RSDP validation
+        run: make acpi-test
       - name: Test inactive x86-64 page-table builder
         run: make paging-test
       - name: Test x86 CPU feature detection
