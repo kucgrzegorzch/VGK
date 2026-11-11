@@ -7,8 +7,11 @@
 #define VGK_PAGING_PAGE_SIZE UINT64_C(4096)
 #define VGK_PAGING_MAX_PHYSICAL_BITS 52U
 
-#define VGK_PAGE_WRITE UINT32_C(0x1)
-#define VGK_PAGE_EXEC  UINT32_C(0x2)
+#define VGK_PAGE_WRITE          UINT32_C(0x1)
+#define VGK_PAGE_EXEC           UINT32_C(0x2)
+/* Leaf-entry cache attributes. Set both for uncached device memory (UC). */
+#define VGK_PAGE_CACHE_DISABLE  UINT32_C(0x4)
+#define VGK_PAGE_WRITE_THROUGH  UINT32_C(0x8)
 
 typedef enum {
     VGK_PAGING_OK = 0,
