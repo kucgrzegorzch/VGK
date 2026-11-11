@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "vgk_boot_info.h"
+#include "vgk_acpi.h"
 #include "vgk_memory.h"
 #include "vgk_cpu_features.h"
 #include "vgk_paging.h"
@@ -143,31 +144,35 @@ static int framebuffer_pcd_pwt_is_uncacheable(void)
 }
 
 static int map_acpi_root_pointer(
-    VGK_PAGE_TABLES *tables,
-    uint64_t rsdp_address)
+    const VGK_BOOT_INFO *boot_info,
+    VGK_PAGE_TABLES *tables)
 {
-    const volatile uint8_t *rsdp =
-        (const volatile uint8_t *)(uintptr_t)rsdp_address;
-    uint64_t length = 20U;
+    const VGK_MEMORY_MAP_ENTRY *memory_map;
+    const volatile uint8_t *rsdp;
+    size_t memory_map_count;
+    uint64_t length = 0;
 
-    if (tables == 0 || rsdp_address == 0 ||
-        rsdp[0] != 'R' || rsdp[1] != 'S' ||
-        rsdp[2] != 'D' || rsdp[3] != ' ' ||
-        rsdp[4] != 'P' || rsdp[5] != 'T' ||
-        rsdp[6] != 'R' || rsdp[7] != ' ')
+    if (boot_info == 0 || tables == 0 ||
+        boot_info->memory_map_address == 0 ||
+        boot_info->memory_map_size == 0 ||
+        boot_info->memory_map_size % sizeof(VGK_MEMORY_MAP_ENTRY) != 0)
         return 0;
 
-    if (rsdp[15] >= 2U) {
-        length = (uint64_t)rsdp[20] |
-                 ((uint64_t)rsdp[21] << 8) |
-                 ((uint64_t)rsdp[22] << 16) |
-                 ((uint64_t)rsdp[23] << 24);
-        if (length < 36U || length > 4096U)
-            return 0;
-    }
+    memory_map = (const VGK_MEMORY_MAP_ENTRY *)(uintptr_t)
+        boot_info->memory_map_address;
+    memory_map_count = (size_t)(
+        boot_info->memory_map_size / sizeof(VGK_MEMORY_MAP_ENTRY));
+    rsdp = (const volatile uint8_t *)(uintptr_t)
+        boot_info->acpi_rsdp_address;
 
-    return map_identity_object(tables, rsdp_address, length, 0U) ==
-           VGK_PAGING_OK;
+    if (!vgk_acpi_rsdp_validate(
+            memory_map, memory_map_count,
+            boot_info->acpi_rsdp_address, rsdp, &length))
+        return 0;
+
+    return map_identity_object(
+        tables, boot_info->acpi_rsdp_address, length, 0U) ==
+        VGK_PAGING_OK;
 }
 
 static int build_inactive_page_tables(
@@ -259,7 +264,7 @@ static int build_inactive_page_tables(
     serial_write("VGK: mapa pamieci zmapowana.\r\n");
 
     if ((boot_info->flags & VGK_BOOT_FLAG_ACPI) != 0U) {
-        if (!map_acpi_root_pointer(tables, boot_info->acpi_rsdp_address)) {
+        if (!map_acpi_root_pointer(boot_info, tables)) {
             serial_write("VGK: blad mapowania wskaznika ACPI RSDP.\r\n");
             return 0;
         }
