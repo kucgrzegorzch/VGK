@@ -95,6 +95,37 @@ static const VGK_EFI_GUID loaded_image_guid = {
     {0x8E, 0x3F, 0x00, 0xA0, 0xC9, 0x69, 0x72, 0x3B}
 };
 
+static const VGK_EFI_GUID acpi_20_table_guid = {
+    UINT32_C(0x8868E871), UINT16_C(0xE4F1), UINT16_C(0x11D3),
+    {0x9A, 0x16, 0x00, 0x90, 0x27, 0x3F, 0xC1, 0x4D}
+};
+static const VGK_EFI_GUID acpi_10_table_guid = {
+    UINT32_C(0xEB9D2D30), UINT16_C(0x2D88), UINT16_C(0x11D3),
+    {0x9A, 0x16, 0x00, 0x90, 0x27, 0x3F, 0xC1, 0x4D}
+};
+
+typedef struct {
+    VGK_EFI_GUID vendor_guid;
+    void *vendor_table;
+} EFI_CONFIGURATION_TABLE;
+
+typedef struct {
+    char signature[8];
+    uint8_t checksum;
+    char oem_id[6];
+    uint8_t revision;
+    uint32_t rsdt_address;
+    uint32_t length;
+    uint64_t xsdt_address;
+    uint8_t extended_checksum;
+    uint8_t reserved[3];
+} VGK_ACPI_RSDP;
+
+_Static_assert(sizeof(EFI_CONFIGURATION_TABLE) == 24,
+               "unexpected EFI configuration table size");
+_Static_assert(sizeof(VGK_ACPI_RSDP) == 36,
+               "unexpected ACPI 2.0 RSDP size");
+
 static const VGK_EFI_GUID simple_file_system_guid = {
     UINT32_C(0x964E5B22), UINT16_C(0x6459), UINT16_C(0x11D2),
     {0x8E, 0x39, 0x00, 0xA0, 0xC9, 0x69, 0x72, 0x3B}
@@ -115,6 +146,83 @@ static VGK_MEMORY_MAP_ENTRY vgk_memory_map[VGK_MEMORY_MAP_ENTRY_CAPACITY]
     __attribute__((aligned(16)));
 static VGK_BOOT_INFO boot_info;
 #endif
+
+static int guid_equal(const VGK_EFI_GUID *left, const VGK_EFI_GUID *right)
+{
+    const uint8_t *a = (const uint8_t *)left;
+    const uint8_t *b = (const uint8_t *)right;
+    for (size_t i = 0; i < sizeof(*left); ++i) {
+        if (a[i] != b[i])
+            return 0;
+    }
+    return 1;
+}
+
+static int acpi_rsdp_is_valid(const VGK_ACPI_RSDP *rsdp)
+{
+    const uint8_t *bytes = (const uint8_t *)rsdp;
+    uint32_t length;
+    uint8_t sum = 0;
+
+    if (rsdp == 0 ||
+        rsdp->signature[0] != 'R' || rsdp->signature[1] != 'S' ||
+        rsdp->signature[2] != 'D' || rsdp->signature[3] != ' ' ||
+        rsdp->signature[4] != 'P' || rsdp->signature[5] != 'T' ||
+        rsdp->signature[6] != 'R' || rsdp->signature[7] != ' ')
+        return 0;
+
+    for (size_t i = 0; i < 20U; ++i)
+        sum = (uint8_t)(sum + bytes[i]);
+    if (sum != 0U)
+        return 0;
+
+    if (rsdp->revision < 2U)
+        return 1;
+
+    length = rsdp->length;
+    if (length < sizeof(VGK_ACPI_RSDP) || length > 4096U)
+        return 0;
+    sum = 0;
+    for (uint32_t i = 0; i < length; ++i)
+        sum = (uint8_t)(sum + bytes[i]);
+    return sum == 0U;
+}
+
+/* Capture the firmware RSDP before ExitBootServices. */
+static void capture_acpi_rsdp(EFI_SYSTEM_TABLE *system_table)
+{
+    EFI_CONFIGURATION_TABLE *tables;
+    const VGK_ACPI_RSDP *fallback = 0;
+    uint64_t count;
+
+    if (system_table == 0 || system_table->configuration_table == 0)
+        return;
+    tables = (EFI_CONFIGURATION_TABLE *)system_table->configuration_table;
+    count = system_table->number_of_table_entries;
+    if (count > 4096U)
+        return;
+
+    for (uint64_t i = 0; i < count; ++i) {
+        const VGK_ACPI_RSDP *candidate =
+            (const VGK_ACPI_RSDP *)tables[i].vendor_table;
+        if (guid_equal(&tables[i].vendor_guid, &acpi_20_table_guid)) {
+            if (acpi_rsdp_is_valid(candidate)) {
+                boot_info.acpi_rsdp_address =
+                    (uint64_t)(uintptr_t)candidate;
+                boot_info.flags |= VGK_BOOT_FLAG_ACPI;
+                return;
+            }
+        } else if (guid_equal(&tables[i].vendor_guid, &acpi_10_table_guid)) {
+            if (fallback == 0 && acpi_rsdp_is_valid(candidate))
+                fallback = candidate;
+        }
+    }
+
+    if (fallback != 0) {
+        boot_info.acpi_rsdp_address = (uint64_t)(uintptr_t)fallback;
+        boot_info.flags |= VGK_BOOT_FLAG_ACPI;
+    }
+}
 
 static void print_text(EFI_SYSTEM_TABLE *system_table, CHAR16 *message)
 {
@@ -455,6 +563,7 @@ static EFI_STATUS start_verified_kernel(
     }
 
     capture_framebuffer(system_table);
+    capture_acpi_rsdp(system_table);
 
     /*
      * Enumerate PCI while firmware services are still available. Only
