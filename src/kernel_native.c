@@ -142,6 +142,34 @@ static int framebuffer_pcd_pwt_is_uncacheable(void)
     return ((pat_value >> 24) & UINT64_C(0xFF)) == 0U;
 }
 
+static int map_acpi_root_pointer(
+    VGK_PAGE_TABLES *tables,
+    uint64_t rsdp_address)
+{
+    const volatile uint8_t *rsdp =
+        (const volatile uint8_t *)(uintptr_t)rsdp_address;
+    uint64_t length = 20U;
+
+    if (tables == 0 || rsdp_address == 0 ||
+        rsdp[0] != 'R' || rsdp[1] != 'S' ||
+        rsdp[2] != 'D' || rsdp[3] != ' ' ||
+        rsdp[4] != 'P' || rsdp[5] != 'T' ||
+        rsdp[6] != 'R' || rsdp[7] != ' ')
+        return 0;
+
+    if (rsdp[15] >= 2U) {
+        length = (uint64_t)rsdp[20] |
+                 ((uint64_t)rsdp[21] << 8) |
+                 ((uint64_t)rsdp[22] << 16) |
+                 ((uint64_t)rsdp[23] << 24);
+        if (length < 36U || length > 4096U)
+            return 0;
+    }
+
+    return map_identity_object(tables, rsdp_address, length, 0U) ==
+           VGK_PAGING_OK;
+}
+
 static int build_inactive_page_tables(
     const VGK_BOOT_INFO *boot_info,
     const VGK_CPU_FEATURES *cpu_features,
@@ -229,6 +257,15 @@ static int build_inactive_page_tables(
         return 0;
     }
     serial_write("VGK: mapa pamieci zmapowana.\r\n");
+
+    if ((boot_info->flags & VGK_BOOT_FLAG_ACPI) != 0U) {
+        if (!map_acpi_root_pointer(tables, boot_info->acpi_rsdp_address)) {
+            serial_write("VGK: blad mapowania wskaznika ACPI RSDP.\r\n");
+            return 0;
+        }
+        serial_write("VGK: wskaznik ACPI RSDP zmapowany tylko do odczytu i NX.\r\n");
+    }
+
 
     /* The builder must remain able to access its own reserved pool. */
     result = map_identity_object(
