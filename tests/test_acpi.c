@@ -45,7 +45,7 @@ static int validate(uint64_t address, uint64_t *length)
 {
     return vgk_acpi_rsdp_validate(
         memory_map, sizeof(memory_map) / sizeof(memory_map[0]),
-        address, rsdp, length);
+        address, 48U, rsdp, length);
 }
 
 int main(void)
@@ -62,6 +62,10 @@ int main(void)
         UINT64_C(0x5000), UINT64_C(0x1000), VGK_MEMORY_FIRMWARE, 0};
 
     make_rsdp(0U, 20U);
+    EXPECT(validate(UINT64_C(0x1800), &length));
+    EXPECT(length == 20U);
+
+    make_rsdp(1U, 20U);
     EXPECT(validate(UINT64_C(0x1800), &length));
     EXPECT(length == 20U);
 
@@ -97,13 +101,21 @@ int main(void)
     make_rsdp(2U, 4097U);
     EXPECT(!validate(UINT64_C(0x1800), &length));
 
+    memory_map[0] = (VGK_MEMORY_MAP_ENTRY){
+        UINT64_C(0x100000000), UINT64_C(0x1000), VGK_MEMORY_ACPI_RECLAIM, 0};
+    make_rsdp(2U, 36U);
+    EXPECT(!vgk_acpi_rsdp_validate(
+        memory_map, 1U, UINT64_C(0x100000000), 32U, rsdp, &length));
+
+    memory_map[0] = (VGK_MEMORY_MAP_ENTRY){
+        UINT64_C(0x1000), UINT64_C(0x1000), VGK_MEMORY_ACPI_RECLAIM, 0};
     make_rsdp(2U, 36U);
     EXPECT(!validate(0U, &length));
     EXPECT(!validate(UINT64_MAX - 10U, &length));
 
     make_rsdp(2U, 36U);
     EXPECT(!vgk_acpi_rsdp_validate(
-        memory_map, 0U, UINT64_C(0x1800), rsdp, &length));
+        memory_map, 0U, UINT64_C(0x1800), 48U, rsdp, &length));
 
     if (failures != 0) {
         fprintf(stderr, "VGK ACPI RSDP: %u test(s) failed\n", failures);
