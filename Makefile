@@ -1,7 +1,7 @@
 # VGK kernel and native UEFI Stage 0 build targets.
 CC      := gcc
 LD      := ld
-CFLAGS  := -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-stack-protector -fno-pic -fno-pie -m64 -mno-red-zone -mcmodel=kernel -mno-mmx -mno-sse -mno-sse2 -fno-unwind-tables -fno-asynchronous-unwind-tables -Iinclude
+CFLAGS  := -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-stack-protector -fno-pic -fno-pie -m64 -march=x86-64 -mtune=generic -mno-red-zone -mcmodel=kernel -mno-mmx -mno-sse -mno-sse2 -mno-bmi2 -fno-unwind-tables -fno-asynchronous-unwind-tables -Iinclude
 ASFLAGS := -m64 -fno-pic -fno-pie
 LDFLAGS := -nostdlib -z max-page-size=0x1000 -T linker.ld
 CLANG   := clang
