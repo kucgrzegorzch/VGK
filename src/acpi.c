@@ -30,6 +30,27 @@ static int range_is_readable_acpi_memory(
         physical_address_bits < 32U || physical_address_bits > 63U ||
         address > UINT64_MAX - length)
         return 0;
+
+    /*
+     * The coverage walk below relies on a canonical, sorted, non-overlapping
+     * map. Validate the complete input first, not only descriptors touched
+     * by the requested range.
+     */
+    for (size_t i = 0; i < entry_count; ++i) {
+        uint64_t entry_end;
+
+        if (entries[i].length == 0 ||
+            entries[i].base > UINT64_MAX - entries[i].length)
+            return 0;
+        entry_end = entries[i].base + entries[i].length;
+        if (i != 0) {
+            uint64_t previous_end =
+                entries[i - 1U].base + entries[i - 1U].length;
+            if (entries[i].base < previous_end)
+                return 0;
+        }
+    }
+
     physical_limit = (UINT64_C(1) << physical_address_bits) - 1U;
     end = address + length;
     if (end == 0U || end - 1U > physical_limit)
@@ -38,9 +59,6 @@ static int range_is_readable_acpi_memory(
     for (size_t i = 0; i < entry_count; ++i) {
         uint64_t entry_end;
 
-        if (entries[i].length == 0 ||
-            entries[i].base > UINT64_MAX - entries[i].length)
-            return 0;
         entry_end = entries[i].base + entries[i].length;
 
         if (entry_end <= cursor)
