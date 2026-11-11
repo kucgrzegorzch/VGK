@@ -3,6 +3,8 @@
 #define PTE_PRESENT UINT64_C(0x001)
 #define PTE_WRITE   UINT64_C(0x002)
 #define PTE_LARGE   UINT64_C(0x080)
+#define PTE_PWT     UINT64_C(0x008)
+#define PTE_PCD     UINT64_C(0x010)
 #define PTE_NX      (UINT64_C(1) << 63)
 
 static int canonical_address(uint64_t address)
@@ -47,7 +49,7 @@ static int physical_alias_permissions_compatible(
         if ((entry & PTE_PRESENT) == 0U)
             continue;
         if (level == 3U)
-            allowed |= PTE_NX;
+            allowed |= PTE_NX | PTE_PWT | PTE_PCD;
         if ((entry & ~allowed) != 0U)
             return 0;
         if (level == 3U) {
@@ -55,7 +57,8 @@ static int physical_alias_permissions_compatible(
             if (tables->nx_supported == 0U && (entry & PTE_NX) != 0U)
                 return 0;
             if (mapped == physical_address &&
-                ((entry ^ requested_flags) & (PTE_WRITE | PTE_NX)) != 0U)
+                ((entry ^ requested_flags) &
+                 (PTE_WRITE | PTE_NX | PTE_PWT | PTE_PCD)) != 0U)
                 return 0;
         } else {
             const uint64_t *next;
@@ -169,7 +172,8 @@ VGK_PAGING_RESULT vgk_paging_map(
         return VGK_PAGING_INVALID_ARGUMENT;
     if ((virtual_address & (VGK_PAGING_PAGE_SIZE - 1U)) != 0 ||
         (physical_address & (VGK_PAGING_PAGE_SIZE - 1U)) != 0 ||
-        (permissions & ~(VGK_PAGE_WRITE | VGK_PAGE_EXEC)) != 0 ||
+        (permissions & ~(VGK_PAGE_WRITE | VGK_PAGE_EXEC |
+                          VGK_PAGE_CACHE_DISABLE | VGK_PAGE_WRITE_THROUGH)) != 0 ||
         !canonical_address(virtual_address))
         return VGK_PAGING_BAD_ADDRESS;
     physical_limit = tables->physical_mask | (VGK_PAGING_PAGE_SIZE - 1U);
@@ -185,6 +189,10 @@ VGK_PAGING_RESULT vgk_paging_map(
     }
     if ((permissions & VGK_PAGE_WRITE) != 0U)
         leaf_flags |= PTE_WRITE;
+    if ((permissions & VGK_PAGE_CACHE_DISABLE) != 0U)
+        leaf_flags |= PTE_PCD;
+    if ((permissions & VGK_PAGE_WRITE_THROUGH) != 0U)
+        leaf_flags |= PTE_PWT;
 
     ancestors[0] = tables->pool;
     if (!physical_alias_permissions_compatible(
@@ -228,7 +236,8 @@ VGK_PAGING_RESULT vgk_paging_map(
             uint64_t expected =
                 (physical_address & tables->physical_mask) | leaf_flags;
             uint64_t compare_mask =
-                tables->physical_mask | PTE_PRESENT | PTE_WRITE | PTE_NX;
+                tables->physical_mask | PTE_PRESENT | PTE_WRITE | PTE_NX |
+                PTE_PWT | PTE_PCD;
             return (existing & compare_mask) == (expected & compare_mask)
                 ? VGK_PAGING_OK
                 : VGK_PAGING_ALREADY_MAPPED;
