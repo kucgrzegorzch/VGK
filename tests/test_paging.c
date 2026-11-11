@@ -31,6 +31,17 @@ int main(void)
                          VGK_PAGE_EXEC) == VGK_PAGING_OK);
     CHECK(vgk_paging_map(&t, 0x201000U, 0x201000U,
                          VGK_PAGE_WRITE) == VGK_PAGING_OK);
+    /* Device framebuffer pages are writable, NX and explicitly uncached. */
+    CHECK(vgk_paging_map(&t, 0x205000U, 0x705000U,
+                         VGK_PAGE_WRITE | VGK_PAGE_CACHE_DISABLE |
+                             VGK_PAGE_WRITE_THROUGH) == VGK_PAGING_OK);
+    CHECK(((*walk(&t, 0x205000U)) & UINT64_C(0x018)) ==
+          UINT64_C(0x018));
+    CHECK(((*walk(&t, 0x205000U)) & (UINT64_C(1) << 63)) != 0U);
+    CHECK(vgk_paging_map(&t, 0x206000U, 0x705000U,
+                         VGK_PAGE_WRITE) == VGK_PAGING_UNSUPPORTED);
+    CHECK(vgk_paging_map(&t, 0x207000U, 0x707000U,
+                         UINT32_C(0x10)) == VGK_PAGING_BAD_ADDRESS);
     CHECK(vgk_paging_map(&t, 0x202000U, 0x202000U,
                          VGK_PAGE_WRITE | VGK_PAGE_EXEC) ==
           VGK_PAGING_UNSUPPORTED);
