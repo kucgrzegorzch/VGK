@@ -35,16 +35,52 @@ static uint64_t normalize_type(uint32_t type)
     }
 }
 
+static void sift_down(
+    VGK_MEMORY_MAP_ENTRY *entries,
+    size_t root,
+    size_t count)
+{
+    /*
+     * A node has a child only when root < count / 2.
+     * This form also keeps root * 2 + 1 within size_t.
+     */
+    while (root < count / 2U) {
+        size_t child = root * 2U + 1U;
+        size_t largest = root;
+
+        if (entries[child].base > entries[largest].base)
+            largest = child;
+        if (child + 1U < count &&
+            entries[child + 1U].base > entries[largest].base)
+            largest = child + 1U;
+
+        if (largest == root)
+            return;
+
+        {
+            VGK_MEMORY_MAP_ENTRY temporary = entries[root];
+            entries[root] = entries[largest];
+            entries[largest] = temporary;
+        }
+        root = largest;
+    }
+}
+
+/*
+ * In-place heapsort: O(n log n) worst-case time and O(1) extra space.
+ * Stability is unnecessary because overlapping equal-base descriptors
+ * are rejected by the validation pass immediately after sorting.
+ */
 static void sort_by_address(VGK_MEMORY_MAP_ENTRY *entries, size_t count)
 {
-    for (size_t i = 1; i < count; ++i) {
-        VGK_MEMORY_MAP_ENTRY current = entries[i];
-        size_t j = i;
-        while (j > 0 && entries[j - 1U].base > current.base) {
-            entries[j] = entries[j - 1U];
-            --j;
-        }
-        entries[j] = current;
+    for (size_t start = count / 2U; start > 0; --start)
+        sift_down(entries, start - 1U, count);
+
+    for (size_t end = count; end > 1U; --end) {
+        VGK_MEMORY_MAP_ENTRY temporary = entries[0];
+        entries[0] = entries[end - 1U];
+        entries[end - 1U] = temporary;
+        sift_down(entries, 0, end - 1U);
     }
 }
 
