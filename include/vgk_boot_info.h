@@ -1,0 +1,335 @@
+#ifndef VGK_BOOT_INFO_H
+#define VGK_BOOT_INFO_H
+
+/*
+ * Wspolny, wersjonowany protokol przekazania informacji startowych do jadra.
+ *
+ * Obecny ladowacz UEFI wypelnia te strukture i przekazuje jej adres w RDI.
+ * Jej uklad jest niezalezny od struktur firmware. Przyszly ladowacz BIOS
+ * bedzie musial wypelniac ja zgodnie z tym samym kontraktem.
+ */
+#include <stddef.h>
+#include <stdint.h>
+
+#include "vgk_framebuffer.h"
+#include "vgk_pci.h"
+
+#define VGK_BOOT_INFO_MAGIC UINT64_C(0x314F464E494B4756) /* "VGKINFO1" */
+#define VGK_BOOT_INFO_VERSION UINT32_C(4)
+#define VGK_BOOT_PAGE_TABLE_POOL_PAGES UINT64_C(64)
+#define VGK_BOOT_PAGE_SIZE UINT64_C(4096)
+#define VGK_BOOT_MAX_KERNEL_SEGMENTS 16U
+#define VGK_KERNEL_SEGMENT_READ  UINT32_C(0x4)
+#define VGK_KERNEL_SEGMENT_WRITE UINT32_C(0x2)
+#define VGK_KERNEL_SEGMENT_EXEC  UINT32_C(0x1)
+#define VGK_KERNEL_SEGMENT_KNOWN_FLAGS UINT32_C(0x7)
+
+#define VGK_BOOT_FLAG_FRAMEBUFFER UINT64_C(0x0000000000000001)
+#define VGK_BOOT_FLAG_ACPI        UINT64_C(0x0000000000000002)
+#define VGK_BOOT_FLAG_PCI         UINT64_C(0x0000000000000004)
+#define VGK_BOOT_FLAG_PCI_TRUNCATED UINT64_C(0x0000000000000008)
+#define VGK_BOOT_MAX_PCI_DEVICES 128U
+#define VGK_BOOT_KNOWN_FLAGS \
+    (VGK_BOOT_FLAG_FRAMEBUFFER | VGK_BOOT_FLAG_ACPI | \
+     VGK_BOOT_FLAG_PCI | VGK_BOOT_FLAG_PCI_TRUNCATED)
+
+typedef enum {
+    VGK_FIRMWARE_UEFI = 1,
+    VGK_FIRMWARE_BIOS = 2
+} VGK_FIRMWARE_TYPE;
+
+/* Znormalizowany wpis mapy pamieci VGK, wspolny dla UEFI i BIOS. */
+typedef struct {
+    uint64_t base;
+    uint64_t length;
+    uint64_t type;
+    uint64_t attributes;
+} VGK_MEMORY_MAP_ENTRY;
+
+typedef enum {
+    VGK_MEMORY_USABLE = 1,
+    VGK_MEMORY_RESERVED = 2,
+    VGK_MEMORY_FIRMWARE = 3,
+    VGK_MEMORY_ACPI_RECLAIM = 4,
+    VGK_MEMORY_ACPI_NVS = 5,
+    VGK_MEMORY_BAD = 6,
+    VGK_MEMORY_BOOTLOADER = 7,
+    VGK_MEMORY_KERNEL = 8,
+    VGK_MEMORY_FRAMEBUFFER = 9,
+    VGK_MEMORY_MMIO = 10
+} VGK_MEMORY_TYPE;
+
+/*
+ * Pola adresowe sa 64-bitowe, aby ten sam naglowek mogl byc uzyty
+ * przez ladowacz i jadro bez zaleznosci od rozmiaru typow wskaznikowych.
+ */
+typedef struct {
+    uint64_t physical_base;
+    uint64_t memory_size;
+    uint32_t flags;
+    uint32_t reserved;
+} VGK_KERNEL_SEGMENT;
+
+/* Uprawnienia segmentow ELF przekazywane do tworzenia tablic stron. */
+typedef struct {
+    uint64_t magic;
+    uint32_t version;
+    uint32_t structure_size;
+    uint64_t flags;
+
+    uint32_t firmware_type;
+    uint32_t reserved0;
+
+    uint64_t memory_map_address;
+    uint64_t memory_map_size;
+    uint32_t memory_map_entry_size;
+    uint32_t reserved1;
+
+    uint64_t kernel_physical_base;
+    uint64_t kernel_size;
+    uint64_t kernel_entry;
+
+    uint64_t framebuffer_base;
+    uint64_t framebuffer_size;
+    uint32_t framebuffer_width;
+    uint32_t framebuffer_height;
+    uint32_t framebuffer_stride;
+    uint32_t framebuffer_format;
+    uint32_t red_mask;
+    uint32_t green_mask;
+    uint32_t blue_mask;
+    uint32_t reserved_mask;
+
+    uint64_t acpi_rsdp_address;
+
+    uint64_t reserved[4];
+
+    uint32_t kernel_segment_count;
+    uint32_t reserved2;
+    VGK_KERNEL_SEGMENT kernel_segments[VGK_BOOT_MAX_KERNEL_SEGMENTS];
+
+    /* Normalized PCI inventory; no firmware pointers or handles. */
+    uint32_t pci_device_count;
+    uint32_t pci_device_entry_size;
+    VGK_PCI_DEVICE pci_devices[VGK_BOOT_MAX_PCI_DEVICES];
+
+    /* Reserved, identity-addressable storage for inactive page tables. */
+    uint64_t page_table_pool_base;
+    uint64_t page_table_pool_pages;
+} VGK_BOOT_INFO;
+
+static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
+{
+    uint64_t entry_count;
+    uint64_t memory_map_end;
+    uint64_t kernel_end;
+    uint64_t page_table_pool_size;
+    uint64_t page_table_pool_end;
+    uint64_t boot_info_address;
+    uint64_t boot_info_end;
+    int entry_is_executable = 0;
+
+    if (info == NULL ||
+        info->magic != VGK_BOOT_INFO_MAGIC ||
+        info->version != VGK_BOOT_INFO_VERSION ||
+        info->structure_size < sizeof(VGK_BOOT_INFO) ||
+        (info->flags & ~VGK_BOOT_KNOWN_FLAGS) != 0 ||
+        ((info->flags & VGK_BOOT_FLAG_PCI_TRUNCATED) != 0 &&
+         (info->flags & VGK_BOOT_FLAG_PCI) == 0) ||
+        (info->firmware_type != VGK_FIRMWARE_UEFI &&
+         info->firmware_type != VGK_FIRMWARE_BIOS) ||
+        info->reserved0 != 0 || info->reserved1 != 0 ||
+        info->memory_map_address == 0 || info->memory_map_size == 0 ||
+        info->memory_map_entry_size != sizeof(VGK_MEMORY_MAP_ENTRY) ||
+        info->memory_map_size % sizeof(VGK_MEMORY_MAP_ENTRY) != 0 ||
+        (info->memory_map_address & 7U) != 0 ||
+        info->kernel_physical_base == 0 || info->kernel_size == 0 ||
+        info->kernel_entry == 0 ||
+        info->page_table_pool_base == 0 ||
+        info->page_table_pool_pages != VGK_BOOT_PAGE_TABLE_POOL_PAGES ||
+        (info->page_table_pool_base & (VGK_BOOT_PAGE_SIZE - 1U)) != 0 ||
+        info->page_table_pool_pages > UINT64_MAX / VGK_BOOT_PAGE_SIZE ||
+        info->memory_map_address > UINT64_MAX - info->memory_map_size ||
+        info->kernel_physical_base > UINT64_MAX - info->kernel_size)
+        return 0;
+
+    memory_map_end = info->memory_map_address + info->memory_map_size;
+    kernel_end = info->kernel_physical_base + info->kernel_size;
+    page_table_pool_size = info->page_table_pool_pages * VGK_BOOT_PAGE_SIZE;
+    if (info->page_table_pool_base > UINT64_MAX - page_table_pool_size)
+        return 0;
+    page_table_pool_end = info->page_table_pool_base + page_table_pool_size;
+    boot_info_address = (uint64_t)(uintptr_t)info;
+    if (boot_info_address > UINT64_MAX - sizeof(*info))
+        return 0;
+    boot_info_end = boot_info_address + sizeof(*info);
+
+    if (memory_map_end <= info->memory_map_address ||
+        (info->page_table_pool_base < kernel_end &&
+         info->kernel_physical_base < page_table_pool_end) ||
+        (info->page_table_pool_base < memory_map_end &&
+         info->memory_map_address < page_table_pool_end) ||
+        (info->page_table_pool_base < boot_info_end &&
+         boot_info_address < page_table_pool_end) ||
+        info->kernel_entry < info->kernel_physical_base ||
+        info->kernel_entry >= kernel_end)
+        return 0;
+
+    for (size_t i = 0; i < sizeof(info->reserved) / sizeof(info->reserved[0]); ++i) {
+        if (info->reserved[i] != 0)
+            return 0;
+    }
+
+    if (info->kernel_segment_count == 0 ||
+        info->kernel_segment_count > VGK_BOOT_MAX_KERNEL_SEGMENTS ||
+        info->reserved2 != 0)
+        return 0;
+
+    for (uint32_t i = 0; i < info->kernel_segment_count; ++i) {
+        const VGK_KERNEL_SEGMENT *segment = &info->kernel_segments[i];
+        uint64_t segment_end;
+        uint64_t page_end;
+
+        if (segment->reserved != 0 || segment->memory_size == 0 ||
+            (segment->physical_base & UINT64_C(0xFFF)) != 0 ||
+            (segment->flags & ~VGK_KERNEL_SEGMENT_KNOWN_FLAGS) != 0 ||
+            (segment->flags & (VGK_KERNEL_SEGMENT_READ |
+                              VGK_KERNEL_SEGMENT_EXEC)) == 0 ||
+            ((segment->flags & VGK_KERNEL_SEGMENT_WRITE) != 0 &&
+             (segment->flags & VGK_KERNEL_SEGMENT_EXEC) != 0) ||
+            segment->physical_base > UINT64_MAX - segment->memory_size)
+            return 0;
+
+        segment_end = segment->physical_base + segment->memory_size;
+        if (segment->physical_base < info->kernel_physical_base ||
+            segment_end > kernel_end)
+            return 0;
+        if ((segment->flags & VGK_KERNEL_SEGMENT_EXEC) != 0 &&
+            info->kernel_entry >= segment->physical_base &&
+            info->kernel_entry < segment_end)
+            entry_is_executable = 1;
+
+        if (segment_end > UINT64_MAX - UINT64_C(0xFFF))
+            return 0;
+        page_end = (segment_end + UINT64_C(0xFFF)) & ~UINT64_C(0xFFF);
+        for (uint32_t j = 0; j < i; ++j) {
+            const VGK_KERNEL_SEGMENT *prior = &info->kernel_segments[j];
+            uint64_t prior_end = prior->physical_base + prior->memory_size;
+            uint64_t prior_page_end =
+                (prior_end + UINT64_C(0xFFF)) & ~UINT64_C(0xFFF);
+            if (segment->physical_base < prior_page_end &&
+                prior->physical_base < page_end)
+                return 0;
+        }
+    }
+    if (!entry_is_executable)
+        return 0;
+
+    for (uint32_t i = info->kernel_segment_count;
+         i < VGK_BOOT_MAX_KERNEL_SEGMENTS; ++i) {
+        const VGK_KERNEL_SEGMENT *unused = &info->kernel_segments[i];
+        if (unused->physical_base != 0 || unused->memory_size != 0 ||
+            unused->flags != 0 || unused->reserved != 0)
+            return 0;
+    }
+
+    if ((info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0) {
+        uint64_t framebuffer_end;
+        if (info->framebuffer_base > UINT64_MAX - info->framebuffer_size)
+            return 0;
+        framebuffer_end = info->framebuffer_base + info->framebuffer_size;
+        if (info->page_table_pool_base < framebuffer_end &&
+            info->framebuffer_base < page_table_pool_end)
+            return 0;
+        if (!vgk_framebuffer_is_valid(
+                info->framebuffer_base, info->framebuffer_size,
+                info->framebuffer_width, info->framebuffer_height,
+                info->framebuffer_stride, info->framebuffer_format) ||
+            info->red_mask != 0 || info->green_mask != 0 ||
+            info->blue_mask != 0 || info->reserved_mask != 0)
+            return 0;
+    } else if (info->framebuffer_base != 0 || info->framebuffer_size != 0 ||
+               info->framebuffer_width != 0 || info->framebuffer_height != 0 ||
+               info->framebuffer_stride != 0 || info->framebuffer_format != 0 ||
+               info->red_mask != 0 || info->green_mask != 0 ||
+               info->blue_mask != 0 || info->reserved_mask != 0) {
+        return 0;
+    }
+
+    if ((info->flags & VGK_BOOT_FLAG_PCI) != 0) {
+        if (info->pci_device_entry_size != sizeof(VGK_PCI_DEVICE) ||
+            info->pci_device_count > VGK_BOOT_MAX_PCI_DEVICES ||
+            ((info->flags & VGK_BOOT_FLAG_PCI_TRUNCATED) != 0 &&
+             info->pci_device_count != VGK_BOOT_MAX_PCI_DEVICES))
+            return 0;
+        for (uint32_t i = 0; i < info->pci_device_count; ++i) {
+            const VGK_PCI_DEVICE *device = &info->pci_devices[i];
+            if (device->device > 31U || device->function > 7U ||
+                device->vendor_id == UINT16_C(0xFFFF))
+                return 0;
+            for (uint32_t j = 0; j < i; ++j) {
+                const VGK_PCI_DEVICE *prior = &info->pci_devices[j];
+                if (device->segment == prior->segment &&
+                    device->bus == prior->bus &&
+                    device->device == prior->device &&
+                    device->function == prior->function)
+                    return 0;
+            }
+        }
+        for (uint32_t i = info->pci_device_count;
+             i < VGK_BOOT_MAX_PCI_DEVICES; ++i) {
+            const uint8_t *bytes = (const uint8_t *)&info->pci_devices[i];
+            for (size_t j = 0; j < sizeof(info->pci_devices[i]); ++j) {
+                if (bytes[j] != 0)
+                    return 0;
+            }
+        }
+    } else {
+        if (info->pci_device_count != 0 ||
+            info->pci_device_entry_size != 0 ||
+            (info->flags & VGK_BOOT_FLAG_PCI_TRUNCATED) != 0)
+            return 0;
+        for (uint32_t i = 0; i < VGK_BOOT_MAX_PCI_DEVICES; ++i) {
+            const uint8_t *bytes = (const uint8_t *)&info->pci_devices[i];
+            for (size_t j = 0; j < sizeof(info->pci_devices[i]); ++j) {
+                if (bytes[j] != 0)
+                    return 0;
+            }
+        }
+    }
+
+    if ((info->flags & VGK_BOOT_FLAG_ACPI) != 0) {
+        if (info->acpi_rsdp_address == 0)
+            return 0;
+    } else if (info->acpi_rsdp_address != 0) {
+        return 0;
+    }
+
+    entry_count = info->memory_map_size / sizeof(VGK_MEMORY_MAP_ENTRY);
+    if (entry_count == 0)
+        return 0;
+
+    return 1;
+}
+
+_Static_assert(sizeof(VGK_MEMORY_MAP_ENTRY) == 32,
+               "VGK memory map entry layout changed");
+_Static_assert(offsetof(VGK_BOOT_INFO, flags) == 16,
+               "VGK boot info flags offset changed");
+_Static_assert(offsetof(VGK_BOOT_INFO, memory_map_address) == 32,
+               "VGK boot info memory map offset changed");
+_Static_assert(offsetof(VGK_BOOT_INFO, kernel_physical_base) == 56,
+               "VGK boot info kernel offset changed");
+_Static_assert(offsetof(VGK_BOOT_INFO, framebuffer_base) == 80,
+               "VGK boot info framebuffer offset changed");
+_Static_assert(offsetof(VGK_BOOT_INFO, acpi_rsdp_address) == 128,
+               "VGK boot info ACPI offset changed");
+_Static_assert(sizeof(VGK_KERNEL_SEGMENT) == 24,
+               "VGK kernel segment layout changed");
+_Static_assert(sizeof(VGK_PCI_DEVICE) == 14,
+               "VGK PCI device layout changed");
+_Static_assert(sizeof(VGK_BOOT_INFO) ==
+                   560 + 8 + VGK_BOOT_MAX_PCI_DEVICES * sizeof(VGK_PCI_DEVICE) + 16,
+               "VGK boot info size changed");
+
+#endif

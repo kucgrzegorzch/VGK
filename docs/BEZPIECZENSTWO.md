@@ -4,7 +4,7 @@
 
 VGK ma rozpoznawać nieautoryzowaną zmianę plików i nie uruchamiać elementów systemu, których pochodzenia oraz integralności nie da się potwierdzić. Ochrona ma obejmować cały łańcuch uruchamiania, jądro, sterowniki, składniki systemowe i aktualizacje.
 
-Dokument opisuje projekt oraz pierwszy pomocniczy prototyp sprawdzania wydania. Narzędzie komputerowe opisane niżej jest zaimplementowane jako kontroler uruchamiany ręcznie; nie jest jeszcze częścią programu startowego VGK ani działającego jądra. Nie zapewnia więc jeszcze ochrony podczas uruchamiania systemu.
+Dokument opisuje zasady docelowe oraz aktualny, eksperymentalny łańcuch sprawdzania zaufania w ścieżce UEFI. Ładowacz UEFI odczytuje podpisany wykaz VGKM, sprawdza podpis Ed25519 i skróty SHA-256 plików, a następnie ładuje jądro ELF64. Ten przepływ uruchomił jądro diagnostyczne w emulatorze QEMU/OVMF. Test używa tymczasowego klucza CI; produkcyjny klucz wydawcy nie został jeszcze ustalony. Nie jest to jeszcze pełna ochrona całego systemu ani potwierdzenie działania na fizycznym komputerze.
 
 ## Zasady nadrzędne
 
@@ -25,7 +25,7 @@ Docelowa kolejność:
 3. **Ładowanie jądra** następuje dopiero po sprawdzeniu podpisu wydania i skrótu kryptograficznego pliku jądra.
 4. **Przekazanie sterowania jądru** odbywa się wraz z informacją o wyniku sprawdzeń, wersji wykazu i wykrytych problemach.
 5. **Jądro VGK** sprawdza sterowniki i składniki systemowe przed dopuszczeniem ich do działania.
-6. **System Naprawczy** może odizolować podejrzany składnik i zaproponować przywrócenie poprawnej kopii.
+6. **Inteligentny Opiekun Systemu** może wykryć podejrzany składnik, odizolować go w zakresie swoich uprawnień i zgłosić potrzebę naprawy. Przywracanie systemu odbywa się wyłącznie w trybie awaryjnym.
 
 Każdy etap musi ufać wyłącznie kluczowi publicznemu lub wynikowi sprawdzenia przekazanemu przez wcześniejszy, zaufany etap. Sam komunikat tekstowy ani nazwa pliku nie są dowodem autentyczności.
 
@@ -38,7 +38,7 @@ Dodano przenośną implementację SHA-256 w języku C:
 
 Test jest uruchamiany jako część `make security-test`. Sprawdza między innymi znane wyniki dla pustego tekstu i tekstu `abc`. Kod został skompilowany lokalnie z ostrzeżeniami traktowanymi jako błędy, a testy zakończyły się powodzeniem.
 
-To jest wyłącznie funkcja obliczania skrótu. Nie weryfikuje podpisu Ed25519 i nie jest jeszcze podłączona do UEFI ani jądra. Sam skrót nie potwierdza, kto utworzył plik; potrzebny jest podpis zaufanego wykazu.
+Moduł SHA-256 jest wykorzystywany przez parser wykazu i ładowacz UEFI do kontroli zawartości plików. Sam skrót nie potwierdza, kto utworzył plik; zaufanie do oczekiwanego skrótu wynika z podpisu wykazu.
 
 ## Pierwsze narzędzie sprawdzające wydanie
 
@@ -68,7 +68,7 @@ Do przygotowania wykazu służy narzędzie tools/przygotuj_wydanie.py. Przykład
 
 Program przygotowujący wykaz nie nadpisuje istniejącego wykazu ani podpisu. Należy wybrać nowe ścieżki wyjściowe dla kolejnego wydania.
 
-**Uwaga:** klucz publiczny nie jest jeszcze osadzony w UEFI Stage 0, a mechanizm uruchamiania nie weryfikuje jeszcze podpisu. Nie należy traktować przykładowego procesu jako dowodu, że komputer blokuje podmienione jądro.
+**Uwaga:** produkcyjny klucz publiczny wydawcy nie jest jeszcze osadzony w zwykłym obrazie UEFI. W GitHub Actions budowany jest osobny obraz testowy z losowym kluczem tymczasowym, do którego podpisywane jest wydanie testowe. Test potwierdza ścieżkę weryfikacji w emulatorze, ale nie ustanawia zaufania dla oficjalnych wydań.
 
 ## Podpisy i wykaz plików
 
@@ -139,7 +139,7 @@ Nie wolno przedstawiać samego udanego budowania programu jako dowodu skutecznej
 7. Dodać dziennik zdarzeń oraz procedurę bezpiecznego odzyskiwania.
 8. Przetestować przypadki: plik poprawny, plik zmieniony, brak wykazu, błędny podpis, nieznany klucz, starsze wydanie i uszkodzony nośnik.
 
-Na obecnym etapie VGK ma własny punkt wejścia UEFI Stage 0 oraz pomocnicze narzędzie do sprawdzania podpisanego wydania. Sam mechanizm startowy nie sprawdza jeszcze podpisu ani nie ładuje jądra.
+Na obecnym etapie natywna ścieżka UEFI VGK sprawdza podpis Ed25519 wykazu VGKM i skróty SHA-256 plików, waliduje ELF64, ładuje jądro i przekazuje mu sterowanie. Przebiegi GitHub Actions 830 i 831 z 11.11.2026 potwierdziły uruchomienie jądra diagnostycznego w QEMU/OVMF. Osobny test zmodyfikował jeden bajt jądra i potwierdził odmowę startu. Jest to nadal eksperymentalna ścieżka UEFI, nie pełna ochrona całego systemu ani test na fizycznym komputerze.
 
 
 ## Sprawdzanie integralności plików w języku C
@@ -164,7 +164,7 @@ Do obliczeń wykorzystano istniejącą bibliotekę Monocypher 4.0.3, a nie nowy,
 
 Interfejs VGK przyjmuje klucz publiczny o długości 32 bajtów, wiadomość i podpis o długości 64 bajtów. Nie potrzebuje klucza prywatnego do sprawdzania. Zwraca osobny wynik dla poprawnego podpisu, niepoprawnego podpisu i błędnych argumentów. Testy obejmują poprawny wektor RFC 8032, zmieniony podpis, zmieniony klucz publiczny i błędne argumenty. Uruchamia je `make ed25519-test`; test jest także częścią `make security-test`.
 
-**Ograniczenie:** moduł jest na razie sprawdzany jako program testowy. Nie został jeszcze włączony do programu UEFI, nie ma osadzonego klucza publicznego wydawcy i nie blokuje jeszcze uruchomienia podmienionego jądra. Dopiero po podłączeniu do zaufanego wykazu i programu uruchamiającego będzie mógł pełnić tę funkcję.
+Moduł Ed25519 jest podłączony do parsera wykazu VGKM i ładowacza UEFI. W emulatorowym teście CI sprawdzanie podpisu odbywa się przed interpretacją wykazu. Nadal brakuje zatwierdzonego, produkcyjnego klucza wydawcy, procedury jego rotacji i unieważnienia oraz szerszego testu na sprzęcie.
 
 ## Podpisany wykaz plików – parser w języku C
 
@@ -179,7 +179,7 @@ Parser odrzuca ścieżki bezwzględne, elementy `.` i `..`, puste elementy, nied
 
 Test uruchamia `make manifest-test` i jest częścią `make security-test`.
 
-**Ograniczenie:** parser jest na razie osobnym modułem testowym. Nie odczytuje jeszcze plików z partycji, nie porównuje ich skrótów automatycznie i nie jest podłączony do programu UEFI. Format VGKM jest formatem projektu na tym etapie i może zostać zmieniony przed pierwszym oficjalnym wydaniem.
+Parser jest podłączony do ładowacza UEFI. Wykaz jest sprawdzany przed użyciem ścieżek, a adapter plików UEFI odczytuje wskazane pliki i porównuje ich skróty. Format VGKM pozostaje formatem projektu i może zostać zmieniony przed pierwszym oficjalnym wydaniem.
 
 ### Sprawdzanie plików według podpisanego wykazu
 
@@ -190,14 +190,14 @@ Parser wykazu połączono teraz z modułem SHA-256 przez funkcję `vgk_manifest_
 4. porównuje wynik z podpisanym wykazem;
 5. zamyka plik również po wykryciu błędu.
 
-Testy sprawdzają zarówno zgodny plik, jak i podmienioną zawartość oraz zamknięcie pliku po kontroli. To jest już wspólny interfejs kontroli podpisu wykazu i integralności plików, ale nadal nie jest podłączony do rzeczywistego odczytu partycji UEFI. Brakuje też wbudowanego, zaufanego klucza publicznego wydawcy i decyzji programu uruchamiającego o przerwaniu startu przy błędzie.
+Testy sprawdzają zgodny plik, podmienioną zawartość, błędny podpis i zamknięcie pliku po kontroli. Adapter jest używany przez ładowacz UEFI do odczytu plików z rzeczywistego woluminu startowego. Produkcyjny klucz publiczny wydawcy pozostaje do ustalenia; test emulatorowy używa wyłącznie klucza tymczasowego.
 
 
 ## Podstawa dostępu do plików przez UEFI
 
 Dodano `boot/uefi/uefi_file.h` z deklaracjami interfejsu systemu plików UEFI oraz obsługi pliku. Uwzględnia ono układ struktur, kolejność funkcji, tryby otwierania i kontrole zgodności wykonywane podczas kompilacji. Test `make uefi-abi-test` sprawdza rozmiary struktur, położenia funkcji i stałe trybów.
 
-**Ograniczenie:** jest to podstawa zgodności z interfejsem oprogramowania układowego, a nie jeszcze działający odczyt nośnika. Program uruchamiający nie pobiera jeszcze interfejsu od oprogramowania układowego, nie otwiera partycji i nie wczytuje wykazu. Nie ma też jeszcze połączenia z weryfikacją podpisu. Następnym krokiem będzie uzyskanie właściwego uchwytu systemu plików, bezpieczne otwarcie plików tylko do odczytu, kontrola rozmiarów i pełna obsługa błędów.
+Interfejs jest używany przez ładowacz UEFI: pobiera on protokół woluminu startowego, otwiera katalog główny i czyta wykaz, podpis oraz plik jądra. Odczyt jest ograniczony rozmiarem, obsługuje krótkie odczyty i odrzuca plik większy od zadeklarowanego.
 
 
 ## Przygotowanie klucza zaufania wydawcy
@@ -209,15 +209,17 @@ Klucz prywatny jest własnością wydawcy i nigdy nie może trafić do repozytor
 
 ## Połączenie weryfikacji z odczytem UEFI – aktualny etap
 
-Dodano `boot/uefi/uefi_release_verify.c`, który łączy:
-- sprawdzenie podpisu Ed25519 wykazu VGKM;
-- kontrolę formatu i ścieżek wykazu;
-- odczyt wskazanych plików przez adapter protokołu plików UEFI;
-- obliczenie SHA-256 i wykrycie podmienionej zawartości.
+Ładowacz UEFI wykorzystuje `boot/uefi/uefi_release_verify.c` do:
+- odczytania podpisanego wykazu VGKM i podpisu z woluminu startowego;
+- sprawdzenia podpisu Ed25519 przed użyciem wpisów;
+- sprawdzenia rozmiaru i SHA-256 plików wymienionych w wykazie;
+- odrzucenia wydania przy błędnym podpisie, brakującym pliku lub niezgodnej zawartości.
 
-Moduł jest dołączony do budowanego programu EFI. Test integracyjny sprawdza poprawne wydanie, podmieniony plik oraz błędny podpis. Przy błędnym podpisie kontrola kończy się przed otwarciem jakiegokolwiek pliku z wykazu.
+Następnie ładowacz ponownie odczytuje jądro do bufora, sprawdza jego skrót, waliduje ELF64, przydziela dokładne zakresy pamięci, kopiuje segmenty i zeruje BSS. Po przygotowaniu mapy pamięci wypełnia `VGK_BOOT_INFO`, kończy usługi startowe UEFI i przekazuje sterowanie do jądra.
 
-**To nadal nie oznacza aktywnej ochrony podczas startu.** Funkcja `efi_main` nie wywołuje jeszcze tego modułu. Program nie wczytuje jeszcze wykazu VGKM i podpisu z nośnika, nie zawiera potwierdzonego klucza publicznego wydawcy i nie ładuje jądra. Funkcja jest przygotowanym i testowanym połączeniem składników, a nie ukończonym łańcuchem zaufania.
+GitHub Actions buduje osobny obraz testowy z tymczasowym kluczem Ed25519 i uruchamia go w QEMU/OVMF. Przebiegi 830 i 831 z 11.11.2026 potwierdziły komunikaty jądra, poprawność protokołu startowego, dostępność zarezerwowanej puli stron, przygotowanie nieaktywnych mapowań i uruchomienie menedżera pamięci. Test podmienionego jądra potwierdził odmowę startu przy niezgodnym skrócie. Emulator nie zastępuje testu na fizycznym komputerze.
+
+**Ograniczenia:** zwykły obraz UEFI nie zawiera produkcyjnego klucza publicznego i odmawia startu, jeśli klucza zaufania brakuje. Test CI nie jest wydaniem produkcyjnym, nie potwierdza działania na fizycznym komputerze i nie oznacza jeszcze ochrony sterowników, systemu plików ani kodu działającego już w pamięci.
 
 
 Kontrola integralności sprawdza nie tylko SHA-256, lecz także dokładny rozmiar pliku. Po odczytaniu zadeklarowanej liczby bajtów wykonuje próbny odczyt jednego dodatkowego bajtu; jeśli istnieje, plik jest odrzucany. Test obejmuje próbę dopisania danych na końcu.

@@ -1,7 +1,7 @@
 # VGK kernel and native UEFI Stage 0 build targets.
 CC      := gcc
 LD      := ld
-CFLAGS  := -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-stack-protector -fno-pic -fno-pie -m64 -mno-red-zone -mcmodel=kernel -mno-mmx -mno-sse -mno-sse2 -fno-unwind-tables -fno-asynchronous-unwind-tables -Iinclude
+CFLAGS  := -std=c11 -O2 -Wall -Wextra -Werror -ffreestanding -fno-stack-protector -fno-pic -fno-pie -m64 -march=x86-64 -mtune=generic -mno-red-zone -mcmodel=kernel -mno-mmx -mno-sse -mno-sse2 -mno-bmi2 -fno-unwind-tables -fno-asynchronous-unwind-tables -Iinclude
 ASFLAGS := -m64 -fno-pic -fno-pie
 LDFLAGS := -nostdlib -z max-page-size=0x1000 -T linker.ld
 CLANG   := clang
@@ -11,7 +11,7 @@ UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machin
 CRYPTO_DIR := boot/crypto
 MONOCYPHER_DIR := $(CRYPTO_DIR)/monocypher
 
-.PHONY: all clean iso check-tools test uefi uefi-test uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test
+.PHONY: all clean iso check-tools test native-kernel native-kernel-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test cpu-features-test interrupts-test exception-test framebuffer-test pci-test uefi-pci-test paging-test acpi-test
 all: build/vgk-kernel.elf
 
 test: build/vgk-kernel.elf
@@ -29,11 +29,86 @@ build/kernel.o: src/kernel.c | build
 build/vgk-kernel.elf: build/entry.o build/kernel.o linker.ld
 	$(LD) $(LDFLAGS) -o $@ build/entry.o build/kernel.o
 
-build/bootx64.obj: boot/uefi/bootx64.c boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/crypto/manifest.h | build
-	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -Iboot/crypto -c $< -o $@
+# Niezalezny obraz jadra VGK – bez naglowka GRUB/Multiboot2.
+build/entry_native.o: boot/entry_native.S | build
+	$(CC) -m64 -ffreestanding -fno-pic -fno-pie -c $< -o $@
+
+build/exception_stubs_native.o: boot/exception_stubs.S | build
+	$(CC) -m64 -ffreestanding -fno-pic -fno-pie -c $< -o $@
+
+build/kernel_native.o: src/kernel_native.c include/vgk_boot_info.h include/vgk_acpi.h include/vgk_memory.h include/vgk_cpu_features.h include/vgk_paging.h | build
+	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
+
+build/cpu_features_native.o: src/cpu_features.c include/vgk_cpu_features.h | build
+	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
+
+build/memory_native.o: src/memory.c include/vgk_memory.h include/vgk_boot_info.h | build
+	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
+
+build/acpi_native.o: src/acpi.c include/vgk_acpi.h include/vgk_boot_info.h | build
+	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
+
+build/paging_native.o: src/paging.c include/vgk_paging.h | build
+	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
+
+build/vgk-kernel-native.elf: build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o linker-native.ld
+	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o
+
+native-kernel: build/vgk-kernel-native.elf
+
+native-kernel-test: build/vgk-kernel-native.elf
+	python3 tests/check_native_kernel.py build/vgk-kernel-native.elf
+	python3 tests/check_exception_stubs.py build/vgk-kernel-native.elf
+
+memory-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/memory.c tests/test_memory.c -o build/test_memory
+	./build/test_memory
+
+acpi-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/acpi.c tests/test_acpi.c -o build/test_acpi
+	./build/test_acpi
+
+paging-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/paging.c tests/test_paging.c -o build/test_paging
+	./build/test_paging
+
+cpu-features-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/cpu_features.c tests/test_cpu_features.c -o build/test_cpu_features
+	./build/test_cpu_features
+
+interrupts-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/interrupts.c tests/test_interrupts.c -o build/test_interrupts
+	./build/test_interrupts
+
+exception-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/exception.c tests/test_exception.c -o build/test_exception
+	./build/test_exception
+
+build/bootx64.obj: boot/uefi/bootx64.c include/vgk_boot_info.h boot/uefi/uefi_graphics.h include/vgk_framebuffer.h boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/crypto/manifest.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Iinclude -Iboot/uefi -Iboot/crypto -c $< -o $@
+
+# Most UEFI functions use Microsoft x64 ABI; this bridge prepares the native
+# kernel entry register contract (System V: VGK_BOOT_INFO in RDI).
+build/uefi_kernel_entry.obj: boot/uefi/uefi_kernel_entry.S boot/uefi/uefi_kernel_entry.h include/vgk_boot_info.h | build
+	$(CLANG) --target=x86_64-pc-win32-coff -mno-red-zone -c boot/uefi/uefi_kernel_entry.S -o $@
 
 build/uefi_file_reader.obj: boot/uefi/uefi_file_reader.c boot/uefi/uefi_file_reader.h boot/uefi/uefi_file.h boot/crypto/manifest.h boot/crypto/integrity.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -Iboot/crypto -c $< -o $@
+
+build/elf_loader.obj: boot/uefi/elf_loader.c boot/uefi/elf_loader.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -c $< -o $@
+
+build/uefi_elf_allocator.obj: boot/uefi/uefi_elf_allocator.c boot/uefi/uefi_elf_allocator.h boot/uefi/elf_loader.h boot/uefi/uefi_services.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -c $< -o $@
+
+build/uefi_pci.obj: boot/uefi/uefi_pci.c boot/uefi/uefi_pci.h boot/uefi/uefi_services.h include/vgk_pci.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Iinclude -Iboot/uefi -c $< -o $@
+
+build/pci_uefi.obj: src/pci.c include/vgk_pci.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
+
+build/uefi_memory_map.obj: boot/uefi/uefi_memory_map.c boot/uefi/uefi_memory_map.h boot/uefi/uefi_services.h include/vgk_boot_info.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Iinclude -Iboot/uefi -c $< -o $@
 
 build/uefi_release_verify.obj: boot/uefi/uefi_release_verify.c boot/uefi/uefi_release_verify.h boot/uefi/uefi_file_reader.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -Iboot/crypto -c $< -o $@
@@ -56,7 +131,7 @@ build/monocypher.obj: $(MONOCYPHER_DIR)/monocypher.c | build
 build/monocypher_ed25519.obj: $(MONOCYPHER_DIR)/monocypher-ed25519.c | build
 	$(CLANG) $(UEFI_CFLAGS) -I$(MONOCYPHER_DIR) -c $< -o $@
 
-build/BOOTX64.EFI: build/bootx64.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
+build/BOOTX64.EFI: build/bootx64.obj build/uefi_pci.obj build/pci_uefi.obj build/uefi_kernel_entry.obj build/elf_loader.obj build/uefi_elf_allocator.obj build/uefi_memory_map.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
 	$(LLD_LINK) $(UEFI_LDFLAGS) /out:$@ $^
 
 uefi: build/BOOTX64.EFI
@@ -64,13 +139,51 @@ uefi: build/BOOTX64.EFI
 uefi-test: build/BOOTX64.EFI
 	python3 tests/check_uefi_image.py build/BOOTX64.EFI
 
+# Compile and link the trusted-key path with a test-only key.
+# This image is for CI only and is never published as a release artifact.
+build/bootx64-keyed-test.obj: boot/uefi/bootx64.c boot/uefi/uefi_graphics.h include/vgk_framebuffer.h boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/uefi/uefi_file_reader.h boot/uefi/elf_loader.h boot/uefi/uefi_elf_allocator.h boot/uefi/uefi_memory_map.h boot/uefi/uefi_kernel_entry.h include/vgk_boot_info.h tests/fixtures/vgk_trusted_public_key.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Itests/fixtures -Iinclude -Iboot/uefi -Iboot/crypto -c $< -o $@
+
+build/BOOTX64-KEYED-TEST.EFI: build/bootx64-keyed-test.obj build/uefi_pci.obj build/pci_uefi.obj build/uefi_kernel_entry.obj build/elf_loader.obj build/uefi_elf_allocator.obj build/uefi_memory_map.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
+	$(LLD_LINK) $(UEFI_LDFLAGS) /out:$@ $^
+
+# QEMU image uses a fresh ephemeral key generated by the CI job.
+build/bootx64-qemu-test.obj: boot/uefi/bootx64.c boot/uefi/uefi_graphics.h include/vgk_framebuffer.h boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/uefi/uefi_file_reader.h boot/uefi/elf_loader.h boot/uefi/uefi_elf_allocator.h boot/uefi/uefi_memory_map.h boot/uefi/uefi_kernel_entry.h include/vgk_boot_info.h build/vgk_trusted_public_key.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Ibuild -Iinclude -Iboot/uefi -Iboot/crypto -c $< -o $@
+
+build/BOOTX64-QEMU-TEST.EFI: build/bootx64-qemu-test.obj build/uefi_pci.obj build/pci_uefi.obj build/uefi_kernel_entry.obj build/elf_loader.obj build/uefi_elf_allocator.obj build/uefi_memory_map.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
+	$(LLD_LINK) $(UEFI_LDFLAGS) /out:$@ $^
+
+uefi-qemu-image: build/BOOTX64-QEMU-TEST.EFI
+
+uefi-keyed-compile-test: build/bootx64-keyed-test.obj
+
+uefi-keyed-link-test: build/BOOTX64-KEYED-TEST.EFI
+	python3 tests/check_uefi_image.py $<
+
 uefi-abi-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi tests/test_uefi_file_abi.c -o build/test_uefi_file_abi
 	./build/test_uefi_file_abi
 
+boot-info-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude tests/test_boot_info.c -o build/test_boot_info
+	./build/test_boot_info
+
 uefi-services-abi-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi tests/test_uefi_services_abi.c -o build/test_uefi_services_abi
 	./build/test_uefi_services_abi
+
+uefi-elf-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi boot/uefi/elf_loader.c tests/test_elf_loader.c -o build/test_elf_loader
+	./build/test_elf_loader
+
+uefi-elf-allocator-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi boot/uefi/uefi_elf_allocator.c tests/test_uefi_elf_allocator.c -o build/test_uefi_elf_allocator
+	./build/test_uefi_elf_allocator
+
+uefi-memory-map-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude -Iboot/uefi boot/uefi/uefi_memory_map.c tests/test_uefi_memory_map.c -o build/test_uefi_memory_map
+	./build/test_uefi_memory_map
 
 uefi-reader-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi -Iboot/crypto tests/test_uefi_file_reader.c boot/uefi/uefi_file_reader.c -o build/test_uefi_file_reader
@@ -86,7 +199,7 @@ vgkm-test: | build
 keygen-test: | build
 	python3 -m unittest discover -s tests -p 'test_klucz_zaufania.py' -v
 
-security-test: keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test uefi-manifest-test
+security-test: keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test uefi-manifest-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test framebuffer-test
 	python3 -m unittest discover -s tests -p 'test_sprawdz_wydanie.py' -v
 
 sha256-test: | build
@@ -118,3 +231,15 @@ iso: check-tools build/vgk-kernel.elf
 
 clean:
 	rm -rf build
+
+framebuffer-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude tests/test_framebuffer.c -o build/test_framebuffer
+	./build/test_framebuffer
+
+pci-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/pci.c tests/test_pci.c -o build/test_pci
+	./build/test_pci
+
+uefi-pci-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude -Iboot/uefi src/pci.c boot/uefi/uefi_pci.c tests/test_uefi_pci.c -o build/test_uefi_pci
+	./build/test_uefi_pci

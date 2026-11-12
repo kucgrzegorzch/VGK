@@ -15,16 +15,183 @@ jobs:
         uses: actions/checkout@v4
       - name: Install build tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang lld python3 openssl
+          sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+          sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends clang lld gcc binutils python3 openssl qemu-system-x86 ovmf
       - name: Build native UEFI application
         run: make clean uefi
+      - name: Compile trusted kernel startup path with test-only key
+        run: make uefi-keyed-compile-test
+      - name: Link and validate trusted UEFI startup test image
+        run: make uefi-keyed-link-test
+      - name: Build independent native VGK kernel
+        run: make native-kernel
+      - name: Validate native VGK kernel ELF
+        run: make native-kernel-test
+      - name: Diagnose native kernel instruction addresses
+        run: |
+          nm -n build/vgk-kernel-native.elf
+          objdump -d --start-address=0x200c80 --stop-address=0x200d50 build/vgk-kernel-native.elf
+      - name: Test early physical memory allocator
+        run: make memory-test
+      - name: Test ACPI RSDP validation
+        run: make acpi-test
+      - name: Test inactive x86-64 page-table builder
+        run: make paging-test
+      - name: Test x86 CPU feature detection
+        run: make cpu-features-test
+      - name: Test x86 interrupt descriptor encoding
+        run: make interrupts-test
+      - name: Test x86 exception context and error-code classification
+        run: make exception-test
+      - name: Test framebuffer format and memory bounds
+        run: make framebuffer-test
+      - name: Test boot protocol framebuffer validation
+        run: make boot-info-test
+      - name: Test PCI identity and class decoding
+        run: make pci-test
+      - name: Test UEFI PCI configuration access
+        run: make uefi-pci-test
+      - name: Prepare an ephemeral signed UEFI test release
+        run: |
+          set -eu
+          openssl genpkey -algorithm Ed25519 -out build/test-signing-key.pem
+          openssl pkey -in build/test-signing-key.pem -pubout -outform DER -out build/test-public-key.der
+          python3 tools/generate_test_trust_header.py build/test-public-key.der build/vgk_trusted_public_key.h
+          make uefi-qemu-image
+          mkdir -p build/esp/EFI/BOOT build/esp/EFI/VGK build/esp/boot
+          cp build/BOOTX64-QEMU-TEST.EFI build/esp/EFI/BOOT/BOOTX64.EFI
+          cp build/vgk-kernel-native.elf build/esp/boot/kernel.elf
+          python3 tools/przygotuj_wydanie.py --root build/esp --release VGK-QEMU-CI --private-key build/test-signing-key.pem --manifest build/esp/EFI/VGK/VGKM --signature build/esp/EFI/VGK/VGKM.sig boot/kernel.elf
+      - name: Boot VGK kernel in QEMU with OVMF
+        run: |
+          set -eu
+          if [ -f /usr/share/OVMF/OVMF_CODE.fd ]; then
+            OVMF_CODE=/usr/share/OVMF/OVMF_CODE.fd
+            OVMF_VARS=/usr/share/OVMF/OVMF_VARS.fd
+          else
+            OVMF_CODE=/usr/share/OVMF/OVMF_CODE_4M.fd
+            OVMF_VARS=/usr/share/OVMF/OVMF_VARS_4M.fd
+          fi
+          test -f "$OVMF_CODE"
+          test -f "$OVMF_VARS"
+          cp "$OVMF_VARS" build/OVMF_VARS.fd
+          set +e
+          timeout -k 5s 25s qemu-system-x86_64 \
+            -machine q35 -m 1024 -cpu qemu64 \
+            -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
+            -drive if=pflash,format=raw,file=build/OVMF_VARS.fd \
+            -device qemu-xhci,id=xhci \
+            -drive if=none,id=usbstick,format=raw,file=fat:rw:build/esp \
+            -device usb-storage,drive=usbstick,bootindex=1 \
+            -display none -monitor none -serial file:build/qemu-serial.log \
+            -no-reboot
+          qemu_status=$?
+          set -e
+          if [ "$qemu_status" -ne 124 ] && [ "$qemu_status" -ne 0 ]; then
+            echo "QEMU zakończył się kodem $qemu_status"
+            cat build/qemu-serial.log || true
+            exit "$qemu_status"
+          fi
+          cat build/qemu-serial.log
+          grep -aF "VGK: uruchomiono wlasne jadro." build/qemu-serial.log
+          grep -aF "VGK: protokol startowy poprawny." build/qemu-serial.log
+          grep -aF "VGK: otrzymano inwentarz urzadzen PCI z UEFI." build/qemu-serial.log
+          grep -aF "VGK: procesor obsluguje NX;" build/qemu-serial.log
+          grep -aF "VGK: pula tablic stron jest dostepna, wyzerowana i zarezerwowana." build/qemu-serial.log
+          grep -aF "VGK: nieaktywne mapowania jadra, stosu, danych startowych i puli sa gotowe." build/qemu-serial.log
+          grep -aF "VGK: framebuffer GOP zmapowany RW+NX; PCD+PWT zweryfikowane jako UC." build/qemu-serial.log
+          grep -aF "VGK: menedzer pamieci uruchomiony." build/qemu-serial.log
+      - name: Package verified UEFI USB test files
+        run: |
+          set -eu
+          cat > build/esp/INSTRUKCJA-USB.txt <<'EOF'
+          VGK – eksperymentalny pakiet testowy UEFI x86-64
+
+          To NIE jest instalator ani komplet systemu operacyjnego.
+          Pakiet służy wyłącznie do sprawdzenia uruchamiania VGK z USB.
+
+          Przygotowanie:
+          1. Użyj pustego pendrive'a i sformatuj go jako FAT32.
+          2. Wypakuj CAŁĄ zawartość tego archiwum bezpośrednio do katalogu głównego pendrive'a.
+          3. Sprawdź, czy istnieją pliki:
+             EFI/BOOT/BOOTX64.EFI
+             EFI/VGK/VGKM
+             EFI/VGK/VGKM.sig
+             boot/kernel.elf
+          4. Uruchom komputer z menu startowego, wybierając pozycję UEFI USB.
+
+          Ważne:
+          - Nie uruchamiaj instalatora; ten pakiet go nie zawiera.
+          - Nie jest to wydanie produkcyjne. Klucz podpisujący jest tymczasowy
+            i przeznaczony wyłącznie do testów CI.
+          - Program EFI nie jest podpisany kluczem producenta komputera.
+            Przy włączonym Secure Boot firmware może odmówić jego uruchomienia.
+            Nie zmieniaj ustawień Secure Boot, jeśli nie znasz konsekwencji
+            dla BitLocker/odzyskiwania Windows.
+          - Test nie potwierdza jeszcze obsługi konkretnego komputera.
+          EOF
+      - name: Publish complete UEFI USB test package
+        uses: actions/upload-artifact@v4
+        with:
+          name: VGK-UEFI-TEST-USB-FAT32
+          path: build/esp/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Verify UEFI refuses a modified kernel
+        run: |
+          set -eu
+          python3 - <<'PY'
+          from pathlib import Path
+          kernel = Path("build/esp/boot/kernel.elf")
+          data = bytearray(kernel.read_bytes())
+          data[len(data) // 2] ^= 1
+          kernel.write_bytes(data)
+          PY
+          if [ -f /usr/share/OVMF/OVMF_CODE.fd ]; then
+            OVMF_CODE=/usr/share/OVMF/OVMF_CODE.fd
+            OVMF_VARS=/usr/share/OVMF/OVMF_VARS.fd
+          else
+            OVMF_CODE=/usr/share/OVMF/OVMF_CODE_4M.fd
+            OVMF_VARS=/usr/share/OVMF/OVMF_VARS_4M.fd
+          fi
+          cp "$OVMF_VARS" build/OVMF_VARS_TAMPERED.fd
+          set +e
+          timeout -k 5s 15s qemu-system-x86_64 \
+            -machine q35 -m 1024 -cpu qemu64 \
+            -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
+            -drive if=pflash,format=raw,file=build/OVMF_VARS_TAMPERED.fd \
+            -device qemu-xhci,id=xhci \
+            -drive if=none,id=usbstick,format=raw,file=fat:rw:build/esp \
+            -device usb-storage,drive=usbstick,bootindex=1 \
+            -display none -monitor none -serial file:build/qemu-tampered-serial.log \
+            -no-reboot
+          qemu_status=$?
+          set -e
+          if [ "$qemu_status" -ne 124 ] && [ "$qemu_status" -ne 0 ]; then
+            echo "QEMU test podmienionego jadra zakończył się kodem $qemu_status"
+            cat build/qemu-tampered-serial.log || true
+            exit "$qemu_status"
+          fi
+          cat build/qemu-tampered-serial.log
+          grep -aF "NIEPOPRAWNY PODPIS LUB PLIKI." build/qemu-tampered-serial.log
+          if grep -aF "VGK: uruchomiono wlasne jadro." build/qemu-tampered-serial.log; then
+            echo "BŁĄD: podmienione jądro zostało uruchomione"
+            exit 1
+          fi
       - name: Validate PE32+ EFI image
         run: make uefi-test
       - name: Test UEFI file protocol layout
         run: make uefi-abi-test
+      - name: Test wspolnego protokolu startowego VGK
+        run: make boot-info-test
       - name: Test UEFI boot service layout
         run: make uefi-services-abi-test
+      - name: Test walidacji segmentow jadra ELF64
+        run: make uefi-elf-test
+      - name: Test przydzielania pamieci ELF przez UEFI
+        run: make uefi-elf-allocator-test
+      - name: Test normalizacji mapy pamieci UEFI
+        run: make uefi-memory-map-test
       - name: Test UEFI file reader adapter
         run: make uefi-reader-test
       - name: Test signed manifest through UEFI reader
@@ -35,6 +202,12 @@ jobs:
         run: make vgkm-test
       - name: Test signed release verification
         run: make security-test
+      - name: Store experimental native kernel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VGK-Native-Kernel-Experimental
+          path: build/vgk-kernel-native.elf
+          if-no-files-found: error
       - name: Publish EFI application artifact
         uses: actions/upload-artifact@v4
         with:
