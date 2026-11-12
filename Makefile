@@ -76,7 +76,7 @@ paging-requirements-test: | build
 	./build/test_paging_requirements
 
 paging-test: | build
-	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/paging.c tests/test_paging.c -o build/test_paging
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/paging.c src/paging_requirements.c tests/test_paging.c -o build/test_paging
 	./build/test_paging
 
 cpu-features-test: | build
