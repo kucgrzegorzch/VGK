@@ -4,10 +4,20 @@
 
 #include "uefi_memory_map.h"
 
+#define LARGE_DESCRIPTOR_COUNT 13107U
+
 typedef struct {
     VGK_EFI_MEMORY_DESCRIPTOR descriptor;
     uint64_t extension;
 } TEST_DESCRIPTOR_STRIDE;
+
+/*
+ * 13,107 is the maximum number of minimum-size (40-byte) UEFI descriptors
+ * that fit in the bootloader's 512 KiB firmware-map buffer.
+ * Static storage avoids putting the stress-test buffers on the host stack.
+ */
+static VGK_EFI_MEMORY_DESCRIPTOR large_raw[LARGE_DESCRIPTOR_COUNT];
+static VGK_MEMORY_MAP_ENTRY large_output[LARGE_DESCRIPTOR_COUNT];
 
 static void put_descriptor(
     TEST_DESCRIPTOR_STRIDE *slot,
@@ -22,6 +32,49 @@ static void put_descriptor(
     slot->descriptor.number_of_pages = pages;
     slot->descriptor.attribute = attributes;
     slot->extension = UINT64_C(0xA5A5A5A5A5A5A5A5);
+}
+
+static unsigned test_large_reverse_order_map(void)
+{
+    unsigned failures = 0;
+
+    for (size_t i = 0; i < LARGE_DESCRIPTOR_COUNT; ++i) {
+        size_t reverse_index = LARGE_DESCRIPTOR_COUNT - i;
+        large_raw[i].type = 7;
+        large_raw[i].physical_start = (uint64_t)reverse_index * UINT64_C(0x2000);
+        large_raw[i].number_of_pages = 1;
+        large_raw[i].attribute = 0;
+        large_raw[i].reserved = 0;
+    }
+
+    {
+        size_t count = 0;
+        if (vgk_uefi_normalize_memory_map(
+                large_raw, sizeof(large_raw),
+                sizeof(VGK_EFI_MEMORY_DESCRIPTOR), 1,
+                large_output, LARGE_DESCRIPTOR_COUNT, &count) != 0) {
+            puts("FAIL: odrzucono duza odwrotnie uporzadkowana mape UEFI");
+            return 1;
+        }
+
+        if (count != LARGE_DESCRIPTOR_COUNT) {
+            puts("FAIL: niepoprawna liczba wpisow po sortowaniu duzej mapy");
+            ++failures;
+        }
+
+        for (size_t i = 0; i < LARGE_DESCRIPTOR_COUNT; ++i) {
+            uint64_t expected = (uint64_t)(i + 1U) * UINT64_C(0x2000);
+            if (large_output[i].base != expected ||
+                large_output[i].length != UINT64_C(4096) ||
+                large_output[i].type != VGK_MEMORY_USABLE) {
+                puts("FAIL: duza mapa UEFI nie zostala poprawnie posortowana");
+                ++failures;
+                break;
+            }
+        }
+    }
+
+    return failures;
 }
 
 int main(void)
@@ -121,6 +174,8 @@ int main(void)
         puts("FAIL: EfiReservedMemoryType musi pozostac pamiecia RESERVED");
         ++failures;
     }
+
+    failures += test_large_reverse_order_map();
 
     if (failures != 0)
         return 1;
