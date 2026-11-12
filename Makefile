@@ -11,7 +11,7 @@ UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machin
 CRYPTO_DIR := boot/crypto
 MONOCYPHER_DIR := $(CRYPTO_DIR)/monocypher
 
-.PHONY: all clean iso check-tools test native-kernel native-kernel-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test cpu-features-test interrupts-test exception-test framebuffer-test pci-test uefi-pci-test paging-test acpi-test
+.PHONY: all clean iso check-tools test paging-requirements-test native-kernel native-kernel-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test cpu-features-test interrupts-test exception-test framebuffer-test pci-test uefi-pci-test paging-test acpi-test
 all: build/vgk-kernel.elf
 
 test: build/vgk-kernel.elf
@@ -67,6 +67,10 @@ memory-test: | build
 acpi-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/acpi.c tests/test_acpi.c -o build/test_acpi
 	./build/test_acpi
+
+paging-requirements-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/paging_requirements.c tests/test_paging_requirements.c -o build/test_paging_requirements
+	./build/test_paging_requirements
 
 paging-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/paging.c tests/test_paging.c -o build/test_paging
