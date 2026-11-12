@@ -13,7 +13,10 @@ typedef enum {
 /*
  * Select the next pool size after preflight reports its requirement.
  * required_pages already includes the candidate pool's own mappings.
- * reserve_pages is additional headroom; max_pages is a hard upper bound.
+ * reserve_pages is additional headroom used only when growth is needed;
+ * max_pages is a hard upper bound. The caller must recalculate requirements
+ * after allocating a candidate pool because its physical address can change
+ * the number of page-table structures required.
  */
 VGK_PAGING_POOL_POLICY_RESULT vgk_paging_pool_next_size(
     uint64_t current_pages,
