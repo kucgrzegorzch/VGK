@@ -49,7 +49,7 @@ int main(void)
 
     /* Crossing a 512 GiB PML4 slot boundary creates two branches. */
     ranges[0] = (VGK_PAGING_VIRTUAL_RANGE){ UINT64_C(0x7FFFFFF000), 8192U };
-    CHECK(expect(ranges, 2, 2, 2, 2, 7) == 0);
+    CHECK(expect(ranges, 1, 2, 2, 2, 7) == 0);
 
     /* High canonical addresses use masked page-table indices too. */
     ranges[0] = (VGK_PAGING_VIRTUAL_RANGE){
