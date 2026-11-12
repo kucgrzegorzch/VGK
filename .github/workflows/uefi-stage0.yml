@@ -37,6 +37,8 @@ jobs:
         run: make acpi-test
       - name: Test inactive x86-64 page-table builder
         run: make paging-test
+      - name: Test x86-64 page-table capacity calculator
+        run: make paging-requirements-test
       - name: Test x86 CPU feature detection
         run: make cpu-features-test
       - name: Test x86 interrupt descriptor encoding
