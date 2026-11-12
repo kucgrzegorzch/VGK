@@ -44,7 +44,6 @@ static unsigned test_large_reverse_order_map(void)
         large_raw[i].physical_start = (uint64_t)reverse_index * UINT64_C(0x2000);
         large_raw[i].number_of_pages = 1;
         large_raw[i].attribute = 0;
-        large_raw[i].reserved = 0;
     }
 
     {
