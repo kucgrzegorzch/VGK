@@ -101,6 +101,42 @@ jobs:
           grep -aF "VGK: nieaktywne mapowania jadra, stosu, danych startowych i puli sa gotowe." build/qemu-serial.log
           grep -aF "VGK: framebuffer GOP zmapowany RW+NX; PCD+PWT zweryfikowane jako UC." build/qemu-serial.log
           grep -aF "VGK: menedzer pamieci uruchomiony." build/qemu-serial.log
+      - name: Package verified UEFI USB test files
+        run: |
+          set -eu
+          cat > build/esp/INSTRUKCJA-USB.txt <<'EOF'
+          VGK – eksperymentalny pakiet testowy UEFI x86-64
+
+          To NIE jest instalator ani komplet systemu operacyjnego.
+          Pakiet służy wyłącznie do sprawdzenia uruchamiania VGK z USB.
+
+          Przygotowanie:
+          1. Użyj pustego pendrive'a i sformatuj go jako FAT32.
+          2. Wypakuj CAŁĄ zawartość tego archiwum bezpośrednio do katalogu głównego pendrive'a.
+          3. Sprawdź, czy istnieją pliki:
+             EFI/BOOT/BOOTX64.EFI
+             EFI/VGK/VGKM
+             EFI/VGK/VGKM.sig
+             boot/kernel.elf
+          4. Uruchom komputer z menu startowego, wybierając pozycję UEFI USB.
+
+          Ważne:
+          - Nie uruchamiaj instalatora; ten pakiet go nie zawiera.
+          - Nie jest to wydanie produkcyjne. Klucz podpisujący jest tymczasowy
+            i przeznaczony wyłącznie do testów CI.
+          - Program EFI nie jest podpisany kluczem producenta komputera.
+            Przy włączonym Secure Boot firmware może odmówić jego uruchomienia.
+            Nie zmieniaj ustawień Secure Boot, jeśli nie znasz konsekwencji
+            dla BitLocker/odzyskiwania Windows.
+          - Test nie potwierdza jeszcze obsługi konkretnego komputera.
+          EOF
+      - name: Publish complete UEFI USB test package
+        uses: actions/upload-artifact@v4
+        with:
+          name: VGK-UEFI-TEST-USB-FAT32
+          path: build/esp/
+          if-no-files-found: error
+          retention-days: 30
       - name: Verify UEFI refuses a modified kernel
         run: |
           set -eu
