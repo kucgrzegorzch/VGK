@@ -102,6 +102,16 @@ int main(void)
         ++failures;
     }
 
+    put_descriptor(&raw[0], 7, UINT64_C(0x1001), 1, 0);
+    count = 99;
+    if (vgk_uefi_normalize_memory_map(
+            raw, sizeof(TEST_DESCRIPTOR_STRIDE),
+            sizeof(TEST_DESCRIPTOR_STRIDE), 1, output, 3, &count) == 0 ||
+        count != 0) {
+        puts("FAIL: zaakceptowano nie wyrownany poczatek zakresu UEFI");
+        ++failures;
+    }
+
     put_descriptor(&raw[0], 0, UINT64_C(0xB000), 1, 0);
     count = 0;
     if (vgk_uefi_normalize_memory_map(
