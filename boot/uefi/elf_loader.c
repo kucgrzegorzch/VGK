@@ -244,8 +244,13 @@ VGK_ELF_RESULT vgk_elf64_load_image(
         page_count = rounded_size / VGK_ELF_PAGE_SIZE;
 
         if (allocate_range(context, segment->physical_address,
-                           page_count, &mapped) != 0 || mapped == 0)
+                           page_count, &mapped) != 0)
             goto allocation_failed;
+        if (mapped == 0) {
+            /* Success without a usable mapping still owns the allocated pages. */
+            release_range(context, segment->physical_address, page_count);
+            goto allocation_failed;
+        }
 
         loaded->ranges[loaded->range_count].physical_address =
             segment->physical_address;
