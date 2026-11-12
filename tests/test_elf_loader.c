@@ -15,6 +15,7 @@ static uint8_t test_memory[TEST_MEMORY_SIZE];
 static unsigned allocation_calls;
 static unsigned release_calls;
 static int fail_allocation_at = -1;
+static int return_null_mapping;
 
 static int test_allocate(void *context, uint64_t address, uint64_t pages,
                          void **mapped)
@@ -29,7 +30,8 @@ static int test_allocate(void *context, uint64_t address, uint64_t pages,
         pages > (TEST_MEMORY_SIZE -
                  (size_t)(address - UINT64_C(0x200000))) / 4096U)
         return -1;
-    *mapped = test_memory + (size_t)(address - UINT64_C(0x200000));
+    *mapped = return_null_mapping ? 0 :
+        test_memory + (size_t)(address - UINT64_C(0x200000));
     return 0;
 }
 
@@ -240,6 +242,16 @@ int main(void)
     assert(loaded.range_count == 0U);
     assert(release_calls == 1U);
     fail_allocation_at = -1;
+
+    /* A successful allocation with a missing mapping must also be released. */
+    allocation_calls = release_calls = 0;
+    return_null_mapping = 1;
+    assert(vgk_elf64_load_image(image, sizeof(image), &plan,
+                               test_allocate, test_release, 0, &loaded) ==
+           VGK_ELF_BAD_SEGMENT);
+    assert(loaded.range_count == 0U);
+    assert(release_calls == 1U);
+    return_null_mapping = 0;
 
     /* Two segments cannot occupy the same physical allocation page. */
     make_valid_image();
