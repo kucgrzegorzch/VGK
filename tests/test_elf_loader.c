@@ -150,6 +150,69 @@ int main(void)
     assert(vgk_elf64_make_load_plan(image, sizeof(image), &plan) ==
            VGK_ELF_BAD_SEGMENT);
 
+    /* Program-header table arithmetic and shape must be bounded. */
+    make_valid_image();
+    put64(32U, UINT64_MAX);
+    assert(vgk_elf64_make_load_plan(image, sizeof(image), &plan) ==
+           VGK_ELF_BAD_PROGRAM_TABLE);
+
+    make_valid_image();
+    put16(56U, 0U);
+    assert(vgk_elf64_make_load_plan(image, sizeof(image), &plan) ==
+           VGK_ELF_BAD_PROGRAM_TABLE);
+
+    make_valid_image();
+    put16(54U, 55U);
+    assert(vgk_elf64_make_load_plan(image, sizeof(image), &plan) ==
+           VGK_ELF_BAD_PROGRAM_TABLE);
+
+    /* Segment file and memory extents must reject truncation and overflow. */
+    make_valid_image();
+    put64(PHOFF + 8U, UINT64_MAX);
+    assert(vgk_elf64_make_load_plan(image, sizeof(image), &plan) ==
+           VGK_ELF_BAD_SEGMENT);
+
+    make_valid_image();
+    put64(PHOFF + 40U, 0U);
+    assert(vgk_elf64_make_load_plan(image, sizeof(image), &plan) ==
+           VGK_ELF_BAD_SEGMENT);
+
+    make_valid_image();
+    put64(PHOFF + 24U, UINT64_MAX - UINT64_C(0x7FF));
+    put64(PHOFF + 16U, UINT64_MAX - UINT64_C(0x7FF));
+    assert(vgk_elf64_make_load_plan(image, sizeof(image), &plan) ==
+           VGK_ELF_BAD_SEGMENT);
+
+    make_valid_image();
+    put64(PHOFF + 24U, UINT64_C(0x3FFFF000));
+    put64(PHOFF + 16U, UINT64_C(0x3FFFF000));
+    put64(PHOFF + 40U, UINT64_C(0x2000));
+    assert(vgk_elf64_make_load_plan(image, sizeof(image), &plan) ==
+           VGK_ELF_BAD_SEGMENT);
+
+    /* Alignment must be a power of two and segment flags must be known. */
+    make_valid_image();
+    put64(PHOFF + 48U, 3U);
+    assert(vgk_elf64_make_load_plan(image, sizeof(image), &plan) ==
+           VGK_ELF_BAD_SEGMENT);
+
+    make_valid_image();
+    put32(PHOFF + 4U, 8U);
+    assert(vgk_elf64_make_load_plan(image, sizeof(image), &plan) ==
+           VGK_ELF_BAD_SEGMENT);
+
+    /* The entry point must be inside, not at the end of, executable memory. */
+    make_valid_image();
+    put64(24U, UINT64_C(0x200020));
+    assert(vgk_elf64_make_load_plan(image, sizeof(image), &plan) ==
+           VGK_ELF_ENTRY_NOT_EXECUTABLE);
+
+    make_valid_image();
+    put32(PHOFF, 0U);
+    put32(PHOFF + PHENT, 0U);
+    assert(vgk_elf64_make_load_plan(image, sizeof(image), &plan) ==
+           VGK_ELF_BAD_SEGMENT);
+
     /* Successful loading copies file bytes and zero-fills the BSS tail. */
     make_valid_image();
     assert(vgk_elf64_make_load_plan(image, sizeof(image), &plan) == VGK_ELF_OK);
