@@ -4,6 +4,7 @@
 #include "vgk_memory.h"
 #include "vgk_cpu_features.h"
 #include "vgk_paging.h"
+#include "vgk_paging_requirements.h"
 
 #define COM1_PORT 0x3F8U
 
@@ -143,6 +144,124 @@ static int framebuffer_pcd_pwt_is_uncacheable(void)
     return ((pat_value >> 24) & UINT64_C(0xFF)) == 0U;
 }
 
+
+/* Add an object using the same page-flooring rule as map_identity_object(). */
+static int add_paging_requirement_range(
+    VGK_PAGING_VIRTUAL_RANGE *ranges,
+    size_t *range_count,
+    uint64_t address,
+    uint64_t length)
+{
+    uint64_t page_base;
+    uint64_t offset;
+
+    if (ranges == 0 || range_count == 0 || address == 0U || length == 0U ||
+        *range_count >= VGK_PAGING_REQUIREMENTS_MAX_RANGES)
+        return 0;
+
+    page_base = address & ~(VGK_PAGING_PAGE_SIZE - 1U);
+    offset = address - page_base;
+    if (length > UINT64_MAX - offset)
+        return 0;
+
+    ranges[*range_count].virtual_address = page_base;
+    ranges[*range_count].length = length + offset;
+    ++(*range_count);
+    return 1;
+}
+
+/*
+ * Count every identity-mapped object before allocating a single page-table
+ * page. The stack is already contained in a writable, NX ELF segment.
+ */
+static int page_table_pool_has_capacity(
+    const VGK_BOOT_INFO *boot_info,
+    const VGK_CPU_FEATURES *cpu_features,
+    int framebuffer_is_uncacheable)
+{
+    VGK_PAGING_VIRTUAL_RANGE ranges[VGK_PAGING_REQUIREMENTS_MAX_RANGES];
+    VGK_PAGING_REQUIREMENTS requirements;
+    const VGK_MEMORY_MAP_ENTRY *memory_map;
+    size_t range_count = 0U;
+    uint64_t rsdp_length = 0U;
+    VGK_PAGING_REQUIREMENTS_RESULT calc_result;
+
+    if (boot_info == 0 || cpu_features == 0)
+        return 0;
+
+    for (uint32_t i = 0U; i < boot_info->kernel_segment_count; ++i) {
+        const VGK_KERNEL_SEGMENT *segment = &boot_info->kernel_segments[i];
+        if (!add_paging_requirement_range(
+                ranges, &range_count,
+                segment->physical_base, segment->memory_size))
+            return 0;
+    }
+
+    if (!add_paging_requirement_range(
+            ranges, &range_count,
+            (uint64_t)(uintptr_t)boot_info, sizeof(*boot_info)) ||
+        !add_paging_requirement_range(
+            ranges, &range_count,
+            boot_info->memory_map_address, boot_info->memory_map_size))
+        return 0;
+
+    if (boot_info->page_table_pool_pages >
+        UINT64_MAX / VGK_BOOT_PAGE_SIZE)
+        return 0;
+    if (!add_paging_requirement_range(
+            ranges, &range_count,
+            boot_info->page_table_pool_base,
+            boot_info->page_table_pool_pages * VGK_BOOT_PAGE_SIZE))
+        return 0;
+
+    if ((boot_info->flags & VGK_BOOT_FLAG_ACPI) != 0U) {
+        size_t memory_map_count;
+        const volatile uint8_t *rsdp;
+
+        if (boot_info->memory_map_size % sizeof(VGK_MEMORY_MAP_ENTRY) != 0U)
+            return 0;
+        memory_map = (const VGK_MEMORY_MAP_ENTRY *)(uintptr_t)
+            boot_info->memory_map_address;
+        memory_map_count = (size_t)(
+            boot_info->memory_map_size / sizeof(VGK_MEMORY_MAP_ENTRY));
+        rsdp = (const volatile uint8_t *)(uintptr_t)
+            boot_info->acpi_rsdp_address;
+        if (!vgk_acpi_rsdp_validate(
+                memory_map, memory_map_count,
+                boot_info->acpi_rsdp_address,
+                cpu_features->physical_address_bits,
+                rsdp, &rsdp_length) ||
+            !add_paging_requirement_range(
+                ranges, &range_count,
+                boot_info->acpi_rsdp_address, rsdp_length))
+            return 0;
+    }
+
+    if ((boot_info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0U &&
+        framebuffer_is_uncacheable != 0 &&
+        !add_paging_requirement_range(
+            ranges, &range_count,
+            boot_info->framebuffer_base, boot_info->framebuffer_size))
+        return 0;
+
+    calc_result = vgk_paging_requirements_calculate(
+        ranges, range_count, &requirements);
+    if (calc_result != VGK_PAGING_REQUIREMENTS_OK) {
+        serial_write("VGK: kalkulator zapotrzebowania odrzucil zakresy, kod = ");
+        serial_write_hex((uint64_t)calc_result);
+        serial_write("\r\n");
+        return 0;
+    }
+
+    serial_write("VGK: wymagane strony tablic = ");
+    serial_write_hex(requirements.total_pages);
+    serial_write("; dostepne = ");
+    serial_write_hex(boot_info->page_table_pool_pages);
+    serial_write("\r\n");
+
+    return requirements.total_pages <= boot_info->page_table_pool_pages;
+}
+
 static int map_acpi_root_pointer(
     const VGK_BOOT_INFO *boot_info,
     const VGK_CPU_FEATURES *cpu_features,
@@ -186,6 +305,7 @@ static int build_inactive_page_tables(
     uint64_t stack_start = (uint64_t)(uintptr_t)vgk_boot_stack;
     uint64_t stack_end = (uint64_t)(uintptr_t)vgk_boot_stack_top;
     int stack_is_writable = 0;
+    int framebuffer_is_uncacheable = 0;
 
     if (boot_info == 0 || cpu_features == 0 || tables == 0 ||
         cpu_features->nx_supported == 0U ||
@@ -206,6 +326,16 @@ static int build_inactive_page_tables(
     if (!stack_is_writable)
         return 0;
     serial_write("VGK: zakres stosu potwierdzony jako RW+NX.\r\n");
+
+    if ((boot_info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0U)
+        framebuffer_is_uncacheable = framebuffer_pcd_pwt_is_uncacheable();
+
+    if (!page_table_pool_has_capacity(
+            boot_info, cpu_features, framebuffer_is_uncacheable)) {
+        serial_write("VGK: pula tablic stron za mala lub nie mozna zweryfikowac mapowan.\r\n");
+        return 0;
+    }
+    serial_write("VGK: wstepna kontrola pojemnosci tablic stron zakonczona.\r\n");
 
     result = vgk_paging_init(
         tables,
@@ -292,7 +422,7 @@ static int build_inactive_page_tables(
      * PCD+PWT is used only after confirming that its effective type is UC.
      */
     if ((boot_info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0U) {
-        if (!framebuffer_pcd_pwt_is_uncacheable()) {
+        if (!framebuffer_is_uncacheable) {
             serial_write("VGK: pomijam mapowanie framebufferu; PAT entry 3 nie jest UC.\r\n");
         } else {
             result = map_identity_object(

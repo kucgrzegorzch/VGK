@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "vgk_paging.h"
+#include "vgk_paging_requirements.h"
 
 #define CHECK(x) do { if (!(x)) { fprintf(stderr, "FAIL %d: %s\n", __LINE__, #x); return 1; } } while (0)
 
@@ -72,6 +73,23 @@ int main(void)
                                VGK_PAGE_WRITE) == VGK_PAGING_OK);
     CHECK(((*walk(&t, 0x400000U)) & 2U) != 0U);
     CHECK(((*walk(&t, 0x401000U)) & 2U) != 0U);
+    /* The independent capacity calculator must match actual builder usage. */
+    {
+        const VGK_PAGING_VIRTUAL_RANGE mapped[] = {
+            { UINT64_C(0x200000), 4096U },
+            { UINT64_C(0x201000), 4096U },
+            { UINT64_C(0x205000), 4096U },
+            { UINT64_C(0x203000), 4096U },
+            { UINT64_C(0xFFFF800000000000), 4096U },
+            { UINT64_C(0x400000), 4097U }
+        };
+        VGK_PAGING_REQUIREMENTS requirements;
+        CHECK(vgk_paging_requirements_calculate(
+                  mapped, sizeof(mapped) / sizeof(mapped[0]),
+                  &requirements) == VGK_PAGING_REQUIREMENTS_OK);
+        CHECK(requirements.total_pages == t.used_pages);
+        CHECK(t.used_pages == 8U);
+    }
     CHECK(vgk_paging_map_range(&t, UINT64_C(0x00007FFFFFFFF000),
                                UINT64_C(0x600000), 8192U, VGK_PAGE_EXEC) ==
           VGK_PAGING_BAD_ADDRESS);
