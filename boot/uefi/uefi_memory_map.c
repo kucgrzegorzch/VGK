@@ -88,7 +88,9 @@ int vgk_uefi_normalize_memory_map(
         for (size_t j = 0; j < sizeof(descriptor); ++j)
             destination[j] = source[j];
 
-        if (descriptor.number_of_pages == 0 ||
+        /* UEFI memory descriptors describe whole 4 KiB pages. */
+        if ((descriptor.physical_start & (VGK_PAGE_SIZE - 1U)) != 0 ||
+            descriptor.number_of_pages == 0 ||
             descriptor.number_of_pages > UINT64_MAX / VGK_PAGE_SIZE)
             return -1;
 
