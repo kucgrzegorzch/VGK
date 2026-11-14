@@ -116,7 +116,7 @@ int main(void)
             UINT64_C(0x200000) + (uint64_t)i * UINT64_C(0x4000000);
         info.kernel_segments[i].memory_size = UINT64_C(0x4000000);
     }
-    info.kernel_segments[15].physical_base = UINT64_C(0x3E000000);
+    info.kernel_segments[15].physical_base = UINT64_C(0x3C200000);
     info.kernel_segments[15].memory_size = UINT64_C(0x3E00000);
     info.memory_map_address = UINT64_C(0xFFFFFC0000);
     info.memory_map_size = UINT64_C(512) * 1024U;
