@@ -66,7 +66,7 @@ build/vgk-kernel-native.elf: build/entry_native.o build/exception_stubs_native.o
 
 native-kernel: build/vgk-kernel-native.elf
 
-native-kernel-test: build/vgk-kernel-native.elf
+native-kernel-test: build/vgk-kernel-native.elf gdt-test
 	python3 tests/check_native_kernel.py build/vgk-kernel-native.elf
 	python3 tests/check_exception_stubs.py build/vgk-kernel-native.elf
 
