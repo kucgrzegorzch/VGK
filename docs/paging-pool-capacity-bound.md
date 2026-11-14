@@ -10,7 +10,7 @@ Ten dokument wyznacza konserwatywną granicę liczby stron struktur czteropoziom
 - Plik jądra: maksymalnie 64 MiB; rozmiar `p_memsz` segmentu może być większy od `p_filesz`, więc limit pliku nie jest limitem pamięci BSS.
 - Znormalizowana mapa pamięci: maksymalnie 16 384 wpisy po 32 bajty, czyli 512 KiB.
 - `VGK_BOOT_INFO`: 2376 bajtów przy obecnym układzie protokołu.
-- ACPI RSDP: walidator dopuszcza standardową długość 20 lub 36 bajtów; do oszacowania przyjęto 36 bajtów.
+- ACPI RSDP: walidator dopuszcza długość do 4096 bajtów; do oszacowania przyjęto pełne 4096 bajtów.
 - Pula tablic: protokół wersji 5 dopuszcza od 64 do 1024 stron po 4096 bajtów, czyli maksymalnie 4 MiB. Loader UEFI nadal przydziela początkowo 64 strony; dynamiczny wzrost nie jest jeszcze wdrożony.
 - Framebuffer: maksymalny mapowany obszar obrazu ograniczony w tym etapie do 256 MiB. Walidator liczy `stride * height * 4`, a nie całą większą alokację GOP. Tryb przekraczający limit nie jest przekazywany jako aktywny framebuffer; jądro może kontynuować bez grafiki.
 
@@ -27,7 +27,7 @@ Kalkulator liczy unikalne prefiksy adresów dla czterech poziomów. Najgorszy pr
 | Pula: 4 MiB, przesunięcie o stronę względem granicy 2 MiB | 3 |
 | Mapa pamięci: 512 KiB i niekorzystne położenie | 2 |
 | `VGK_BOOT_INFO`: 2376 bajtów i niekorzystne położenie | 2 |
-| ACPI RSDP: 36 bajtów i niekorzystne położenie | 2 |
+| ACPI RSDP: 4096 bajtów i niekorzystne położenie | 2 |
 | **Suma stron PT** | **649** |
 
 Dodatkowo:
