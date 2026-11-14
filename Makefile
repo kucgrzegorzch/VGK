@@ -36,7 +36,7 @@ build/entry_native.o: boot/entry_native.S | build
 build/exception_stubs_native.o: boot/exception_stubs.S | build
 	$(CC) -m64 -ffreestanding -fno-pic -fno-pie -c $< -o $@
 
-build/kernel_native.o: src/kernel_native.c include/vgk_boot_info.h include/vgk_acpi.h include/vgk_memory.h include/vgk_cpu_features.h include/vgk_paging.h include/vgk_paging_preflight.h | build
+build/kernel_native.o: src/kernel_native.c include/vgk_boot_info.h include/vgk_acpi.h include/vgk_memory.h include/vgk_cpu_features.h include/vgk_paging.h include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h | build
 	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
 build/cpu_features_native.o: src/cpu_features.c include/vgk_cpu_features.h | build
@@ -78,13 +78,13 @@ paging-requirements-test: | build
 build/paging_ranges_native.o: src/paging_ranges.c include/vgk_paging_ranges.h include/vgk_boot_info.h include/vgk_paging_requirements.h | build
 	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
-build/paging_preflight_native.o: src/paging_preflight.c include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h | build
+build/paging_preflight_native.o: src/paging_preflight.c include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h include/vgk_boot_info.h | build
 	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
 build/paging_ranges_uefi.obj: src/paging_ranges.c include/vgk_paging_ranges.h include/vgk_boot_info.h include/vgk_paging_requirements.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
 
-build/paging_preflight_uefi.obj: src/paging_preflight.c include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h | build
+build/paging_preflight_uefi.obj: src/paging_preflight.c include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h include/vgk_boot_info.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
 
 paging-ranges-compile-test: build/paging_ranges_native.o build/paging_ranges_uefi.obj build/paging_preflight_native.o build/paging_preflight_uefi.obj
@@ -113,7 +113,7 @@ exception-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/exception.c tests/test_exception.c -o build/test_exception
 	./build/test_exception
 
-build/bootx64.obj: boot/uefi/bootx64.c include/vgk_boot_info.h include/vgk_acpi.h include/vgk_cpu_features.h include/vgk_paging_preflight.h boot/uefi/uefi_graphics.h include/vgk_framebuffer.h boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/crypto/manifest.h | build
+build/bootx64.obj: boot/uefi/bootx64.c include/vgk_boot_info.h include/vgk_acpi.h include/vgk_cpu_features.h include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h boot/uefi/uefi_graphics.h include/vgk_framebuffer.h boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/crypto/manifest.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iinclude -Iboot/uefi -Iboot/crypto -c $< -o $@
 
 # Most UEFI functions use Microsoft x64 ABI; this bridge prepares the native
@@ -181,14 +181,14 @@ uefi-test: build/BOOTX64.EFI
 
 # Compile and link the trusted-key path with a test-only key.
 # This image is for CI only and is never published as a release artifact.
-build/bootx64-keyed-test.obj: boot/uefi/bootx64.c boot/uefi/uefi_graphics.h include/vgk_framebuffer.h boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/uefi/uefi_file_reader.h boot/uefi/elf_loader.h boot/uefi/uefi_elf_allocator.h boot/uefi/uefi_memory_map.h boot/uefi/uefi_kernel_entry.h include/vgk_boot_info.h include/vgk_acpi.h include/vgk_cpu_features.h include/vgk_paging_preflight.h tests/fixtures/vgk_trusted_public_key.h | build
+build/bootx64-keyed-test.obj: boot/uefi/bootx64.c boot/uefi/uefi_graphics.h include/vgk_framebuffer.h boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/uefi/uefi_file_reader.h boot/uefi/elf_loader.h boot/uefi/uefi_elf_allocator.h boot/uefi/uefi_memory_map.h boot/uefi/uefi_kernel_entry.h include/vgk_boot_info.h include/vgk_acpi.h include/vgk_cpu_features.h include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h tests/fixtures/vgk_trusted_public_key.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Itests/fixtures -Iinclude -Iboot/uefi -Iboot/crypto -c $< -o $@
 
 build/BOOTX64-KEYED-TEST.EFI: build/bootx64-keyed-test.obj build/uefi_pci.obj build/pci_uefi.obj build/uefi_kernel_entry.obj build/elf_loader.obj build/uefi_elf_allocator.obj build/uefi_memory_map.obj build/paging_requirements_uefi.obj build/paging_ranges_uefi.obj build/paging_preflight_uefi.obj build/acpi_uefi.obj build/cpu_features_uefi.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
 	$(LLD_LINK) $(UEFI_LDFLAGS) /out:$@ $^
 
 # QEMU image uses a fresh ephemeral key generated by the CI job.
-build/bootx64-qemu-test.obj: boot/uefi/bootx64.c boot/uefi/uefi_graphics.h include/vgk_framebuffer.h boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/uefi/uefi_file_reader.h boot/uefi/elf_loader.h boot/uefi/uefi_elf_allocator.h boot/uefi/uefi_memory_map.h boot/uefi/uefi_kernel_entry.h include/vgk_boot_info.h include/vgk_acpi.h include/vgk_cpu_features.h include/vgk_paging_preflight.h build/vgk_trusted_public_key.h | build
+build/bootx64-qemu-test.obj: boot/uefi/bootx64.c boot/uefi/uefi_graphics.h include/vgk_framebuffer.h boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/uefi/uefi_file_reader.h boot/uefi/elf_loader.h boot/uefi/uefi_elf_allocator.h boot/uefi/uefi_memory_map.h boot/uefi/uefi_kernel_entry.h include/vgk_boot_info.h include/vgk_acpi.h include/vgk_cpu_features.h include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h build/vgk_trusted_public_key.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Ibuild -Iinclude -Iboot/uefi -Iboot/crypto -c $< -o $@
 
 build/BOOTX64-QEMU-TEST.EFI: build/bootx64-qemu-test.obj build/uefi_pci.obj build/pci_uefi.obj build/uefi_kernel_entry.obj build/elf_loader.obj build/uefi_elf_allocator.obj build/uefi_memory_map.obj build/paging_requirements_uefi.obj build/paging_ranges_uefi.obj build/paging_preflight_uefi.obj build/acpi_uefi.obj build/cpu_features_uefi.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
