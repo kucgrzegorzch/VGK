@@ -172,6 +172,18 @@ int main(void)
                       allocator.active == 0U,
                       "672-page pool cleanup failed");
 
+    failures += check(test_allocate(&allocator, 64U, &pool.address) == 0,
+                      "third initial allocation failed");
+    pool.pages = 64U;
+    failures += check(vgk_uefi_page_table_pool_grow(
+        &pool, 100U, 80U, 1024U, test_allocate, test_free, &allocator,
+        &orphan_address, &orphan_pages) == VGK_UEFI_PAGE_POOL_OK &&
+        pool.pages == 180U && allocator.active == 1U,
+        "shared reserve policy was not applied to the replacement size");
+    failures += check(test_free(&allocator, pool.address, pool.pages) == 0 &&
+                      allocator.active == 0U,
+                      "reserve-sized pool cleanup failed");
+
     if (failures != 0U) {
         printf("UEFI page-table pool tests failed: %u\n", failures);
         return 1;
