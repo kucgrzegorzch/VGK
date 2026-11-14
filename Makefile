@@ -176,14 +176,17 @@ build/BOOTX64.EFI: build/bootx64.obj build/uefi_pci.obj build/pci_uefi.obj build
 
 uefi: build/BOOTX64.EFI
 
-uefi-test: build/BOOTX64.EFI build/uefi_page_table_pool.obj uefi-page-table-pool-test
+uefi-test: build/BOOTX64.EFI build/uefi_page_table_pool.obj build/paging_pool_policy_uefi.obj uefi-page-table-pool-test
 	python3 tests/check_uefi_image.py build/BOOTX64.EFI
 
-build/uefi_page_table_pool.obj: boot/uefi/uefi_page_table_pool.c boot/uefi/uefi_page_table_pool.h | build
-	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -c $< -o $@
+build/paging_pool_policy_uefi.obj: src/paging_pool_policy.c include/vgk_paging_pool_policy.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
+
+build/uefi_page_table_pool.obj: boot/uefi/uefi_page_table_pool.c boot/uefi/uefi_page_table_pool.h include/vgk_paging_pool_policy.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Iinclude -Iboot/uefi -c $< -o $@
 
 uefi-page-table-pool-test: | build
-	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi boot/uefi/uefi_page_table_pool.c tests/test_uefi_page_table_pool.c -o build/test_uefi_page_table_pool
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude -Iboot/uefi src/paging_pool_policy.c boot/uefi/uefi_page_table_pool.c tests/test_uefi_page_table_pool.c -o build/test_uefi_page_table_pool
 	./build/test_uefi_page_table_pool
 
 # Compile and link the trusted-key path with a test-only key.
