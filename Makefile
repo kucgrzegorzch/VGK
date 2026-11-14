@@ -11,7 +11,7 @@ UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machin
 CRYPTO_DIR := boot/crypto
 MONOCYPHER_DIR := $(CRYPTO_DIR)/monocypher
 
-.PHONY: all clean iso check-tools test paging-requirements-test native-kernel native-kernel-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test cpu-features-test interrupts-test exception-test framebuffer-test pci-test uefi-pci-test paging-test paging-ranges-test paging-ranges-compile-test paging-preflight-test acpi-test
+.PHONY: all clean iso check-tools test paging-requirements-test native-kernel native-kernel-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test cpu-features-test interrupts-test exception-test framebuffer-test pci-test uefi-pci-test paging-test paging-ranges-test paging-ranges-compile-test paging-preflight-test acpi-test uefi-page-table-pool-test
 all: build/vgk-kernel.elf
 
 test: build/vgk-kernel.elf
@@ -176,8 +176,15 @@ build/BOOTX64.EFI: build/bootx64.obj build/uefi_pci.obj build/pci_uefi.obj build
 
 uefi: build/BOOTX64.EFI
 
-uefi-test: build/BOOTX64.EFI
+uefi-test: build/BOOTX64.EFI build/uefi_page_table_pool.obj uefi-page-table-pool-test
 	python3 tests/check_uefi_image.py build/BOOTX64.EFI
+
+build/uefi_page_table_pool.obj: boot/uefi/uefi_page_table_pool.c boot/uefi/uefi_page_table_pool.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Iboot/uefi -c $< -o $@
+
+uefi-page-table-pool-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi boot/uefi/uefi_page_table_pool.c tests/test_uefi_page_table_pool.c -o build/test_uefi_page_table_pool
+	./build/test_uefi_page_table_pool
 
 # Compile and link the trusted-key path with a test-only key.
 # This image is for CI only and is never published as a release artifact.
