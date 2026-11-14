@@ -74,12 +74,12 @@ int main(void)
               ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
           VGK_PAGING_RANGES_OK);
     CHECK(count == VGK_BOOT_MAX_KERNEL_SEGMENTS + 5U);
+    CHECK(ranges[VGK_BOOT_MAX_KERNEL_SEGMENTS].virtual_address ==
+          UINT64_C(0x600000));
     CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600000), 36U, 1,
               ranges, VGK_BOOT_MAX_KERNEL_SEGMENTS + 4U, &count) ==
           VGK_PAGING_RANGES_TOO_MANY);
     CHECK(count == 0U);
-    CHECK(ranges[VGK_BOOT_MAX_KERNEL_SEGMENTS].virtual_address ==
-          UINT64_C(0x600000));
 
     /* Without the ACPI flag, a zero RSDP length is required. */
     info.flags = 0U;
