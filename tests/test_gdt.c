@@ -49,6 +49,7 @@ int main(void)
     assert(gdt[1] == UINT64_C(0x00AF9A000000FFFF));
     assert(gdt[2] == UINT64_C(0x00CF92000000FFFF));
     assert(tss_descriptor_base(gdt) == (uint64_t)(uintptr_t)&tss);
+    assert((gdt[4] >> 32) == 0U); /* reserved upper half of TSS descriptor */
     assert(tss_descriptor_limit(gdt) == VGK_TSS64_SIZE - 1U);
     assert(((gdt[3] >> 40) & 0xFFU) == 0x89U);
     assert((gdt[3] & (UINT64_C(1) << 47)) != 0U);
