@@ -92,6 +92,38 @@ int main(void)
     }
 
     info = valid_info();
+    info.flags = VGK_BOOT_FLAG_ACPI;
+    info.acpi_rsdp_address = UINT64_C(0x2FF000);
+    if (!vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: odrzucono RSDP konczace sie przed pula");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.flags = VGK_BOOT_FLAG_ACPI;
+    info.acpi_rsdp_address = UINT64_C(0x2FF010);
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano stronicowy overlap RSDP z pula");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.flags = VGK_BOOT_FLAG_ACPI;
+    info.acpi_rsdp_address = UINT64_C(0x300100);
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano RSDP wewnatrz puli");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.flags = VGK_BOOT_FLAG_ACPI;
+    info.acpi_rsdp_address = UINT64_MAX - UINT64_C(2048);
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano przepelnienie zakresu RSDP");
+        ++failures;
+    }
+
+    info = valid_info();
     info.page_table_pool_pages = VGK_BOOT_PAGE_TABLE_POOL_MIN_PAGES - 1U;
     if (vgk_boot_info_is_valid(&info)) {
         puts("FAIL: zaakceptowano pule mniejsza od minimum");
