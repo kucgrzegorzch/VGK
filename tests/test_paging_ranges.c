@@ -60,6 +60,13 @@ int main(void)
     CHECK(ranges[6].virtual_address == UINT64_C(0x800000));
     CHECK(ranges[6].length == 0x4123U); /* 512 * 8 * 4 + 0x123 offset */
 
+    info.framebuffer_size = 0x3FFFU;
+    CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600123), 36U, 1,
+              ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
+          VGK_PAGING_RANGES_BAD_OBJECT);
+    CHECK(count == 0U);
+    info = sample_info();
+
     /* Framebuffer is omitted unless the caller proves its UC policy. */
     CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600123), 36U, 0,
               ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
