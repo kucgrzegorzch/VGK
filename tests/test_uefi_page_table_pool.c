@@ -86,6 +86,12 @@ int main(void)
     memset((void *)(uintptr_t)pool.address, 0xA5, 64U * 4096U);
 
     failures += check(vgk_uefi_page_table_pool_grow(
+        &pool, 0U, 1024U, test_allocate, test_free, &allocator,
+        &orphan_address, &orphan_pages) == VGK_UEFI_PAGE_POOL_INVALID_ARGUMENT &&
+        pool.pages == 64U,
+        "zero-page growth request was not rejected");
+
+    failures += check(vgk_uefi_page_table_pool_grow(
         &pool, 70U, 1024U, test_allocate, test_free, &allocator,
         &orphan_address, &orphan_pages) == VGK_UEFI_PAGE_POOL_OK,
         "growth from 64 to 128 pages failed");
@@ -153,6 +159,18 @@ int main(void)
     failures += check(test_free(&allocator, pool.address, pool.pages) == 0 &&
                       allocator.active == 0U,
                       "final pool cleanup failed");
+
+    failures += check(test_allocate(&allocator, 64U, &pool.address) == 0,
+                      "second initial allocation failed");
+    pool.pages = 64U;
+    failures += check(vgk_uefi_page_table_pool_grow(
+        &pool, 672U, 1024U, test_allocate, test_free, &allocator,
+        &orphan_address, &orphan_pages) == VGK_UEFI_PAGE_POOL_OK &&
+        pool.pages == 672U && allocator.active == 1U,
+        "growth to the audited 672-page requirement failed");
+    failures += check(test_free(&allocator, pool.address, pool.pages) == 0 &&
+                      allocator.active == 0U,
+                      "672-page pool cleanup failed");
 
     if (failures != 0U) {
         printf("UEFI page-table pool tests failed: %u\n", failures);
