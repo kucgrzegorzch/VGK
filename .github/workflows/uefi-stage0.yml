@@ -43,6 +43,10 @@ jobs:
         run: make paging-test
       - name: Test x86-64 page-table capacity calculator
         run: make paging-requirements-test
+      - name: Compile shared page-table range builder for kernel and UEFI
+        run: make paging-ranges-compile-test
+      - name: Test shared page-table mapping range builder
+        run: make paging-ranges-test
       - name: Test x86 CPU feature detection
         run: make cpu-features-test
       - name: Test x86 interrupt descriptor encoding
