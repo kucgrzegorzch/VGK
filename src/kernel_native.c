@@ -72,7 +72,10 @@ static int page_table_pool_is_zeroed(const VGK_BOOT_INFO *boot_info)
 
     if (boot_info == 0 ||
         boot_info->page_table_pool_base == 0 ||
-        boot_info->page_table_pool_pages != VGK_BOOT_PAGE_TABLE_POOL_PAGES)
+        boot_info->page_table_pool_pages < VGK_BOOT_PAGE_TABLE_POOL_MIN_PAGES ||
+        boot_info->page_table_pool_pages > VGK_BOOT_PAGE_TABLE_POOL_MAX_PAGES ||
+        boot_info->page_table_pool_pages >
+            UINT64_MAX / (VGK_BOOT_PAGE_SIZE / sizeof(uint64_t)))
         return 0;
 
     words = (const volatile uint64_t *)(uintptr_t)
