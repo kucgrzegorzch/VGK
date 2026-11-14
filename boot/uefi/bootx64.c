@@ -808,7 +808,15 @@ static EFI_STATUS start_verified_kernel(
             continue;
         }
 
-        status = services->exit_boot_services(image_handle, map_key);
+#if defined(VGK_TEST_FORCE_EBS_RETRY)
+        if (exit_attempts == 0U) {
+            /* Exercise the real firmware invalid-key retry path in QEMU. */
+            status = services->exit_boot_services(image_handle, map_key ^ 1U);
+        } else
+#endif
+        {
+            status = services->exit_boot_services(image_handle, map_key);
+        }
         ++exit_attempts;
         if (status == EFI_SUCCESS) {
             vgk_uefi_enter_kernel(load_plan.entry, &boot_info);
