@@ -11,6 +11,7 @@ typedef struct {
     unsigned active;
     unsigned fail_allocations;
     unsigned fail_frees;
+    unsigned misalign_next_allocation;
 } TEST_ALLOCATOR;
 
 static int test_allocate(void *context, uint64_t pages, uint64_t *address)
@@ -36,6 +37,10 @@ static int test_allocate(void *context, uint64_t pages, uint64_t *address)
             allocator->pages[i] = pages;
             ++allocator->active;
             *address = (uint64_t)(uintptr_t)block;
+            if (allocator->misalign_next_allocation != 0U) {
+                --allocator->misalign_next_allocation;
+                ++*address;
+            }
             return 0;
         }
     }
@@ -52,7 +57,8 @@ static int test_free(void *context, uint64_t address, uint64_t pages)
         return 1;
     }
     for (unsigned i = 0; i < 8U; ++i) {
-        if (allocator->blocks[i] == (void *)(uintptr_t)address) {
+        if (allocator->blocks[i] == (void *)(uintptr_t)address ||
+            (uint64_t)(uintptr_t)allocator->blocks[i] + 1U == address) {
             if (allocator->pages[i] != pages)
                 return 1;
             free(allocator->blocks[i]);
@@ -74,7 +80,7 @@ static int check(int condition, const char *message)
 
 int main(void)
 {
-    TEST_ALLOCATOR allocator = {{0}, {0}, 0U, 0U, 0U};
+    TEST_ALLOCATOR allocator = {{0}, {0}, 0U, 0U, 0U, 0U};
     VGK_UEFI_PAGE_TABLE_POOL pool = {0, 0};
     uint64_t orphan_address = 0;
     uint64_t orphan_pages = 0;
@@ -125,6 +131,32 @@ int main(void)
         &orphan_address, &orphan_pages) ==
             VGK_UEFI_PAGE_POOL_LIMIT_EXCEEDED && pool.pages == 128U,
         "request above maximum was not rejected");
+
+    allocator.misalign_next_allocation = 1U;
+    failures += check(vgk_uefi_page_table_pool_grow(
+        &pool, 129U, 8U, 1024U, test_allocate, test_free, &allocator,
+        &orphan_address, &orphan_pages) ==
+            VGK_UEFI_PAGE_POOL_BAD_ALLOCATION &&
+            pool.pages == 128U && allocator.active == 1U &&
+            orphan_address == 0U && orphan_pages == 0U,
+        "misaligned replacement was not rejected and released");
+
+    allocator.misalign_next_allocation = 1U;
+    allocator.fail_frees = 1U;
+    failures += check(vgk_uefi_page_table_pool_grow(
+        &pool, 129U, 8U, 1024U, test_allocate, test_free, &allocator,
+        &orphan_address, &orphan_pages) ==
+            VGK_UEFI_PAGE_POOL_ORPHANED_ALLOCATION &&
+            pool.pages == 128U && allocator.active == 2U &&
+            orphan_address != 0U && orphan_pages == 256U,
+        "failed cleanup of a malformed allocation was not reported");
+    if (orphan_pages != 0U) {
+        failures += check(test_free(&allocator, orphan_address,
+                                    orphan_pages) == 0,
+                          "malformed allocation orphan could not be released");
+        orphan_address = 0U;
+        orphan_pages = 0U;
+    }
 
     allocator.fail_allocations = 1U;
     failures += check(vgk_uefi_page_table_pool_grow(
