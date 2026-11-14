@@ -47,7 +47,7 @@ VGK_UEFI_PAGE_POOL_RESULT vgk_uefi_page_table_pool_grow(
     uint64_t replacement_address = 0;
     uint64_t replacement_bytes;
     uint64_t old_bytes;
-    uint64_t *replacement_words;
+    volatile uint64_t *replacement_words;
     uint64_t word_count;
 
     if (orphan_address == 0 || orphan_pages == 0)
@@ -87,11 +87,11 @@ VGK_UEFI_PAGE_POOL_RESULT vgk_uefi_page_table_pool_grow(
             VGK_UEFI_PAGE_POOL_BAD_ALLOCATION);
     }
 
-    replacement_words = (uint64_t *)(uintptr_t)replacement_address;
+    replacement_words = (volatile uint64_t *)(uintptr_t)replacement_address;
     word_count = target_pages *
         (VGK_UEFI_PAGE_TABLE_POOL_PAGE_SIZE / sizeof(uint64_t));
     for (uint64_t i = 0; i < word_count; ++i)
-        ((volatile uint64_t *)replacement_words)[i] = 0;
+        replacement_words[i] = 0;
 
     if (free_pages(context, pool->address, pool->pages) != 0) {
         return release_replacement(
