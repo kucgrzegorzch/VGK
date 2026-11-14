@@ -42,13 +42,13 @@ static int test_worst_case_page_table_requirement(void)
           UINT64_C(4) << 20U },
         /* Maximum normalized map buffer, crossing 2 MiB/1 GiB/512 GiB. */
         { (UINT64_C(6) * pml4_span) - UINT64_C(4096),
-          (UINT64_C(512) << 10U) + UINT64_C(4096) },
-        /* VGK_BOOT_INFO is 2376 bytes and may straddle the same boundaries. */
+          (UINT64_C(512) << 10U) + UINT64_C(4080) },
+        /* VGK_BOOT_INFO is 8-byte aligned and may straddle the same boundaries. */
         { (UINT64_C(8) * pml4_span) - UINT64_C(4096),
-          (uint64_t)sizeof(VGK_BOOT_INFO) + UINT64_C(4096) },
-        /* A 36-byte ACPI RSDP can cross a page and paging-structure boundary. */
+          (uint64_t)sizeof(VGK_BOOT_INFO) + UINT64_C(4088) },
+        /* The 16-byte-aligned ACPI RSDP may straddle a page boundary. */
         { (UINT64_C(10) * pml4_span) - UINT64_C(4096),
-          UINT64_C(36) + UINT64_C(4096) }
+          UINT64_C(36) + UINT64_C(4080) }
     };
     VGK_PAGING_REQUIREMENTS result;
 
