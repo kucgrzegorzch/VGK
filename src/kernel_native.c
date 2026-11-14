@@ -4,8 +4,7 @@
 #include "vgk_memory.h"
 #include "vgk_cpu_features.h"
 #include "vgk_paging.h"
-#include "vgk_paging_requirements.h"
-#include "vgk_paging_ranges.h"
+#include "vgk_paging_preflight.h"
 
 #define COM1_PORT 0x3F8U
 
@@ -159,19 +158,16 @@ static int page_table_pool_has_capacity(
     const VGK_CPU_FEATURES *cpu_features,
     int framebuffer_is_uncacheable)
 {
-    VGK_PAGING_VIRTUAL_RANGE ranges[VGK_PAGING_REQUIREMENTS_MAX_RANGES];
     VGK_PAGING_REQUIREMENTS requirements;
-    const VGK_MEMORY_MAP_ENTRY *memory_map;
-    size_t range_count = 0U;
     uint64_t rsdp_length = 0U;
-    VGK_PAGING_RANGES_RESULT ranges_result;
-    VGK_PAGING_REQUIREMENTS_RESULT calc_result;
+    VGK_PAGING_PREFLIGHT_RESULT preflight_result;
 
     if (boot_info == 0 || cpu_features == 0)
         return 0;
 
     if ((boot_info->flags & VGK_BOOT_FLAG_ACPI) != 0U) {
         size_t memory_map_count;
+        const VGK_MEMORY_MAP_ENTRY *memory_map;
         const volatile uint8_t *rsdp;
 
         if (boot_info->memory_map_size % sizeof(VGK_MEMORY_MAP_ENTRY) != 0U)
@@ -190,26 +186,15 @@ static int page_table_pool_has_capacity(
             return 0;
     }
 
-    ranges_result = vgk_paging_ranges_build(
+    preflight_result = vgk_paging_preflight_calculate(
         boot_info,
         (uint64_t)(uintptr_t)boot_info,
         rsdp_length,
         framebuffer_is_uncacheable,
-        ranges,
-        VGK_PAGING_REQUIREMENTS_MAX_RANGES,
-        &range_count);
-    if (ranges_result != VGK_PAGING_RANGES_OK) {
-        serial_write("VGK: wspolny builder zakresow odrzucil dane, kod = ");
-        serial_write_hex((uint64_t)ranges_result);
-        serial_write("\r\n");
-        return 0;
-    }
-
-    calc_result = vgk_paging_requirements_calculate(
-        ranges, range_count, &requirements);
-    if (calc_result != VGK_PAGING_REQUIREMENTS_OK) {
-        serial_write("VGK: kalkulator zapotrzebowania odrzucil zakresy, kod = ");
-        serial_write_hex((uint64_t)calc_result);
+        &requirements);
+    if (preflight_result != VGK_PAGING_PREFLIGHT_OK) {
+        serial_write("VGK: wspolny preflight tablic stron odrzucil dane, kod = ");
+        serial_write_hex((uint64_t)preflight_result);
         serial_write("\r\n");
         return 0;
     }

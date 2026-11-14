@@ -15,8 +15,7 @@
 #include "integrity.h"
 #include "vgk_acpi.h"
 #include "vgk_cpu_features.h"
-#include "vgk_paging_ranges.h"
-#include "vgk_paging_requirements.h"
+#include "vgk_paging_preflight.h"
 
 #if defined(__x86_64__)
 #define EFIAPI __attribute__((ms_abi))
@@ -399,11 +398,8 @@ static void capture_framebuffer(EFI_SYSTEM_TABLE *system_table)
 static int uefi_page_table_pool_has_capacity(const VGK_BOOT_INFO *info)
 {
     VGK_CPU_FEATURES cpu_features;
-    VGK_PAGING_VIRTUAL_RANGE ranges[VGK_PAGING_REQUIREMENTS_MAX_RANGES];
     VGK_PAGING_REQUIREMENTS requirements;
-    size_t range_count = 0U;
     uint64_t rsdp_length = 0U;
-    VGK_PAGING_RANGES_RESULT ranges_result;
 
     if (info == 0 ||
         vgk_cpu_detect_features(&cpu_features) != VGK_CPU_OK)
@@ -426,20 +422,12 @@ static int uefi_page_table_pool_has_capacity(const VGK_BOOT_INFO *info)
             return 0;
     }
 
-    ranges_result = vgk_paging_ranges_build(
-        info,
-        (uint64_t)(uintptr_t)info,
-        rsdp_length,
-        (info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0U,
-        ranges,
-        VGK_PAGING_REQUIREMENTS_MAX_RANGES,
-        &range_count);
-    if (ranges_result != VGK_PAGING_RANGES_OK)
-        return 0;
-
-    if (vgk_paging_requirements_calculate(
-            ranges, range_count, &requirements) !=
-        VGK_PAGING_REQUIREMENTS_OK)
+    if (vgk_paging_preflight_calculate(
+            info,
+            (uint64_t)(uintptr_t)info,
+            rsdp_length,
+            (info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0U,
+            &requirements) != VGK_PAGING_PREFLIGHT_OK)
         return 0;
 
     return requirements.total_pages <= info->page_table_pool_pages;

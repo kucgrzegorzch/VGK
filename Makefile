@@ -11,7 +11,7 @@ UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machin
 CRYPTO_DIR := boot/crypto
 MONOCYPHER_DIR := $(CRYPTO_DIR)/monocypher
 
-.PHONY: all clean iso check-tools test paging-requirements-test native-kernel native-kernel-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test cpu-features-test interrupts-test exception-test framebuffer-test pci-test uefi-pci-test paging-test paging-ranges-test paging-ranges-compile-test acpi-test
+.PHONY: all clean iso check-tools test paging-requirements-test native-kernel native-kernel-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test cpu-features-test interrupts-test exception-test framebuffer-test pci-test uefi-pci-test paging-test paging-ranges-test paging-ranges-compile-test paging-preflight-test acpi-test
 all: build/vgk-kernel.elf
 
 test: build/vgk-kernel.elf
@@ -36,7 +36,7 @@ build/entry_native.o: boot/entry_native.S | build
 build/exception_stubs_native.o: boot/exception_stubs.S | build
 	$(CC) -m64 -ffreestanding -fno-pic -fno-pie -c $< -o $@
 
-build/kernel_native.o: src/kernel_native.c include/vgk_boot_info.h include/vgk_acpi.h include/vgk_memory.h include/vgk_cpu_features.h include/vgk_paging.h include/vgk_paging_requirements.h include/vgk_paging_ranges.h | build
+build/kernel_native.o: src/kernel_native.c include/vgk_boot_info.h include/vgk_acpi.h include/vgk_memory.h include/vgk_cpu_features.h include/vgk_paging.h include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h | build
 	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
 build/cpu_features_native.o: src/cpu_features.c include/vgk_cpu_features.h | build
@@ -54,8 +54,8 @@ build/paging_native.o: src/paging.c include/vgk_paging.h | build
 build/paging_requirements_native.o: src/paging_requirements.c include/vgk_paging_requirements.h | build
 	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
-build/vgk-kernel-native.elf: build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/paging_ranges_native.o linker-native.ld
-	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/paging_ranges_native.o
+build/vgk-kernel-native.elf: build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/paging_ranges_native.o build/paging_preflight_native.o linker-native.ld
+	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/paging_ranges_native.o build/paging_preflight_native.o
 
 native-kernel: build/vgk-kernel-native.elf
 
@@ -78,14 +78,24 @@ paging-requirements-test: | build
 build/paging_ranges_native.o: src/paging_ranges.c include/vgk_paging_ranges.h include/vgk_boot_info.h include/vgk_paging_requirements.h | build
 	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
+build/paging_preflight_native.o: src/paging_preflight.c include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h include/vgk_boot_info.h | build
+	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
+
 build/paging_ranges_uefi.obj: src/paging_ranges.c include/vgk_paging_ranges.h include/vgk_boot_info.h include/vgk_paging_requirements.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
 
-paging-ranges-compile-test: build/paging_ranges_native.o build/paging_ranges_uefi.obj
+build/paging_preflight_uefi.obj: src/paging_preflight.c include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h include/vgk_boot_info.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
 
-paging-ranges-test: paging-ranges-compile-test | build
+paging-ranges-compile-test: build/paging_ranges_native.o build/paging_ranges_uefi.obj build/paging_preflight_native.o build/paging_preflight_uefi.obj
+
+paging-ranges-test: paging-ranges-compile-test paging-preflight-test | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/paging_ranges.c src/paging_requirements.c tests/test_paging_ranges.c -o build/test_paging_ranges
 	./build/test_paging_ranges
+
+paging-preflight-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/paging_preflight.c src/paging_ranges.c src/paging_requirements.c tests/test_paging_preflight.c -o build/test_paging_preflight
+	./build/test_paging_preflight
 
 paging-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/paging.c src/paging_requirements.c tests/test_paging.c -o build/test_paging
@@ -103,7 +113,7 @@ exception-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/exception.c tests/test_exception.c -o build/test_exception
 	./build/test_exception
 
-build/bootx64.obj: boot/uefi/bootx64.c include/vgk_boot_info.h include/vgk_acpi.h include/vgk_cpu_features.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h boot/uefi/uefi_graphics.h include/vgk_framebuffer.h boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/crypto/manifest.h | build
+build/bootx64.obj: boot/uefi/bootx64.c include/vgk_boot_info.h include/vgk_acpi.h include/vgk_cpu_features.h include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h boot/uefi/uefi_graphics.h include/vgk_framebuffer.h boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/crypto/manifest.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iinclude -Iboot/uefi -Iboot/crypto -c $< -o $@
 
 # Most UEFI functions use Microsoft x64 ABI; this bridge prepares the native
@@ -133,8 +143,6 @@ build/uefi_memory_map.obj: boot/uefi/uefi_memory_map.c boot/uefi/uefi_memory_map
 build/paging_requirements_uefi.obj: src/paging_requirements.c include/vgk_paging_requirements.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
 
-build/paging_ranges_uefi.obj: src/paging_ranges.c include/vgk_paging_ranges.h include/vgk_boot_info.h include/vgk_paging_requirements.h | build
-	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
 
 build/acpi_uefi.obj: src/acpi.c include/vgk_acpi.h include/vgk_boot_info.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
@@ -163,7 +171,7 @@ build/monocypher.obj: $(MONOCYPHER_DIR)/monocypher.c | build
 build/monocypher_ed25519.obj: $(MONOCYPHER_DIR)/monocypher-ed25519.c | build
 	$(CLANG) $(UEFI_CFLAGS) -I$(MONOCYPHER_DIR) -c $< -o $@
 
-build/BOOTX64.EFI: build/bootx64.obj build/uefi_pci.obj build/pci_uefi.obj build/uefi_kernel_entry.obj build/elf_loader.obj build/uefi_elf_allocator.obj build/uefi_memory_map.obj build/paging_requirements_uefi.obj build/paging_ranges_uefi.obj build/acpi_uefi.obj build/cpu_features_uefi.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
+build/BOOTX64.EFI: build/bootx64.obj build/uefi_pci.obj build/pci_uefi.obj build/uefi_kernel_entry.obj build/elf_loader.obj build/uefi_elf_allocator.obj build/uefi_memory_map.obj build/paging_requirements_uefi.obj build/paging_ranges_uefi.obj build/paging_preflight_uefi.obj build/acpi_uefi.obj build/cpu_features_uefi.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
 	$(LLD_LINK) $(UEFI_LDFLAGS) /out:$@ $^
 
 uefi: build/BOOTX64.EFI
@@ -173,17 +181,17 @@ uefi-test: build/BOOTX64.EFI
 
 # Compile and link the trusted-key path with a test-only key.
 # This image is for CI only and is never published as a release artifact.
-build/bootx64-keyed-test.obj: boot/uefi/bootx64.c boot/uefi/uefi_graphics.h include/vgk_framebuffer.h boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/uefi/uefi_file_reader.h boot/uefi/elf_loader.h boot/uefi/uefi_elf_allocator.h boot/uefi/uefi_memory_map.h boot/uefi/uefi_kernel_entry.h include/vgk_boot_info.h include/vgk_acpi.h include/vgk_cpu_features.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h tests/fixtures/vgk_trusted_public_key.h | build
+build/bootx64-keyed-test.obj: boot/uefi/bootx64.c boot/uefi/uefi_graphics.h include/vgk_framebuffer.h boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/uefi/uefi_file_reader.h boot/uefi/elf_loader.h boot/uefi/uefi_elf_allocator.h boot/uefi/uefi_memory_map.h boot/uefi/uefi_kernel_entry.h include/vgk_boot_info.h include/vgk_acpi.h include/vgk_cpu_features.h include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h tests/fixtures/vgk_trusted_public_key.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Itests/fixtures -Iinclude -Iboot/uefi -Iboot/crypto -c $< -o $@
 
-build/BOOTX64-KEYED-TEST.EFI: build/bootx64-keyed-test.obj build/uefi_pci.obj build/pci_uefi.obj build/uefi_kernel_entry.obj build/elf_loader.obj build/uefi_elf_allocator.obj build/uefi_memory_map.obj build/paging_requirements_uefi.obj build/paging_ranges_uefi.obj build/acpi_uefi.obj build/cpu_features_uefi.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
+build/BOOTX64-KEYED-TEST.EFI: build/bootx64-keyed-test.obj build/uefi_pci.obj build/pci_uefi.obj build/uefi_kernel_entry.obj build/elf_loader.obj build/uefi_elf_allocator.obj build/uefi_memory_map.obj build/paging_requirements_uefi.obj build/paging_ranges_uefi.obj build/paging_preflight_uefi.obj build/acpi_uefi.obj build/cpu_features_uefi.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
 	$(LLD_LINK) $(UEFI_LDFLAGS) /out:$@ $^
 
 # QEMU image uses a fresh ephemeral key generated by the CI job.
-build/bootx64-qemu-test.obj: boot/uefi/bootx64.c boot/uefi/uefi_graphics.h include/vgk_framebuffer.h boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/uefi/uefi_file_reader.h boot/uefi/elf_loader.h boot/uefi/uefi_elf_allocator.h boot/uefi/uefi_memory_map.h boot/uefi/uefi_kernel_entry.h include/vgk_boot_info.h include/vgk_acpi.h include/vgk_cpu_features.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h build/vgk_trusted_public_key.h | build
+build/bootx64-qemu-test.obj: boot/uefi/bootx64.c boot/uefi/uefi_graphics.h include/vgk_framebuffer.h boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/uefi/uefi_file_reader.h boot/uefi/elf_loader.h boot/uefi/uefi_elf_allocator.h boot/uefi/uefi_memory_map.h boot/uefi/uefi_kernel_entry.h include/vgk_boot_info.h include/vgk_acpi.h include/vgk_cpu_features.h include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h build/vgk_trusted_public_key.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Ibuild -Iinclude -Iboot/uefi -Iboot/crypto -c $< -o $@
 
-build/BOOTX64-QEMU-TEST.EFI: build/bootx64-qemu-test.obj build/uefi_pci.obj build/pci_uefi.obj build/uefi_kernel_entry.obj build/elf_loader.obj build/uefi_elf_allocator.obj build/uefi_memory_map.obj build/paging_requirements_uefi.obj build/paging_ranges_uefi.obj build/acpi_uefi.obj build/cpu_features_uefi.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
+build/BOOTX64-QEMU-TEST.EFI: build/bootx64-qemu-test.obj build/uefi_pci.obj build/pci_uefi.obj build/uefi_kernel_entry.obj build/elf_loader.obj build/uefi_elf_allocator.obj build/uefi_memory_map.obj build/paging_requirements_uefi.obj build/paging_ranges_uefi.obj build/paging_preflight_uefi.obj build/acpi_uefi.obj build/cpu_features_uefi.obj build/uefi_file_reader.obj build/uefi_release_verify.obj build/sha256.obj build/integrity.obj build/manifest.obj build/ed25519.obj build/monocypher.obj build/monocypher_ed25519.obj
 	$(LLD_LINK) $(UEFI_LDFLAGS) /out:$@ $^
 
 uefi-qemu-image: build/BOOTX64-QEMU-TEST.EFI
