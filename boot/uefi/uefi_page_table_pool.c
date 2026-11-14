@@ -1,4 +1,5 @@
 #include "uefi_page_table_pool.h"
+#include "vgk_paging_pool_policy.h"
 
 static int range_is_valid(uint64_t address, uint64_t pages)
 {
@@ -33,6 +34,7 @@ static VGK_UEFI_PAGE_POOL_RESULT release_replacement(
 VGK_UEFI_PAGE_POOL_RESULT vgk_uefi_page_table_pool_grow(
     VGK_UEFI_PAGE_TABLE_POOL *pool,
     uint64_t required_pages,
+    uint64_t reserve_pages,
     uint64_t max_pages,
     VGK_UEFI_PAGE_POOL_ALLOCATE allocate_pages,
     VGK_UEFI_PAGE_POOL_FREE free_pages,
@@ -41,6 +43,7 @@ VGK_UEFI_PAGE_POOL_RESULT vgk_uefi_page_table_pool_grow(
     uint64_t *orphan_pages)
 {
     uint64_t target_pages;
+    VGK_PAGING_POOL_POLICY_RESULT policy_result;
     uint64_t replacement_address = 0;
     uint64_t replacement_bytes;
     uint64_t old_bytes;
@@ -58,22 +61,15 @@ VGK_UEFI_PAGE_POOL_RESULT vgk_uefi_page_table_pool_grow(
         max_pages > UINT64_MAX / VGK_UEFI_PAGE_TABLE_POOL_PAGE_SIZE)
         return VGK_UEFI_PAGE_POOL_INVALID_ARGUMENT;
 
-    if (required_pages == 0)
-        return VGK_UEFI_PAGE_POOL_INVALID_ARGUMENT;
-    if (required_pages > max_pages)
-        return VGK_UEFI_PAGE_POOL_LIMIT_EXCEEDED;
-    if (required_pages <= pool->pages)
+    policy_result = vgk_paging_pool_next_size(
+        pool->pages, required_pages, reserve_pages, max_pages,
+        &target_pages);
+    if (policy_result == VGK_PAGING_POOL_POLICY_OK)
         return VGK_UEFI_PAGE_POOL_OK;
-
-    target_pages = pool->pages;
-    if (target_pages > max_pages / 2U)
-        target_pages = max_pages;
-    else
-        target_pages *= 2U;
-    if (target_pages < required_pages)
-        target_pages = required_pages;
-    if (target_pages > max_pages)
-        target_pages = max_pages;
+    if (policy_result == VGK_PAGING_POOL_POLICY_LIMIT_REACHED)
+        return VGK_UEFI_PAGE_POOL_LIMIT_EXCEEDED;
+    if (policy_result != VGK_PAGING_POOL_POLICY_GROW)
+        return VGK_UEFI_PAGE_POOL_INVALID_ARGUMENT;
 
     replacement_bytes =
         target_pages * VGK_UEFI_PAGE_TABLE_POOL_PAGE_SIZE;
