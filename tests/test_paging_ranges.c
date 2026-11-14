@@ -35,7 +35,7 @@ int main(void)
     CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600123), 36U, 1,
               ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
           VGK_PAGING_RANGES_OK);
-    CHECK(count == 6U);
+    CHECK(count == 7U);
     CHECK(ranges[0].virtual_address == UINT64_C(0x200000));
     CHECK(ranges[0].length == 0x1800U);
     CHECK(ranges[1].virtual_address == UINT64_C(0x204000));
@@ -48,12 +48,14 @@ int main(void)
     CHECK(ranges[4].length == 64U * VGK_BOOT_PAGE_SIZE);
     CHECK(ranges[5].virtual_address == UINT64_C(0x500000));
     CHECK(ranges[5].length == 36U + 0x123U);
+    CHECK(ranges[6].virtual_address == UINT64_C(0x800000));
+    CHECK(ranges[6].length == 0x4123U);
 
     /* Framebuffer is omitted unless the caller proves its UC policy. */
     CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600123), 36U, 0,
               ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
           VGK_PAGING_RANGES_OK);
-    CHECK(count == 6U - 0U); /* ACPI remains; framebuffer is not in this sample list. */
+    CHECK(count == 6U); /* ACPI remains; framebuffer is omitted. */
 
     /* Without the ACPI flag, a zero RSDP length is required. */
     info.flags &= ~VGK_BOOT_FLAG_ACPI;
