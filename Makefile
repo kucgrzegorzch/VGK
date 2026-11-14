@@ -76,7 +76,7 @@ paging-requirements-test: | build
 	./build/test_paging_requirements
 
 paging-ranges-test: | build
-	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/paging_ranges.c tests/test_paging_ranges.c -o build/test_paging_ranges
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/paging_ranges.c src/paging_requirements.c tests/test_paging_ranges.c -o build/test_paging_ranges
 	./build/test_paging_ranges
 
 paging-test: | build
