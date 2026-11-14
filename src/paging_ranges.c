@@ -66,7 +66,8 @@ VGK_PAGING_RANGES_RESULT vgk_paging_ranges_build(
         boot_info->memory_map_address == 0U ||
         boot_info->memory_map_size == 0U ||
         boot_info->page_table_pool_base == 0U ||
-        boot_info->page_table_pool_pages == 0U ||
+        boot_info->page_table_pool_pages < VGK_BOOT_PAGE_TABLE_POOL_MIN_PAGES ||
+        boot_info->page_table_pool_pages > VGK_BOOT_PAGE_TABLE_POOL_MAX_PAGES ||
         boot_info->page_table_pool_pages >
             UINT64_MAX / VGK_BOOT_PAGE_SIZE)
         return VGK_PAGING_RANGES_BAD_OBJECT;
