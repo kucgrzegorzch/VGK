@@ -797,9 +797,6 @@ static EFI_STATUS start_verified_kernel(
             ++growth_steps;
             boot_info.page_table_pool_base = page_table_pool_address;
             boot_info.page_table_pool_pages = page_table_pool_pages;
-            serial_write("VGK UEFI: powiekszono pule tablic stron do ");
-            serial_write_hex(page_table_pool_pages);
-            serial_write(" stron; ponawiam pobranie mapy pamieci.\r\n");
             continue;
         }
 
