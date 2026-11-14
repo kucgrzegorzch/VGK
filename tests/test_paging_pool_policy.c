@@ -68,11 +68,35 @@ static void test_overflow_and_invalid_arguments(void)
            VGK_PAGING_POOL_POLICY_INVALID_ARGUMENT);
 }
 
+static void test_growth_reaches_maximum_in_four_steps(void)
+{
+    static const uint64_t expected[] = { 129U, 258U, 516U, 1024U };
+    uint64_t current = 64U;
+
+    for (size_t i = 0; i < sizeof(expected) / sizeof(expected[0]); ++i) {
+        uint64_t next = 0U;
+        assert(vgk_paging_pool_next_size(
+                   current, current + 1U, 64U, 1024U, &next) ==
+               VGK_PAGING_POOL_POLICY_GROW);
+        assert(next == expected[i]);
+        current = next;
+    }
+
+    {
+        uint64_t next = 0U;
+        assert(vgk_paging_pool_next_size(
+                   current, current + 1U, 64U, 1024U, &next) ==
+               VGK_PAGING_POOL_POLICY_LIMIT_REACHED);
+        assert(next == current);
+    }
+}
+
 int main(void)
 {
     test_sufficient_pool_is_unchanged();
     test_growth_uses_geometric_and_reserve_target();
     test_growth_is_capped_without_exceeding_limit();
+    test_growth_reaches_maximum_in_four_steps();
     test_exact_limit_and_limit_reached();
     test_required_capacity_over_limit_fails();
     test_overflow_and_invalid_arguments();
