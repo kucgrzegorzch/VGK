@@ -65,6 +65,16 @@ int main(void)
               ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
           VGK_PAGING_RANGES_BAD_OBJECT);
     CHECK(count == 0U);
+
+    info = sample_info();
+    info.framebuffer_width = 8192U;
+    info.framebuffer_height = 8193U;
+    info.framebuffer_stride = 8192U;
+    info.framebuffer_size = VGK_FRAMEBUFFER_MAX_MAPPED_SIZE + 4096U;
+    CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600123), 36U, 1,
+              ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
+          VGK_PAGING_RANGES_BAD_OBJECT);
+    CHECK(count == 0U);
     info = sample_info();
 
     /* Framebuffer is omitted unless the caller proves its UC policy. */
