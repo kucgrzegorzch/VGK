@@ -7,7 +7,7 @@
 - Test polityki potwierdza sekwencję 64 → 129 → 258 → 516 → 1024.
 - Test QEMU/OVMF kompiluje specjalny obraz wymuszający wzrost i potwierdza, że jądro otrzymuje pulę 1024 stron (`0x400`) oraz uruchamia się.
 - CI #997 zakończyło się sukcesem. Nie jest to jeszcze test fizycznego komputera.
-- Dedykowane testy awarii `AllocatePages`/`FreePages`, błędnych adresów oraz nieudanego retry `ExitBootServices` pozostają do dodania przed uznaniem wszystkich ścieżek błędów za w pełni pokryte.
+- Testy atrapami pokrywają nieudany przydział, niewyrównany/fizycznie niedostępny adres, błąd zerowania, błąd zwolnienia starej puli i błąd sprzątania nowej. Nadal brakuje testów retry `ExitBootServices` z nieaktualnym kluczem oraz ścieżek `EFI_BUFFER_TOO_SMALL`.
 
 ## Ustalone limity
 
@@ -91,7 +91,7 @@ Najlepiej wydzielić sterowanie wzrostem do testowalnego komponentu z atrapami `
 ## Warunek zakończenia etapu
 
 Kod wzrostu jest już przygotowany w PR #28, ale nie należy go scalać przed:
-- dodaniem testów z atrapami dla nieudanego `AllocatePages`, `FreePages`, nieprawidłowego adresu i overflow;
+- dodaniem testów retry `ExitBootServices` z nieaktualnym kluczem i potwierdzeniem, że po pierwszym wywołaniu nie ma alokacji ani zwalniania;
 - przetestowaniem retry `ExitBootServices` z błędnym kluczem oraz potwierdzeniem, że po pierwszym wywołaniu nie ma alokacji ani zwalniania;
 - pełnym audytem zależności PR #24–#28;
 - osobnym testem z pendrive'a na fizycznym komputerze.
