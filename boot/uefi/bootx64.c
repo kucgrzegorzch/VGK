@@ -535,6 +535,31 @@ static int uefi_page_table_pool_grow(
         VGK_UEFI_POOL_GROW_OK;
 }
 
+static void release_loaded_kernel(
+    VGK_UEFI_ELF_ALLOCATOR *allocator,
+    const VGK_ELF_LOADED_IMAGE *loaded)
+{
+    if (allocator == 0 || loaded == 0)
+        return;
+    for (uint32_t i = 0; i < loaded->range_count; ++i) {
+        vgk_uefi_elf_release(allocator,
+            loaded->ranges[i].physical_address,
+            loaded->ranges[i].page_count);
+    }
+}
+
+/*
+ * ExitBootServices may partially shut down firmware even when it fails.
+ * After the first attempt, do not free pages, close protocols, print, or
+ * return to firmware. A failed retry path must stop without further services.
+ */
+static _Noreturn void halt_after_exit_boot_services_failure(void)
+{
+    for (;;) {
+        __asm__ volatile ("cli; hlt");
+    }
+}
+
 static EFI_STATUS start_verified_kernel(
     EFI_SYSTEM_TABLE *system_table,
     VGK_EFI_HANDLE image_handle,
