@@ -35,6 +35,15 @@ int main(void)
         1280, 720, 1344, VGK_FRAMEBUFFER_FORMAT_BGRX8),
         "valid padded BGRX framebuffer rejected");
 
+    CHECK(vgk_framebuffer_is_valid(
+        UINT64_C(0xE0000000), VGK_FRAMEBUFFER_MAX_MAPPED_SIZE,
+        8192U, 8192U, 8192U, VGK_FRAMEBUFFER_FORMAT_RGBX8),
+        "8K-class framebuffer at the exact mapping limit rejected");
+    CHECK(!vgk_framebuffer_is_valid(
+        UINT64_C(0xE0000000), VGK_FRAMEBUFFER_MAX_MAPPED_SIZE + 4096U,
+        8192U, 8193U, 8192U, VGK_FRAMEBUFFER_FORMAT_RGBX8),
+        "framebuffer above the mapping limit accepted");
+
     CHECK(!vgk_framebuffer_is_valid(0, 4096, 32, 32, 32,
         VGK_FRAMEBUFFER_FORMAT_RGBX8), "zero base accepted");
     CHECK(!vgk_framebuffer_is_valid(UINT64_C(0x1000), 4096, 0, 32, 32,
