@@ -22,7 +22,11 @@ static VGK_BOOT_INFO sample_info(void)
     info.page_table_pool_pages = 64U;
     info.acpi_rsdp_address = UINT64_C(0x500123);
     info.framebuffer_base = UINT64_C(0x800123);
-    info.framebuffer_size = 0x4000U;
+    info.framebuffer_size = 0x10000U;
+    info.framebuffer_width = 500U;
+    info.framebuffer_height = 8U;
+    info.framebuffer_stride = 512U;
+    info.framebuffer_format = VGK_FRAMEBUFFER_FORMAT_RGBX8;
     return info;
 }
 
@@ -54,7 +58,7 @@ int main(void)
     CHECK(ranges[5].virtual_address == UINT64_C(0x500000));
     CHECK(ranges[5].length == 36U + 0x123U);
     CHECK(ranges[6].virtual_address == UINT64_C(0x800000));
-    CHECK(ranges[6].length == 0x4123U);
+    CHECK(ranges[6].length == 0x4123U); /* 512 * 8 * 4 + 0x123 offset */
 
     /* Framebuffer is omitted unless the caller proves its UC policy. */
     CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600123), 36U, 0,
