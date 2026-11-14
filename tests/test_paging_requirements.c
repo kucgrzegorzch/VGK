@@ -46,9 +46,9 @@ static int test_worst_case_page_table_requirement(void)
         /* VGK_BOOT_INFO is 8-byte aligned and may straddle the same boundaries. */
         { (UINT64_C(8) * pml4_span) - UINT64_C(4096),
           (uint64_t)sizeof(VGK_BOOT_INFO) + UINT64_C(4088) },
-        /* The 16-byte-aligned ACPI RSDP may straddle a page boundary. */
+        /* The 16-byte-aligned ACPI RSDP may be 4096 bytes and straddle. */
         { (UINT64_C(10) * pml4_span) - UINT64_C(4096),
-          UINT64_C(36) + UINT64_C(4080) }
+          UINT64_C(4096) + UINT64_C(4080) }
     };
     VGK_PAGING_REQUIREMENTS result;
 

@@ -18,7 +18,7 @@ static VGK_BOOT_INFO valid_info(void)
     info.kernel_size = UINT64_C(0x40000);
     info.kernel_entry = UINT64_C(0x200100);
     info.page_table_pool_base = UINT64_C(0x300000);
-    info.page_table_pool_pages = VGK_BOOT_PAGE_TABLE_POOL_PAGES;
+    info.page_table_pool_pages = VGK_BOOT_PAGE_TABLE_POOL_INITIAL_PAGES;
     info.kernel_segment_count = 1;
     info.kernel_segments[0].physical_base = UINT64_C(0x200000);
     info.kernel_segments[0].memory_size = UINT64_C(0x1000);
@@ -44,6 +44,13 @@ int main(void)
     }
     info = valid_info();
 
+    info.version = UINT32_C(4);
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano poprzednia wersje protokolu");
+        ++failures;
+    }
+
+    info = valid_info();
     info.version++;
     if (vgk_boot_info_is_valid(&info)) {
         puts("FAIL: zaakceptowano nieznana wersje");
@@ -85,9 +92,30 @@ int main(void)
     }
 
     info = valid_info();
-    info.page_table_pool_pages--;
+    info.page_table_pool_pages = VGK_BOOT_PAGE_TABLE_POOL_MIN_PAGES - 1U;
     if (vgk_boot_info_is_valid(&info)) {
-        puts("FAIL: zaakceptowano nieoczekiwany rozmiar puli tablic stron");
+        puts("FAIL: zaakceptowano pule mniejsza od minimum");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.page_table_pool_pages = VGK_BOOT_PAGE_TABLE_POOL_INITIAL_PAGES + 1U;
+    if (!vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: odrzucono poprawna pule o zmiennym rozmiarze");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.page_table_pool_pages = VGK_BOOT_PAGE_TABLE_POOL_MAX_PAGES;
+    if (!vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: odrzucono pule o maksymalnym dozwolonym rozmiarze");
+        ++failures;
+    }
+
+    info = valid_info();
+    info.page_table_pool_pages = VGK_BOOT_PAGE_TABLE_POOL_MAX_PAGES + 1U;
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano pule wieksza od limitu");
         ++failures;
     }
 

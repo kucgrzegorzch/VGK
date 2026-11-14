@@ -564,17 +564,17 @@ static EFI_STATUS start_verified_kernel(
      */
     status = services->allocate_pages(
         VGK_EFI_ALLOCATE_ANY_PAGES, VGK_EFI_LOADER_DATA,
-        (VGK_EFI_UINTN)VGK_BOOT_PAGE_TABLE_POOL_PAGES,
+        (VGK_EFI_UINTN)VGK_BOOT_PAGE_TABLE_POOL_INITIAL_PAGES,
         &page_table_pool_address);
     if (EFI_ERROR(status) || page_table_pool_address == 0) {
         release_loaded_kernel(&allocator, &loaded_image);
         return EFI_LOAD_ERROR;
     }
     if (page_table_pool_address >
-        UINT64_MAX - VGK_BOOT_PAGE_TABLE_POOL_PAGES * VGK_BOOT_PAGE_SIZE) {
+        UINT64_MAX - VGK_BOOT_PAGE_TABLE_POOL_INITIAL_PAGES * VGK_BOOT_PAGE_SIZE) {
         (void)services->free_pages(
             page_table_pool_address,
-            (VGK_EFI_UINTN)VGK_BOOT_PAGE_TABLE_POOL_PAGES);
+            (VGK_EFI_UINTN)VGK_BOOT_PAGE_TABLE_POOL_INITIAL_PAGES);
         release_loaded_kernel(&allocator, &loaded_image);
         return EFI_LOAD_ERROR;
     }
@@ -582,7 +582,7 @@ static EFI_STATUS start_verified_kernel(
         volatile uint64_t *pool_words =
             (volatile uint64_t *)(uintptr_t)page_table_pool_address;
         const uint64_t word_count =
-            VGK_BOOT_PAGE_TABLE_POOL_PAGES *
+            VGK_BOOT_PAGE_TABLE_POOL_INITIAL_PAGES *
             (VGK_BOOT_PAGE_SIZE / sizeof(uint64_t));
         for (uint64_t i = 0; i < word_count; ++i)
             pool_words[i] = 0;
@@ -603,7 +603,7 @@ static EFI_STATUS start_verified_kernel(
     boot_info.kernel_size = kernel_max - kernel_min;
     boot_info.kernel_entry = load_plan.entry;
     boot_info.page_table_pool_base = page_table_pool_address;
-    boot_info.page_table_pool_pages = VGK_BOOT_PAGE_TABLE_POOL_PAGES;
+    boot_info.page_table_pool_pages = VGK_BOOT_PAGE_TABLE_POOL_INITIAL_PAGES;
     boot_info.kernel_segment_count = load_plan.segment_count;
     boot_info.reserved2 = 0;
     for (uint32_t i = 0; i < load_plan.segment_count; ++i) {
@@ -655,7 +655,7 @@ static EFI_STATUS start_verified_kernel(
                 halt_after_exit_boot_services_failure();
             (void)services->free_pages(
                 page_table_pool_address,
-                (VGK_EFI_UINTN)VGK_BOOT_PAGE_TABLE_POOL_PAGES);
+                (VGK_EFI_UINTN)VGK_BOOT_PAGE_TABLE_POOL_INITIAL_PAGES);
             release_loaded_kernel(&allocator, &loaded_image);
             return EFI_LOAD_ERROR;
         }
@@ -668,7 +668,7 @@ static EFI_STATUS start_verified_kernel(
                 halt_after_exit_boot_services_failure();
             (void)services->free_pages(
                 page_table_pool_address,
-                (VGK_EFI_UINTN)VGK_BOOT_PAGE_TABLE_POOL_PAGES);
+                (VGK_EFI_UINTN)VGK_BOOT_PAGE_TABLE_POOL_INITIAL_PAGES);
             release_loaded_kernel(&allocator, &loaded_image);
             return EFI_LOAD_ERROR;
         }
