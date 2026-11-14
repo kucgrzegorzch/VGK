@@ -170,6 +170,20 @@ int main(void)
     CHECK(count == 0U);
 
     info = sample_info();
+    info.page_table_pool_pages = VGK_BOOT_PAGE_TABLE_POOL_MIN_PAGES - 1U;
+    CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600000), 36U, 1,
+              ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
+          VGK_PAGING_RANGES_BAD_OBJECT);
+    CHECK(count == 0U);
+
+    info = sample_info();
+    info.page_table_pool_pages = VGK_BOOT_PAGE_TABLE_POOL_MAX_PAGES + 1U;
+    CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600000), 36U, 1,
+              ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
+          VGK_PAGING_RANGES_BAD_OBJECT);
+    CHECK(count == 0U);
+
+    info = sample_info();
     info.page_table_pool_pages = UINT64_MAX;
     CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600000), 36U, 1,
               ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
