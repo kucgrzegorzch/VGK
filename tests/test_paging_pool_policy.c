@@ -24,6 +24,16 @@ static void test_growth_uses_geometric_and_reserve_target(void)
     assert(next == 180);
 }
 
+static void test_zero_reserve_is_an_explicit_valid_choice(void)
+{
+    uint64_t next = 0;
+
+    /* A caller may request geometric growth without additional headroom. */
+    assert(vgk_paging_pool_next_size(64, 70, 0, 4096, &next) ==
+           VGK_PAGING_POOL_POLICY_GROW);
+    assert(next == 128);
+}
+
 static void test_growth_is_capped_without_exceeding_limit(void)
 {
     uint64_t next = 0;
@@ -72,6 +82,7 @@ int main(void)
 {
     test_sufficient_pool_is_unchanged();
     test_growth_uses_geometric_and_reserve_target();
+    test_zero_reserve_is_an_explicit_valid_choice();
     test_growth_is_capped_without_exceeding_limit();
     test_exact_limit_and_limit_reached();
     test_required_capacity_over_limit_fails();
