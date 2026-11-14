@@ -86,13 +86,13 @@ int main(void)
     memset((void *)(uintptr_t)pool.address, 0xA5, 64U * 4096U);
 
     failures += check(vgk_uefi_page_table_pool_grow(
-        &pool, 0U, 1024U, test_allocate, test_free, &allocator,
+        &pool, 0U, 0U, 1024U, test_allocate, test_free, &allocator,
         &orphan_address, &orphan_pages) == VGK_UEFI_PAGE_POOL_INVALID_ARGUMENT &&
         pool.pages == 64U,
         "zero-page growth request was not rejected");
 
     failures += check(vgk_uefi_page_table_pool_grow(
-        &pool, 70U, 1024U, test_allocate, test_free, &allocator,
+        &pool, 70U, 8U, 1024U, test_allocate, test_free, &allocator,
         &orphan_address, &orphan_pages) == VGK_UEFI_PAGE_POOL_OK,
         "growth from 64 to 128 pages failed");
     failures += check(pool.pages == 128U && allocator.active == 1U,
@@ -114,21 +114,21 @@ int main(void)
     {
         const uint64_t old_address = pool.address;
         failures += check(vgk_uefi_page_table_pool_grow(
-            &pool, 100U, 1024U, test_allocate, test_free, &allocator,
+            &pool, 100U, 8U, 1024U, test_allocate, test_free, &allocator,
             &orphan_address, &orphan_pages) == VGK_UEFI_PAGE_POOL_OK &&
             pool.address == old_address && allocator.active == 1U,
             "no-op growth changed the allocation");
     }
 
     failures += check(vgk_uefi_page_table_pool_grow(
-        &pool, 1025U, 1024U, test_allocate, test_free, &allocator,
+        &pool, 1025U, 0U, 1024U, test_allocate, test_free, &allocator,
         &orphan_address, &orphan_pages) ==
             VGK_UEFI_PAGE_POOL_LIMIT_EXCEEDED && pool.pages == 128U,
         "request above maximum was not rejected");
 
     allocator.fail_allocations = 1U;
     failures += check(vgk_uefi_page_table_pool_grow(
-        &pool, 129U, 1024U, test_allocate, test_free, &allocator,
+        &pool, 129U, 8U, 1024U, test_allocate, test_free, &allocator,
         &orphan_address, &orphan_pages) ==
             VGK_UEFI_PAGE_POOL_ALLOCATE_FAILED && pool.pages == 128U &&
             allocator.active == 1U,
@@ -164,7 +164,7 @@ int main(void)
                       "second initial allocation failed");
     pool.pages = 64U;
     failures += check(vgk_uefi_page_table_pool_grow(
-        &pool, 672U, 1024U, test_allocate, test_free, &allocator,
+        &pool, 672U, 0U, 1024U, test_allocate, test_free, &allocator,
         &orphan_address, &orphan_pages) == VGK_UEFI_PAGE_POOL_OK &&
         pool.pages == 672U && allocator.active == 1U,
         "growth to the audited 672-page requirement failed");
