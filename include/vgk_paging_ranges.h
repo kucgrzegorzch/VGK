@@ -15,11 +15,15 @@ typedef enum {
 } VGK_PAGING_RANGES_RESULT;
 
 /*
- * Builds the identity-mapped object list shared by the UEFI loader and
- * native kernel. ACPI length must come from a separately validated RSDP.
+ * Builds the identity-mapped object list for use by the UEFI loader and
+ * native kernel. The caller must first validate boot_info with
+ * vgk_boot_info_is_valid(); boot_info_address must be its identity-mapped
+ * address. ACPI length must come from a separately validated RSDP.
  * The framebuffer is included only when the caller confirms its mapping
  * policy is safe (currently: effective memory type is UC).
  *
+ * This function validates its own arguments and range arithmetic, but does
+ * not replace boot-protocol, ACPI, physical-alias, or page-permission checks.
  * On failure, *range_count is zero and no partial list is published.
  */
 VGK_PAGING_RANGES_RESULT vgk_paging_ranges_build(
