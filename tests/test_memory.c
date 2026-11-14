@@ -118,6 +118,30 @@ int main(void)
            VGK_MEMORY_NO_MEMORY);
     EXPECT(first_allocation == 0U);
 
+    /*
+     * The allocator must reserve a maximum-size (4 MiB) page-table pool
+     * without exposing any of its pages as usable memory.
+     */
+    memory_map[2].length = UINT64_C(0x400000);
+    memory_map[3].base = UINT64_C(0x510000);
+    boot_info.page_table_pool_pages = VGK_BOOT_PAGE_TABLE_POOL_MAX_PAGES;
+    boot_info.kernel_physical_base = UINT64_C(0x521000);
+    boot_info.kernel_entry = UINT64_C(0x521000);
+    boot_info.kernel_segments[0].physical_base = UINT64_C(0x521000);
+    EXPECT(vgk_boot_info_is_valid(&boot_info));
+    EXPECT(vgk_memory_init(&boot_info) == VGK_MEMORY_OK);
+    EXPECT(vgk_memory_get_stats(&stats) == VGK_MEMORY_OK);
+    EXPECT(stats.total_pages == 33U);
+    EXPECT(stats.free_pages == 33U);
+
+    /* Restore the original 64-page fixture for the ACPI boundary test. */
+    memory_map[2].length = UINT64_C(0x40000);
+    memory_map[3].base = UINT64_C(0x150000);
+    boot_info.page_table_pool_pages = VGK_BOOT_PAGE_TABLE_POOL_INITIAL_PAGES;
+    boot_info.kernel_physical_base = UINT64_C(0x161000);
+    boot_info.kernel_entry = UINT64_C(0x161000);
+    boot_info.kernel_segments[0].physical_base = UINT64_C(0x161000);
+
     if (failures != 0) {
         fprintf(stderr, "VGK memory allocator: %d test(s) failed\n", failures);
         return 1;
