@@ -3,6 +3,7 @@
 
 #include "uefi_file.h"
 #include "uefi_services.h"
+#include "uefi_page_table_pool.h"
 #include "uefi_graphics.h"
 #include "vgk_framebuffer.h"
 #include "uefi_release_verify.h"
