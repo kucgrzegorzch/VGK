@@ -773,12 +773,12 @@ static EFI_STATUS start_verified_kernel(
             return EFI_LOAD_ERROR;
         }
 
-        if (paging_requirements.total_pages > page_table_pool_pages) {
 #if defined(VGK_TEST_FORCE_POOL_GROWTH)
-            if (growth_steps < VGK_PAGING_POOL_MAX_GROWTH_STEPS &&
-                paging_requirements.total_pages <= page_table_pool_pages)
-                paging_requirements.total_pages = page_table_pool_pages + 1U;
+        if (growth_steps < VGK_PAGING_POOL_MAX_GROWTH_STEPS &&
+            paging_requirements.total_pages <= page_table_pool_pages)
+            paging_requirements.total_pages = page_table_pool_pages + 1U;
 #endif
+        if (paging_requirements.total_pages > page_table_pool_pages) {
             /* No allocation or freeing is permitted after an EBS attempt. */
             if (exit_attempts != 0U)
                 halt_after_exit_boot_services_failure();
