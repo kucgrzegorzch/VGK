@@ -13,7 +13,8 @@
  * 64-bit TSS layout from Intel SDM. The I/O bitmap is intentionally absent;
  * iomap_base points one byte past the TSS limit.
  */
-typedef struct __attribute__((packed, aligned(16))) {
+/* Keep the architectural 104-byte size; align each allocated TSS object to 16 bytes. */
+typedef struct __attribute__((packed)) {
     uint32_t reserved0;
     uint64_t rsp[3];
     uint64_t reserved1;
@@ -48,7 +49,7 @@ VGK_GDT_STATUS vgk_gdt_build(
 
 _Static_assert(sizeof(VGK_TSS64) == VGK_TSS64_SIZE,
                "VGK x86-64 TSS must be exactly 104 bytes");
-_Static_assert(_Alignof(VGK_TSS64) == 16,
-               "VGK TSS must be 16-byte aligned");
+_Static_assert(_Alignof(VGK_TSS64) == 1,
+               "VGK TSS fields must retain their packed architectural layout");
 
 #endif
