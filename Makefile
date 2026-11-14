@@ -55,7 +55,7 @@ build/paging_requirements_native.o: src/paging_requirements.c include/vgk_paging
 	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
 build/vgk-kernel-native.elf: build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/paging_ranges_native.o build/paging_preflight_native.o linker-native.ld
-	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/paging_ranges_native.o
+	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/paging_ranges_native.o build/paging_preflight_native.o
 
 native-kernel: build/vgk-kernel-native.elf
 
@@ -76,15 +76,15 @@ paging-requirements-test: | build
 	./build/test_paging_requirements
 
 build/paging_ranges_native.o: src/paging_ranges.c include/vgk_paging_ranges.h include/vgk_boot_info.h include/vgk_paging_requirements.h | build
+	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
 build/paging_preflight_native.o: src/paging_preflight.c include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h | build
 	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
-	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
 build/paging_ranges_uefi.obj: src/paging_ranges.c include/vgk_paging_ranges.h include/vgk_boot_info.h include/vgk_paging_requirements.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
 
 build/paging_preflight_uefi.obj: src/paging_preflight.c include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h | build
-	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
 	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
 
 paging-ranges-compile-test: build/paging_ranges_native.o build/paging_ranges_uefi.obj build/paging_preflight_native.o build/paging_preflight_uefi.obj
