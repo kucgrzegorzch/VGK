@@ -143,11 +143,6 @@ build/uefi_memory_map.obj: boot/uefi/uefi_memory_map.c boot/uefi/uefi_memory_map
 build/paging_requirements_uefi.obj: src/paging_requirements.c include/vgk_paging_requirements.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
 
-build/paging_ranges_uefi.obj: src/paging_ranges.c include/vgk_paging_ranges.h include/vgk_boot_info.h include/vgk_paging_requirements.h | build
-
-build/paging_preflight_uefi.obj: src/paging_preflight.c include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h | build
-	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
-	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
 
 build/acpi_uefi.obj: src/acpi.c include/vgk_acpi.h include/vgk_boot_info.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
