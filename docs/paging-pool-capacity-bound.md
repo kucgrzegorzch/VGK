@@ -56,7 +56,7 @@ Ten zapas nie jest obietnicą nieograniczonego rozwoju mapowań. Każdy nowy obi
 
 ## Status
 
-- Limit mapowanego framebufferu 256 MiB i test graniczny są wprowadzane w osobnym Draft PR.
-- Test najgorszego przypadku 672 stron jest dodawany do kalkulatora.
+- Limit mapowanego framebufferu 256 MiB i test graniczny znajdują się w Draft PR #26.
+- Test najgorszego przypadku 672 stron znajduje się w kalkulatorze i przechodzi w CI PR #26.
 - Protokół wersji 5 akceptuje zakres 64–1024 stron; jądro sprawdza wyzerowanie całego przekazanego obszaru. Loader UEFI nadal używa początkowych 64 stron.
 - Dynamiczna alokacja UEFI, limit iteracji i obsługa braku pamięci pozostają osobnym, późniejszym etapem.
