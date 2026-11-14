@@ -102,6 +102,44 @@ int main(void)
           VGK_PAGING_RANGES_TOO_MANY);
     CHECK(count == 0U);
 
+    /*
+     * Conservative worst-case layout for the proposed 1024-page pool:
+     * 511 kernel PT pages, 129 framebuffer PT pages, 2 each for the
+     * map/boot-info/ACPI spans, and 3 for the pool. Each non-kernel
+     * object straddles a distinct 512 GiB boundary to avoid shared
+     * upper-level structures. Expected total: 672 pages.
+     */
+    info = sample_info();
+    info.kernel_segment_count = VGK_BOOT_MAX_KERNEL_SEGMENTS;
+    for (uint32_t i = 0U; i < 15U; ++i) {
+        info.kernel_segments[i].physical_base =
+            UINT64_C(0x200000) + (uint64_t)i * UINT64_C(0x4000000);
+        info.kernel_segments[i].memory_size = UINT64_C(0x4000000);
+    }
+    info.kernel_segments[15].physical_base = UINT64_C(0x3E000000);
+    info.kernel_segments[15].memory_size = UINT64_C(0x3E00000);
+    info.memory_map_address = UINT64_C(0xFFFFFC0000);
+    info.memory_map_size = UINT64_C(512) * 1024U;
+    info.page_table_pool_base = UINT64_C(0x27FFFC01000);
+    info.page_table_pool_pages = 1024U;
+    info.acpi_rsdp_address = UINT64_C(0x1FFFFFFFFEE);
+    info.framebuffer_base = UINT64_C(0x7FF8000000);
+    info.framebuffer_size = VGK_FRAMEBUFFER_MAX_MAPPED_SIZE;
+    info.framebuffer_width = 4096U;
+    info.framebuffer_height = 16384U;
+    info.framebuffer_stride = 4096U;
+    CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x17FFFFFFB5C), 36U, 1,
+              ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
+          VGK_PAGING_RANGES_OK);
+    CHECK(count == VGK_BOOT_MAX_KERNEL_SEGMENTS + 5U);
+    CHECK(vgk_paging_requirements_calculate(ranges, count, &requirements) ==
+          VGK_PAGING_REQUIREMENTS_OK);
+    CHECK(requirements.pt_pages == 649U);
+    CHECK(requirements.pd_pages == 11U);
+    CHECK(requirements.pdpt_pages == 11U);
+    CHECK(requirements.pml4_pages == 1U);
+    CHECK(requirements.total_pages == 672U);
+
     /* Without the ACPI flag, a zero RSDP length is required. */
     info = sample_info();
     info.flags = 0U;
