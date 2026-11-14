@@ -10,6 +10,7 @@
 #include "elf_loader.h"
 #include "uefi_elf_allocator.h"
 #include "uefi_memory_map.h"
+#include "uefi_page_table_pool.h"
 #include "uefi_pci.h"
 #include "uefi_kernel_entry.h"
 #include "integrity.h"
@@ -92,6 +93,7 @@ _Static_assert(sizeof(EFI_SYSTEM_TABLE) == 120,
 #define VGK_MEMORY_MAP_BUFFER_SIZE (512U * 1024U)
 #define VGK_MEMORY_MAP_ENTRY_CAPACITY 16384U
 #define VGK_EXIT_BOOT_SERVICES_ATTEMPTS 4U
+#define VGK_UEFI_PAGE_TABLE_POOL_GROWTH_ATTEMPTS 6U
 
 static const VGK_EFI_GUID loaded_image_guid = {
     UINT32_C(0x5B1B31A1), UINT16_C(0x9562), UINT16_C(0x11D2),
@@ -395,11 +397,17 @@ static void capture_framebuffer(EFI_SYSTEM_TABLE *system_table)
  * the kernel's PAT-effective-type decision here, this is a conservative
  * upper bound. The kernel still performs its own exact policy check.
  */
-static int uefi_page_table_pool_has_capacity(const VGK_BOOT_INFO *info)
+static int uefi_page_table_pool_required_pages(
+    const VGK_BOOT_INFO *info,
+    uint64_t *required_pages)
 {
     VGK_CPU_FEATURES cpu_features;
     VGK_PAGING_REQUIREMENTS requirements;
     uint64_t rsdp_length = 0U;
+
+    if (required_pages == 0)
+        return 0;
+    *required_pages = 0U;
 
     if (info == 0 ||
         vgk_cpu_detect_features(&cpu_features) != VGK_CPU_OK)
@@ -430,7 +438,46 @@ static int uefi_page_table_pool_has_capacity(const VGK_BOOT_INFO *info)
             &requirements) != VGK_PAGING_PREFLIGHT_OK)
         return 0;
 
-    return requirements.total_pages <= info->page_table_pool_pages;
+    *required_pages = requirements.total_pages;
+#if defined(VGK_UEFI_TEST_FORCE_POOL_GROWTH)
+    if (*required_pages <= VGK_BOOT_PAGE_TABLE_POOL_INITIAL_PAGES)
+        *required_pages = VGK_BOOT_PAGE_TABLE_POOL_INITIAL_PAGES + 1U;
+#endif
+    return 1;
+}
+
+static int uefi_page_pool_allocate(
+    void *context,
+    uint64_t pages,
+    uint64_t *address)
+{
+    VGK_EFI_BOOT_SERVICES_PREFIX *services =
+        (VGK_EFI_BOOT_SERVICES_PREFIX *)context;
+    EFI_STATUS status;
+
+    if (services == 0 || services->allocate_pages == 0 ||
+        address == 0 || pages == 0)
+        return 1;
+    status = services->allocate_pages(
+        VGK_EFI_ALLOCATE_ANY_PAGES, VGK_EFI_LOADER_DATA,
+        (VGK_EFI_UINTN)pages, address);
+    return EFI_ERROR(status) ? 1 : 0;
+}
+
+static int uefi_page_pool_free(
+    void *context,
+    uint64_t address,
+    uint64_t pages)
+{
+    VGK_EFI_BOOT_SERVICES_PREFIX *services =
+        (VGK_EFI_BOOT_SERVICES_PREFIX *)context;
+    EFI_STATUS status;
+
+    if (services == 0 || services->free_pages == 0 ||
+        pages == 0)
+        return 1;
+    status = services->free_pages(address, (VGK_EFI_UINTN)pages);
+    return EFI_ERROR(status) ? 1 : 0;
 }
 
 static void release_loaded_kernel(
@@ -471,7 +518,14 @@ static EFI_STATUS start_verified_kernel(
     VGK_ELF_LOADED_IMAGE loaded_image;
     VGK_UEFI_ELF_ALLOCATOR allocator;
     uint64_t kernel_buffer_address = 0;
-    uint64_t page_table_pool_address = 0;
+    VGK_UEFI_PAGE_TABLE_POOL page_table_pool = {0U, 0U};
+    uint64_t orphan_pool_address = 0U;
+    uint64_t orphan_pool_pages = 0U;
+    uint64_t required_pool_pages = 0U;
+    uint32_t pool_growth_attempts = 0U;
+    uint32_t exit_boot_services_attempts = 0U;
+    int exit_boot_services_started = 0;
+    VGK_UEFI_PAGE_POOL_RESULT pool_result;
     uint64_t kernel_buffer_pages;
     size_t kernel_bytes_read = 0;
     uint64_t kernel_min = UINT64_MAX;
@@ -558,31 +612,32 @@ static EFI_STATUS start_verified_kernel(
     }
 
     /*
-     * Reserve the page-table pool while Boot Services are available.
-     * This allocation must precede the final GetMemoryMap/ExitBootServices
-     * sequence; the pool remains loader-owned and is never freed on success.
+     * Reserve the initial page-table pool while Boot Services are available.
+     * If preflight needs more capacity, the pool is transactionally replaced
+     * before the first ExitBootServices attempt.
      */
     status = services->allocate_pages(
         VGK_EFI_ALLOCATE_ANY_PAGES, VGK_EFI_LOADER_DATA,
-        (VGK_EFI_UINTN)VGK_BOOT_PAGE_TABLE_POOL_PAGES,
-        &page_table_pool_address);
-    if (EFI_ERROR(status) || page_table_pool_address == 0) {
+        (VGK_EFI_UINTN)VGK_BOOT_PAGE_TABLE_POOL_INITIAL_PAGES,
+        &page_table_pool.address);
+    if (EFI_ERROR(status) || page_table_pool.address == 0) {
         release_loaded_kernel(&allocator, &loaded_image);
         return EFI_LOAD_ERROR;
     }
-    if (page_table_pool_address >
-        UINT64_MAX - VGK_BOOT_PAGE_TABLE_POOL_PAGES * VGK_BOOT_PAGE_SIZE) {
+    page_table_pool.pages = VGK_BOOT_PAGE_TABLE_POOL_INITIAL_PAGES;
+    if ((page_table_pool.address & (VGK_BOOT_PAGE_SIZE - 1U)) != 0U ||
+        page_table_pool.address >
+            UINT64_MAX - page_table_pool.pages * VGK_BOOT_PAGE_SIZE) {
         (void)services->free_pages(
-            page_table_pool_address,
-            (VGK_EFI_UINTN)VGK_BOOT_PAGE_TABLE_POOL_PAGES);
+            page_table_pool.address, (VGK_EFI_UINTN)page_table_pool.pages);
         release_loaded_kernel(&allocator, &loaded_image);
         return EFI_LOAD_ERROR;
     }
     {
         volatile uint64_t *pool_words =
-            (volatile uint64_t *)(uintptr_t)page_table_pool_address;
+            (volatile uint64_t *)(uintptr_t)page_table_pool.address;
         const uint64_t word_count =
-            VGK_BOOT_PAGE_TABLE_POOL_PAGES *
+            page_table_pool.pages *
             (VGK_BOOT_PAGE_SIZE / sizeof(uint64_t));
         for (uint64_t i = 0; i < word_count; ++i)
             pool_words[i] = 0;
@@ -602,8 +657,8 @@ static EFI_STATUS start_verified_kernel(
     boot_info.kernel_physical_base = kernel_min;
     boot_info.kernel_size = kernel_max - kernel_min;
     boot_info.kernel_entry = load_plan.entry;
-    boot_info.page_table_pool_base = page_table_pool_address;
-    boot_info.page_table_pool_pages = VGK_BOOT_PAGE_TABLE_POOL_PAGES;
+    boot_info.page_table_pool_base = page_table_pool.address;
+    boot_info.page_table_pool_pages = page_table_pool.pages;
     boot_info.kernel_segment_count = load_plan.segment_count;
     boot_info.reserved2 = 0;
     for (uint32_t i = 0; i < load_plan.segment_count; ++i) {
@@ -637,8 +692,7 @@ static EFI_STATUS start_verified_kernel(
         /* PCI inventory is diagnostic; failure must not block kernel boot. */
     }
 
-    for (uint32_t attempt = 0;
-         attempt < VGK_EXIT_BOOT_SERVICES_ATTEMPTS; ++attempt) {
+    for (;;) {
         memory_map_size = sizeof(firmware_memory_map);
         status = services->get_memory_map(
             &memory_map_size, firmware_memory_map, &map_key,
@@ -651,11 +705,10 @@ static EFI_STATUS start_verified_kernel(
                 (size_t)descriptor_size, descriptor_version,
                 vgk_memory_map, VGK_MEMORY_MAP_ENTRY_CAPACITY,
                 &normalized_count) != 0) {
-            if (attempt != 0)
+            if (exit_boot_services_started)
                 halt_after_exit_boot_services_failure();
             (void)services->free_pages(
-                page_table_pool_address,
-                (VGK_EFI_UINTN)VGK_BOOT_PAGE_TABLE_POOL_PAGES);
+                page_table_pool.address, (VGK_EFI_UINTN)page_table_pool.pages);
             release_loaded_kernel(&allocator, &loaded_image);
             return EFI_LOAD_ERROR;
         }
@@ -663,14 +716,56 @@ static EFI_STATUS start_verified_kernel(
         boot_info.memory_map_size =
             normalized_count * sizeof(VGK_MEMORY_MAP_ENTRY);
         if (!vgk_boot_info_is_valid(&boot_info) ||
-            !uefi_page_table_pool_has_capacity(&boot_info)) {
-            if (attempt != 0)
+            !uefi_page_table_pool_required_pages(
+                &boot_info, &required_pool_pages)) {
+            if (exit_boot_services_started)
                 halt_after_exit_boot_services_failure();
             (void)services->free_pages(
-                page_table_pool_address,
-                (VGK_EFI_UINTN)VGK_BOOT_PAGE_TABLE_POOL_PAGES);
+                page_table_pool.address, (VGK_EFI_UINTN)page_table_pool.pages);
             release_loaded_kernel(&allocator, &loaded_image);
             return EFI_LOAD_ERROR;
+        }
+
+        if (required_pool_pages > page_table_pool.pages) {
+            if (exit_boot_services_started ||
+                pool_growth_attempts >=
+                    VGK_UEFI_PAGE_TABLE_POOL_GROWTH_ATTEMPTS) {
+                if (exit_boot_services_started)
+                    halt_after_exit_boot_services_failure();
+                (void)services->free_pages(
+                    page_table_pool.address,
+                    (VGK_EFI_UINTN)page_table_pool.pages);
+                release_loaded_kernel(&allocator, &loaded_image);
+                return EFI_LOAD_ERROR;
+            }
+
+            pool_result = vgk_uefi_page_table_pool_grow(
+                &page_table_pool,
+                required_pool_pages,
+                0U,
+                VGK_BOOT_PAGE_TABLE_POOL_MAX_PAGES,
+                uefi_page_pool_allocate,
+                uefi_page_pool_free,
+                services,
+                &orphan_pool_address,
+                &orphan_pool_pages);
+            if (pool_result != VGK_UEFI_PAGE_POOL_OK) {
+                if (orphan_pool_pages != 0U)
+                    (void)services->free_pages(
+                        orphan_pool_address,
+                        (VGK_EFI_UINTN)orphan_pool_pages);
+                (void)services->free_pages(
+                    page_table_pool.address,
+                    (VGK_EFI_UINTN)page_table_pool.pages);
+                release_loaded_kernel(&allocator, &loaded_image);
+                return EFI_LOAD_ERROR;
+            }
+
+            boot_info.page_table_pool_base = page_table_pool.address;
+            boot_info.page_table_pool_pages = page_table_pool.pages;
+            ++pool_growth_attempts;
+            /* Allocate/FreePages changed the firmware map; preflight again. */
+            continue;
         }
 
         status = services->exit_boot_services(image_handle, map_key);
@@ -679,9 +774,14 @@ static EFI_STATUS start_verified_kernel(
         }
         if (status != EFI_INVALID_PARAMETER)
             halt_after_exit_boot_services_failure();
+
+        exit_boot_services_started = 1;
+        ++exit_boot_services_attempts;
+        if (exit_boot_services_attempts >= VGK_EXIT_BOOT_SERVICES_ATTEMPTS)
+            halt_after_exit_boot_services_failure();
     }
 
-    /* Boot Services are no longer safe to call after any failed attempt. */
+    /* Unreachable: all ExitBootServices failure paths halt above. */
     halt_after_exit_boot_services_failure();
 }
 #endif
