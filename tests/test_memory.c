@@ -48,7 +48,7 @@ int main(void)
     boot_info.kernel_size = PAGE;
     boot_info.kernel_entry = UINT64_C(0x161000);
     boot_info.page_table_pool_base = UINT64_C(0x110000);
-    boot_info.page_table_pool_pages = VGK_BOOT_PAGE_TABLE_POOL_PAGES;
+    boot_info.page_table_pool_pages = VGK_BOOT_PAGE_TABLE_POOL_INITIAL_PAGES;
     boot_info.kernel_segment_count = 1;
     boot_info.kernel_segments[0].physical_base = UINT64_C(0x161000);
     boot_info.kernel_segments[0].memory_size = PAGE;
