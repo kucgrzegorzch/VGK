@@ -58,6 +58,8 @@ VGK_GDT_STATUS vgk_gdt_build(
         return VGK_GDT_INVALID_ARGUMENT;
 
     base = (uint64_t)(uintptr_t)tss;
+    if (!is_canonical_48(base))
+        return VGK_GDT_INVALID_ARGUMENT;
 
     /* Access=0x89: present, DPL0, available 64-bit TSS. */
     low = (limit & UINT64_C(0xFFFF)) |
@@ -65,7 +67,8 @@ VGK_GDT_STATUS vgk_gdt_build(
           (UINT64_C(0x89) << 40) |
           (((limit >> 16) & UINT64_C(0xF)) << 48) |
           (((base >> 24) & UINT64_C(0xFF)) << 56);
-    high = base >> 32;
+    /* The upper 32 bits of the 16-byte descriptor are reserved zero. */
+    high = (base >> 32) & UINT64_C(0xFFFFFFFF);
 
     gdt[0] = 0U;
     gdt[1] = UINT64_C(0x00AF9A000000FFFF); /* 64-bit ring-0 code */
