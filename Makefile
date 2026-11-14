@@ -89,7 +89,7 @@ build/paging_preflight_uefi.obj: src/paging_preflight.c include/vgk_paging_prefl
 
 paging-ranges-compile-test: build/paging_ranges_native.o build/paging_ranges_uefi.obj build/paging_preflight_native.o build/paging_preflight_uefi.obj
 
-paging-ranges-test: paging-ranges-compile-test | build
+paging-ranges-test: paging-ranges-compile-test paging-preflight-test | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/paging_ranges.c src/paging_requirements.c tests/test_paging_ranges.c -o build/test_paging_ranges
 	./build/test_paging_ranges
 
