@@ -2,7 +2,12 @@
 
 ## Status
 
-To jest plan następnego etapu. PR #27 przygotowuje protokół v5 i jądro do puli 64–1024 stron, ale loader nadal przydziela wyłącznie początkowe 64 strony. Ten dokument nie oznacza, że dynamiczny wzrost został już wdrożony.
+- Implementacja dynamicznego wzrostu znajduje się w Draft PR #28.
+- Loader oblicza wymagania przed `ExitBootServices`, powiększa pulę do maksymalnie 1024 stron i po każdej alokacji/zwolnieniu ponownie pobiera mapę.
+- Test polityki potwierdza sekwencję 64 → 129 → 258 → 516 → 1024.
+- Test QEMU/OVMF kompiluje specjalny obraz wymuszający wzrost i potwierdza, że jądro otrzymuje pulę 1024 stron (`0x400`) oraz uruchamia się.
+- CI #997 zakończyło się sukcesem. Nie jest to jeszcze test fizycznego komputera.
+- Dedykowane testy awarii `AllocatePages`/`FreePages`, błędnych adresów oraz nieudanego retry `ExitBootServices` pozostają do dodania przed uznaniem wszystkich ścieżek błędów za w pełni pokryte.
 
 ## Ustalone limity
 
@@ -85,4 +90,8 @@ Najlepiej wydzielić sterowanie wzrostem do testowalnego komponentu z atrapami `
 
 ## Warunek zakończenia etapu
 
-Dynamiczny wzrost można włączyć dopiero po przejściu testów jednostkowych i integracyjnych, przeglądzie wszystkich wywołań UEFI w końcowej ścieżce oraz potwierdzeniu, że po pierwszej próbie `ExitBootServices` nie dochodzi do alokacji ani zwalniania.
+Kod wzrostu jest już przygotowany w PR #28, ale nie należy go scalać przed:
+- dodaniem testów z atrapami dla nieudanego `AllocatePages`, `FreePages`, nieprawidłowego adresu i overflow;
+- przetestowaniem retry `ExitBootServices` z błędnym kluczem oraz potwierdzeniem, że po pierwszym wywołaniu nie ma alokacji ani zwalniania;
+- pełnym audytem zależności PR #24–#28;
+- osobnym testem z pendrive'a na fizycznym komputerze.
