@@ -151,7 +151,7 @@ int main(void)
             orphan_address != 0U && orphan_pages == 256U,
         "unreleased replacement was not reported to the caller");
 
-    if (orphan_address != 0U) {
+    if (orphan_pages != 0U) {
         failures += check(test_free(&allocator, orphan_address,
                                     orphan_pages) == 0,
                           "test could not release reported orphan");
