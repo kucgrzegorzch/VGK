@@ -16,6 +16,7 @@
 #include "vgk_acpi.h"
 #include "vgk_cpu_features.h"
 #include "vgk_paging_preflight.h"
+#include "vgk_paging_pool_policy.h"
 
 #if defined(__x86_64__)
 #define EFIAPI __attribute__((ms_abi))
@@ -389,20 +390,43 @@ static void capture_framebuffer(EFI_SYSTEM_TABLE *system_table)
     boot_info.flags |= VGK_BOOT_FLAG_FRAMEBUFFER;
 }
 
+#define VGK_PAGING_POOL_RESERVE_PAGES UINT64_C(64)
+#define VGK_PAGING_POOL_MAX_GROWTH_STEPS 4U
+
 /*
- * Preflight the same identity-mapped objects that the kernel will map.
+ * Calculate the same identity-mapped objects that the kernel will map.
  * Framebuffer is deliberately included whenever present: without duplicating
  * the kernel's PAT-effective-type decision here, this is a conservative
  * upper bound. The kernel still performs its own exact policy check.
  */
-static int uefi_page_table_pool_has_capacity(const VGK_BOOT_INFO *info)
+static int uefi_page_table_pool_requirements(
+    const VGK_BOOT_INFO *info,
+    VGK_PAGING_REQUIREMENTS *requirements,
+    uint8_t *physical_address_bits)
 {
     VGK_CPU_FEATURES cpu_features;
-    VGK_PAGING_REQUIREMENTS requirements;
     uint64_t rsdp_length = 0U;
+    uint64_t pool_size;
+    uint64_t physical_limit;
 
+    if (requirements == 0 || physical_address_bits == 0)
+        return 0;
+    *physical_address_bits = 0U;
     if (info == 0 ||
-        vgk_cpu_detect_features(&cpu_features) != VGK_CPU_OK)
+        vgk_cpu_detect_features(&cpu_features) != VGK_CPU_OK ||
+        cpu_features.physical_address_bits < 32U ||
+        cpu_features.physical_address_bits > 52U ||
+        info->page_table_pool_pages < VGK_BOOT_PAGE_TABLE_POOL_MIN_PAGES ||
+        info->page_table_pool_pages > VGK_BOOT_PAGE_TABLE_POOL_MAX_PAGES ||
+        info->page_table_pool_pages > UINT64_MAX / VGK_BOOT_PAGE_SIZE)
+        return 0;
+
+    pool_size = info->page_table_pool_pages * VGK_BOOT_PAGE_SIZE;
+    physical_limit =
+        (UINT64_C(1) << cpu_features.physical_address_bits) - 1U;
+    if (info->page_table_pool_base == 0U ||
+        info->page_table_pool_base > physical_limit ||
+        pool_size - 1U > physical_limit - info->page_table_pool_base)
         return 0;
 
     if ((info->flags & VGK_BOOT_FLAG_ACPI) != 0U) {
@@ -427,10 +451,80 @@ static int uefi_page_table_pool_has_capacity(const VGK_BOOT_INFO *info)
             (uint64_t)(uintptr_t)info,
             rsdp_length,
             (info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0U,
-            &requirements) != VGK_PAGING_PREFLIGHT_OK)
+            requirements) != VGK_PAGING_PREFLIGHT_OK)
         return 0;
 
-    return requirements.total_pages <= info->page_table_pool_pages;
+    *physical_address_bits = cpu_features.physical_address_bits;
+    return 1;
+}
+
+/*
+ * Allocate and zero a replacement before releasing the current pool.
+ * The caller must fetch and normalize a fresh firmware memory map afterwards.
+ */
+static int uefi_page_table_pool_grow(
+    VGK_EFI_BOOT_SERVICES_PREFIX *services,
+    uint64_t *pool_address,
+    uint64_t *pool_pages,
+    uint64_t required_pages,
+    uint8_t physical_address_bits)
+{
+    VGK_PAGING_POOL_POLICY_RESULT policy_result;
+    uint64_t next_pages = 0U;
+    uint64_t next_size;
+    uint64_t next_base = 0U;
+    uint64_t physical_limit;
+    VGK_EFI_STATUS status;
+
+    if (services == 0 || services->allocate_pages == 0 ||
+        services->free_pages == 0 || pool_address == 0 || pool_pages == 0 ||
+        *pool_address == 0 ||
+        physical_address_bits < 32U || physical_address_bits > 52U)
+        return 0;
+
+    policy_result = vgk_paging_pool_next_size(
+        *pool_pages, required_pages, VGK_PAGING_POOL_RESERVE_PAGES,
+        VGK_BOOT_PAGE_TABLE_POOL_MAX_PAGES, &next_pages);
+    if (policy_result != VGK_PAGING_POOL_POLICY_GROW ||
+        next_pages <= *pool_pages ||
+        next_pages > UINT64_MAX / VGK_BOOT_PAGE_SIZE)
+        return 0;
+
+    next_size = next_pages * VGK_BOOT_PAGE_SIZE;
+    status = services->allocate_pages(
+        VGK_EFI_ALLOCATE_ANY_PAGES, VGK_EFI_LOADER_DATA,
+        (VGK_EFI_UINTN)next_pages, &next_base);
+    if (EFI_ERROR(status) || next_base == 0U)
+        return 0;
+
+    physical_limit = (UINT64_C(1) << physical_address_bits) - 1U;
+    if ((next_base & (VGK_BOOT_PAGE_SIZE - 1U)) != 0U ||
+        next_base > UINT64_MAX - next_size ||
+        next_base > physical_limit ||
+        next_size - 1U > physical_limit - next_base) {
+        (void)services->free_pages(next_base, (VGK_EFI_UINTN)next_pages);
+        return 0;
+    }
+
+    {
+        volatile uint64_t *pool_words =
+            (volatile uint64_t *)(uintptr_t)next_base;
+        const uint64_t word_count =
+            next_pages * (VGK_BOOT_PAGE_SIZE / sizeof(uint64_t));
+        for (uint64_t i = 0; i < word_count; ++i)
+            pool_words[i] = 0;
+    }
+
+    status = services->free_pages(
+        *pool_address, (VGK_EFI_UINTN)*pool_pages);
+    if (EFI_ERROR(status)) {
+        (void)services->free_pages(next_base, (VGK_EFI_UINTN)next_pages);
+        return 0;
+    }
+
+    *pool_address = next_base;
+    *pool_pages = next_pages;
+    return 1;
 }
 
 static void release_loaded_kernel(
