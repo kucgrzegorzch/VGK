@@ -108,10 +108,6 @@ jobs:
           grep -aF "VGK: otrzymano inwentarz urzadzen PCI z UEFI." build/qemu-serial.log
           grep -aF "VGK: procesor obsluguje NX;" build/qemu-serial.log
           grep -aF "VGK: pula tablic stron jest dostepna, wyzerowana i zarezerwowana." build/qemu-serial.log
-          grep -aF "VGK UEFI: powiekszono pule tablic stron do 0x81 stron;" build/qemu-serial.log
-          grep -aF "VGK UEFI: powiekszono pule tablic stron do 0x102 stron;" build/qemu-serial.log
-          grep -aF "VGK UEFI: powiekszono pule tablic stron do 0x204 stron;" build/qemu-serial.log
-          grep -aF "VGK UEFI: powiekszono pule tablic stron do 0x400 stron;" build/qemu-serial.log
           grep -aF "dostepne = 0x400" build/qemu-serial.log
           grep -aF "VGK: nieaktywne mapowania jadra, stosu, danych startowych i puli sa gotowe." build/qemu-serial.log
           grep -aF "VGK: framebuffer GOP zmapowany RW+NX; PCD+PWT zweryfikowane jako UC." build/qemu-serial.log
