@@ -100,6 +100,6 @@ int main(void)
     test_exact_limit_and_limit_reached();
     test_required_capacity_over_limit_fails();
     test_overflow_and_invalid_arguments();
-    puts("paging pool growth policy tests: OK");
+    puts("paging pool growth policy tests: OK (64 -> 129 -> 258 -> 516 -> 1024)");
     return 0;
 }
