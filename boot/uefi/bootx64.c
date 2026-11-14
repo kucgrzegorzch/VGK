@@ -13,6 +13,10 @@
 #include "uefi_pci.h"
 #include "uefi_kernel_entry.h"
 #include "integrity.h"
+#include "vgk_acpi.h"
+#include "vgk_cpu_features.h"
+#include "vgk_paging_ranges.h"
+#include "vgk_paging_requirements.h"
 
 #if defined(__x86_64__)
 #define EFIAPI __attribute__((ms_abi))
@@ -386,6 +390,61 @@ static void capture_framebuffer(EFI_SYSTEM_TABLE *system_table)
     boot_info.flags |= VGK_BOOT_FLAG_FRAMEBUFFER;
 }
 
+/*
+ * Preflight the same identity-mapped objects that the kernel will map.
+ * Framebuffer is deliberately included whenever present: without duplicating
+ * the kernel's PAT-effective-type decision here, this is a conservative
+ * upper bound. The kernel still performs its own exact policy check.
+ */
+static int uefi_page_table_pool_has_capacity(const VGK_BOOT_INFO *info)
+{
+    VGK_CPU_FEATURES cpu_features;
+    VGK_PAGING_VIRTUAL_RANGE ranges[VGK_PAGING_REQUIREMENTS_MAX_RANGES];
+    VGK_PAGING_REQUIREMENTS requirements;
+    size_t range_count = 0U;
+    uint64_t rsdp_length = 0U;
+    VGK_PAGING_RANGES_RESULT ranges_result;
+
+    if (info == 0 ||
+        vgk_cpu_detect_features(&cpu_features) != VGK_CPU_OK)
+        return 0;
+
+    if ((info->flags & VGK_BOOT_FLAG_ACPI) != 0U) {
+        const VGK_MEMORY_MAP_ENTRY *map =
+            (const VGK_MEMORY_MAP_ENTRY *)(uintptr_t)info->memory_map_address;
+        size_t map_count;
+
+        if (info->memory_map_size % sizeof(VGK_MEMORY_MAP_ENTRY) != 0U)
+            return 0;
+        map_count = (size_t)(
+            info->memory_map_size / sizeof(VGK_MEMORY_MAP_ENTRY));
+        if (!vgk_acpi_rsdp_validate(
+                map, map_count, info->acpi_rsdp_address,
+                cpu_features.physical_address_bits,
+                (const volatile uint8_t *)(uintptr_t)info->acpi_rsdp_address,
+                &rsdp_length))
+            return 0;
+    }
+
+    ranges_result = vgk_paging_ranges_build(
+        info,
+        (uint64_t)(uintptr_t)info,
+        rsdp_length,
+        (info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0U,
+        ranges,
+        VGK_PAGING_REQUIREMENTS_MAX_RANGES,
+        &range_count);
+    if (ranges_result != VGK_PAGING_RANGES_OK)
+        return 0;
+
+    if (vgk_paging_requirements_calculate(
+            ranges, range_count, &requirements) !=
+        VGK_PAGING_REQUIREMENTS_OK)
+        return 0;
+
+    return requirements.total_pages <= info->page_table_pool_pages;
+}
+
 static void release_loaded_kernel(
     VGK_UEFI_ELF_ALLOCATOR *allocator,
     const VGK_ELF_LOADED_IMAGE *loaded)
@@ -615,7 +674,8 @@ static EFI_STATUS start_verified_kernel(
 
         boot_info.memory_map_size =
             normalized_count * sizeof(VGK_MEMORY_MAP_ENTRY);
-        if (!vgk_boot_info_is_valid(&boot_info)) {
+        if (!vgk_boot_info_is_valid(&boot_info) ||
+            !uefi_page_table_pool_has_capacity(&boot_info)) {
             if (attempt != 0)
                 halt_after_exit_boot_services_failure();
             (void)services->free_pages(
