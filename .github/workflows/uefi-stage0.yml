@@ -17,6 +17,10 @@ jobs:
         run: |
           sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
           sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends clang lld gcc binutils python3 openssl qemu-system-x86 ovmf
+      - name: Test bounded page-table pool growth policy
+        run: |
+          gcc -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/paging_pool_policy.c tests/test_paging_pool_policy.c -o /tmp/test_paging_pool_policy
+          /tmp/test_paging_pool_policy
       - name: Build native UEFI application
         run: make clean uefi
       - name: Compile trusted kernel startup path with test-only key
