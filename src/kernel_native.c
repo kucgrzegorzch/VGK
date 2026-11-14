@@ -371,9 +371,18 @@ static int build_inactive_page_tables(
         if (!framebuffer_is_uncacheable) {
             serial_write("VGK: pomijam mapowanie framebufferu; PAT entry 3 nie jest UC.\r\n");
         } else {
+            uint64_t framebuffer_length;
+
+            if (!vgk_framebuffer_required_size(
+                    boot_info->framebuffer_height,
+                    boot_info->framebuffer_stride,
+                    &framebuffer_length) ||
+                framebuffer_length > boot_info->framebuffer_size)
+                return 0;
+
             result = map_identity_object(
                 tables, boot_info->framebuffer_base,
-                boot_info->framebuffer_size,
+                framebuffer_length,
                 VGK_PAGE_WRITE | VGK_PAGE_CACHE_DISABLE |
                     VGK_PAGE_WRITE_THROUGH);
             if (result != VGK_PAGING_OK) {
