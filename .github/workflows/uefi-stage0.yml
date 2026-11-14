@@ -21,6 +21,8 @@ jobs:
         run: |
           gcc -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/paging_pool_policy.c tests/test_paging_pool_policy.c -o /tmp/test_paging_pool_policy
           /tmp/test_paging_pool_policy
+      - name: Test transactional UEFI page-table pool growth
+        run: make uefi-paging-pool-test
       - name: Build native UEFI application
         run: make clean uefi
       - name: Compile trusted kernel startup path with test-only key
@@ -108,6 +110,7 @@ jobs:
           grep -aF "VGK: otrzymano inwentarz urzadzen PCI z UEFI." build/qemu-serial.log
           grep -aF "VGK: procesor obsluguje NX;" build/qemu-serial.log
           grep -aF "VGK: pula tablic stron jest dostepna, wyzerowana i zarezerwowana." build/qemu-serial.log
+          grep -aF "dostepne = 0x400" build/qemu-serial.log
           grep -aF "VGK: nieaktywne mapowania jadra, stosu, danych startowych i puli sa gotowe." build/qemu-serial.log
           grep -aF "VGK: framebuffer GOP zmapowany RW+NX; PCD+PWT zweryfikowane jako UC." build/qemu-serial.log
           grep -aF "VGK: menedzer pamieci uruchomiony." build/qemu-serial.log

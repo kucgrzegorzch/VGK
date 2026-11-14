@@ -2,7 +2,12 @@
 
 ## Status
 
-To jest plan następnego etapu. PR #27 przygotowuje protokół v5 i jądro do puli 64–1024 stron, ale loader nadal przydziela wyłącznie początkowe 64 strony. Ten dokument nie oznacza, że dynamiczny wzrost został już wdrożony.
+- Implementacja dynamicznego wzrostu znajduje się w Draft PR #28.
+- Loader oblicza wymagania przed `ExitBootServices`, powiększa pulę do maksymalnie 1024 stron i po każdej alokacji/zwolnieniu ponownie pobiera mapę.
+- Test polityki potwierdza sekwencję 64 → 129 → 258 → 516 → 1024.
+- Test QEMU/OVMF kompiluje specjalny obraz wymuszający wzrost do 1024 stron (`0x400`). Pierwsze wywołanie `ExitBootServices` celowo używa błędnego klucza; OVMF je odrzuca, loader pobiera świeżą mapę i druga próba uruchamia jądro.
+- CI #1026 zakończyło się sukcesem; obejmuje testy atrap dla transakcji przydziału/zwolnienia oraz QEMU/OVMF z rzeczywistym retry po błędnym kluczu. Nie jest to jeszcze test fizycznego komputera.
+- Testy atrapami pokrywają nieudany przydział, niewyrównany/fizycznie niedostępny adres, błąd zerowania, błąd zwolnienia starej puli i błąd sprzątania nowej. Nadal brakuje testu `EFI_BUFFER_TOO_SMALL` oraz testu niedoboru puli po nieudanej próbie `ExitBootServices`, który potwierdzi zatrzymanie bez alokacji.
 
 ## Ustalone limity
 
@@ -59,12 +64,12 @@ Helper preflightu nie powinien zwracać wyłącznie wartości logicznej. Loader 
 
 Tylko drugi przypadek przed pierwszym `ExitBootServices` może uruchomić wzrost. Błędu walidacji nie wolno próbować naprawiać przez przydzielenie większej puli.
 
-## Warunki do sprawdzenia przed implementacją
+## Pozostałe warunki audytu
 
 - Dodać jawny test braku nakładania puli z ACPI RSDP; obecny walidator protokołu sprawdza nakładanie puli z jądrem, mapą, `VGK_BOOT_INFO` i framebufferem, ale nie ma osobnego warunku dla RSDP. UEFI AllocatePages powinno omijać pamięć ACPI, jednak kontrakt protokołu powinien to weryfikować.
-- Potwierdzić kontrolę fizycznej szerokości adresu dla nowej puli przed przekazaniem jej jądru.
+- Dodać jawny test braku nakładania puli z ACPI RSDP. UEFI `AllocatePages` powinno omijać pamięć ACPI, ale kontrakt protokołu nie ma jeszcze osobnego warunku overlapu.
 - Zachować stałe bufory mapy firmware i mapy znormalizowanej; `EFI_BUFFER_TOO_SMALL` nie jest powodem do powiększania puli tablic.
-- Nie zmieniać obecnego retry `ExitBootServices` bez testów mockujących zmianę klucza i mapy.
+- Sprawdzić w testach ścieżkę `EFI_BUFFER_TOO_SMALL`; błąd pojemności mapy nie może uruchamiać wzrostu puli tablic.
 
 ## Wymagane testy
 
@@ -76,7 +81,7 @@ Tylko drugi przypadek przed pierwszym `ExitBootServices` może uruchomić wzrost
 6. Nowy adres puli zwiększa wymagania — kolejny preflight i ewentualny drugi wzrost.
 7. Osiągnięcie limitu 1024 lub limitu czterech wzrostów — kontrolowany błąd.
 8. Zmiana mapy po alokacji/zwolnieniu — stare wymagania i stary klucz nie są używane.
-9. `ExitBootServices` zwraca `EFI_INVALID_PARAMETER` — ponowny `GetMemoryMap` bez jakiejkolwiek alokacji/zwalniania.
+9. `ExitBootServices` zwraca `EFI_INVALID_PARAMETER` — ponowny `GetMemoryMap` bez jakiejkolwiek alokacji/zwalniania. QEMU już sprawdza udane retry z wystarczającą pulą.
 10. Po nieudanej próbie `ExitBootServices` preflight wykazuje niedobór — natychmiastowe zatrzymanie, bez wzrostu.
 11. `EFI_BUFFER_TOO_SMALL` i przekroczenie pojemności znormalizowanej mapy — błąd, nie wzrost puli.
 12. Końcowa mapa i jej klucz są użyte bezpośrednio w `ExitBootServices`.
@@ -85,4 +90,7 @@ Najlepiej wydzielić sterowanie wzrostem do testowalnego komponentu z atrapami `
 
 ## Warunek zakończenia etapu
 
-Dynamiczny wzrost można włączyć dopiero po przejściu testów jednostkowych i integracyjnych, przeglądzie wszystkich wywołań UEFI w końcowej ścieżce oraz potwierdzeniu, że po pierwszej próbie `ExitBootServices` nie dochodzi do alokacji ani zwalniania.
+Kod wzrostu jest już przygotowany w PR #28, ale nie należy go scalać przed:
+- dodaniem testu `EFI_BUFFER_TOO_SMALL` oraz testu niedoboru puli po nieudanej próbie `ExitBootServices`, potwierdzającego zatrzymanie bez alokacji i zwalniania;
+- pełnym audytem zależności PR #24–#28;
+- osobnym testem z pendrive'a na fizycznym komputerze.

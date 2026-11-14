@@ -19,6 +19,7 @@
 #define VGK_BOOT_PAGE_TABLE_POOL_INITIAL_PAGES UINT64_C(64)
 #define VGK_BOOT_PAGE_TABLE_POOL_MIN_PAGES UINT64_C(64)
 #define VGK_BOOT_PAGE_TABLE_POOL_MAX_PAGES UINT64_C(1024)
+#define VGK_BOOT_ACPI_RSDP_MAX_SIZE UINT64_C(4096)
 #define VGK_BOOT_PAGE_SIZE UINT64_C(4096)
 #define VGK_BOOT_MAX_KERNEL_SEGMENTS 16U
 #define VGK_KERNEL_SEGMENT_READ  UINT32_C(0x4)
@@ -302,7 +303,23 @@ static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
     }
 
     if ((info->flags & VGK_BOOT_FLAG_ACPI) != 0) {
-        if (info->acpi_rsdp_address == 0)
+        uint64_t acpi_start;
+        uint64_t acpi_end;
+
+        if (info->acpi_rsdp_address == 0 ||
+            info->acpi_rsdp_address >
+                UINT64_MAX - VGK_BOOT_ACPI_RSDP_MAX_SIZE)
+            return 0;
+
+        acpi_start = info->acpi_rsdp_address & ~UINT64_C(0xFFF);
+        acpi_end = info->acpi_rsdp_address + VGK_BOOT_ACPI_RSDP_MAX_SIZE;
+        if (acpi_end > UINT64_MAX - UINT64_C(0xFFF))
+            return 0;
+        acpi_end = (acpi_end + UINT64_C(0xFFF)) & ~UINT64_C(0xFFF);
+
+        /* The pool is zeroed; reject even page-rounded RSDP overlap. */
+        if (info->page_table_pool_base < acpi_end &&
+            acpi_start < page_table_pool_end)
             return 0;
     } else if (info->acpi_rsdp_address != 0) {
         return 0;

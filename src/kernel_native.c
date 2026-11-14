@@ -65,17 +65,31 @@ static void serial_write_hex(uint64_t value)
         serial_write_char(buffer[--count]);
 }
 
-static int page_table_pool_is_zeroed(const VGK_BOOT_INFO *boot_info)
+static int page_table_pool_is_zeroed(
+    const VGK_BOOT_INFO *boot_info,
+    const VGK_CPU_FEATURES *cpu_features)
 {
     const volatile uint64_t *words;
     uint64_t word_count;
+    uint64_t pool_size;
+    uint64_t physical_limit;
 
-    if (boot_info == 0 ||
+    if (boot_info == 0 || cpu_features == 0 ||
+        cpu_features->physical_address_bits < 32U ||
+        cpu_features->physical_address_bits > 52U ||
         boot_info->page_table_pool_base == 0 ||
         boot_info->page_table_pool_pages < VGK_BOOT_PAGE_TABLE_POOL_MIN_PAGES ||
         boot_info->page_table_pool_pages > VGK_BOOT_PAGE_TABLE_POOL_MAX_PAGES ||
         boot_info->page_table_pool_pages >
             UINT64_MAX / (VGK_BOOT_PAGE_SIZE / sizeof(uint64_t)))
+        return 0;
+
+    pool_size = boot_info->page_table_pool_pages * VGK_BOOT_PAGE_SIZE;
+    physical_limit =
+        (UINT64_C(1) << cpu_features->physical_address_bits) - 1U;
+    if (boot_info->page_table_pool_base > physical_limit ||
+        pool_size - 1U >
+            physical_limit - boot_info->page_table_pool_base)
         return 0;
 
     words = (const volatile uint64_t *)(uintptr_t)
@@ -471,7 +485,8 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
         }
     }
 
-    if (!page_table_pool_is_zeroed(boot_info)) {
+    if (!page_table_pool_is_zeroed(
+            boot_info, cpu_features_valid ? &cpu_features : 0)) {
         serial_write("VGK: BLAD dostepu do puli tablic stron lub pula nie jest wyzerowana.\r\n");
         for (;;) {
             __asm__ volatile ("cli; hlt");
