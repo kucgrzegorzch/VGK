@@ -22,7 +22,11 @@ static VGK_BOOT_INFO sample_info(void)
     info.page_table_pool_pages = 64U;
     info.acpi_rsdp_address = UINT64_C(0x500123);
     info.framebuffer_base = UINT64_C(0x800123);
-    info.framebuffer_size = 0x4000U;
+    info.framebuffer_size = 0x10000U;
+    info.framebuffer_width = 500U;
+    info.framebuffer_height = 8U;
+    info.framebuffer_stride = 512U;
+    info.framebuffer_format = VGK_FRAMEBUFFER_FORMAT_RGBX8;
     return info;
 }
 
@@ -54,7 +58,24 @@ int main(void)
     CHECK(ranges[5].virtual_address == UINT64_C(0x500000));
     CHECK(ranges[5].length == 36U + 0x123U);
     CHECK(ranges[6].virtual_address == UINT64_C(0x800000));
-    CHECK(ranges[6].length == 0x4123U);
+    CHECK(ranges[6].length == 0x4123U); /* 512 * 8 * 4 + 0x123 offset */
+
+    info.framebuffer_size = 0x3FFFU;
+    CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600123), 36U, 1,
+              ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
+          VGK_PAGING_RANGES_BAD_OBJECT);
+    CHECK(count == 0U);
+    info = sample_info();
+
+    /* A valid-looking allocation cannot exceed the supported mapped span. */
+    info.framebuffer_height = 16385U;
+    info.framebuffer_stride = 4096U;
+    info.framebuffer_size = UINT64_C(16385) * 4096U * 4U;
+    CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600123), 36U, 1,
+              ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
+          VGK_PAGING_RANGES_BAD_OBJECT);
+    CHECK(count == 0U);
+    info = sample_info();
 
     /* Framebuffer is omitted unless the caller proves its UC policy. */
     CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600123), 36U, 0,
@@ -80,6 +101,44 @@ int main(void)
               ranges, VGK_BOOT_MAX_KERNEL_SEGMENTS + 4U, &count) ==
           VGK_PAGING_RANGES_TOO_MANY);
     CHECK(count == 0U);
+
+    /*
+     * Conservative worst-case layout for the proposed 1024-page pool:
+     * 511 kernel PT pages, 129 framebuffer PT pages, 2 each for the
+     * map/boot-info/ACPI spans, and 3 for the pool. Each non-kernel
+     * object straddles a distinct 512 GiB boundary to avoid shared
+     * upper-level structures. Expected total: 672 pages.
+     */
+    info = sample_info();
+    info.kernel_segment_count = VGK_BOOT_MAX_KERNEL_SEGMENTS;
+    for (uint32_t i = 0U; i < 15U; ++i) {
+        info.kernel_segments[i].physical_base =
+            UINT64_C(0x200000) + (uint64_t)i * UINT64_C(0x4000000);
+        info.kernel_segments[i].memory_size = UINT64_C(0x4000000);
+    }
+    info.kernel_segments[15].physical_base = UINT64_C(0x3C200000);
+    info.kernel_segments[15].memory_size = UINT64_C(0x3E00000);
+    info.memory_map_address = UINT64_C(0x1FFFFFC0000);
+    info.memory_map_size = UINT64_C(512) * 1024U;
+    info.page_table_pool_base = UINT64_C(0x4FFFFC01000);
+    info.page_table_pool_pages = 1024U;
+    info.acpi_rsdp_address = UINT64_C(0x3fffffff800);
+    info.framebuffer_base = UINT64_C(0xFFF8001000);
+    info.framebuffer_size = VGK_FRAMEBUFFER_MAX_MAPPED_SIZE;
+    info.framebuffer_width = 4096U;
+    info.framebuffer_height = 16384U;
+    info.framebuffer_stride = 4096U;
+    CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x2FFFFFFFB60), 4096U, 1,
+              ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
+          VGK_PAGING_RANGES_OK);
+    CHECK(count == VGK_BOOT_MAX_KERNEL_SEGMENTS + 5U);
+    CHECK(vgk_paging_requirements_calculate(ranges, count, &requirements) ==
+          VGK_PAGING_REQUIREMENTS_OK);
+    CHECK(requirements.pt_pages == 649U);
+    CHECK(requirements.pd_pages == 11U);
+    CHECK(requirements.pdpt_pages == 11U);
+    CHECK(requirements.pml4_pages == 1U);
+    CHECK(requirements.total_pages == 672U);
 
     /* Without the ACPI flag, a zero RSDP length is required. */
     info = sample_info();

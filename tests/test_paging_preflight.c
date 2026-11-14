@@ -54,7 +54,11 @@ int main(void)
     info = sample_info();
     info.flags = VGK_BOOT_FLAG_FRAMEBUFFER;
     info.framebuffer_base = UINT64_C(0x40000000);
-    info.framebuffer_size = 0x200000U;
+    info.framebuffer_size = 0x400000U;
+    info.framebuffer_width = 640U;
+    info.framebuffer_height = 480U;
+    info.framebuffer_stride = 640U;
+    info.framebuffer_format = VGK_FRAMEBUFFER_FORMAT_RGBX8;
     CHECK(vgk_paging_preflight_calculate(
               &info, UINT64_C(0x600000), 0U, 0, &requirements) ==
           VGK_PAGING_PREFLIGHT_OK);
@@ -63,7 +67,7 @@ int main(void)
               &info, UINT64_C(0x600000), 0U, 1, &requirements) ==
           VGK_PAGING_PREFLIGHT_OK);
     with_framebuffer = requirements;
-    CHECK(with_framebuffer.total_pages > without_framebuffer.total_pages);
+    CHECK(with_framebuffer.total_pages == without_framebuffer.total_pages + 2U);
 
     /* Invalid arguments and inconsistent ACPI metadata fail closed. */
     CHECK(vgk_paging_preflight_calculate(

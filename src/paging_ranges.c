@@ -49,6 +49,7 @@ VGK_PAGING_RANGES_RESULT vgk_paging_ranges_build(
     VGK_PAGING_RANGES_RESULT result;
     size_t count = 0U;
     uint64_t pool_size;
+    uint64_t framebuffer_length;
 
     if (range_count == 0)
         return VGK_PAGING_RANGES_INVALID_ARGUMENT;
@@ -96,8 +97,17 @@ VGK_PAGING_RANGES_RESULT vgk_paging_ranges_build(
         ADD_RANGE(boot_info->acpi_rsdp_address, acpi_rsdp_length);
 
     if ((boot_info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0U &&
-        framebuffer_is_uncacheable != 0)
-        ADD_RANGE(boot_info->framebuffer_base, boot_info->framebuffer_size);
+        framebuffer_is_uncacheable != 0) {
+        if (!vgk_framebuffer_required_size(
+                boot_info->framebuffer_height,
+                boot_info->framebuffer_stride,
+                &framebuffer_length) ||
+            framebuffer_length > boot_info->framebuffer_size) {
+            result = VGK_PAGING_RANGES_BAD_OBJECT;
+            goto fail;
+        }
+        ADD_RANGE(boot_info->framebuffer_base, framebuffer_length);
+    }
 
 #undef ADD_RANGE
     *range_count = count;

@@ -6,10 +6,32 @@
 int main(void)
 {
     unsigned failures = 0;
+    uint64_t required_size = UINT64_MAX;
 
 #define CHECK(condition, message) do { \
     if (!(condition)) { puts("FAIL: " message); ++failures; } \
 } while (0)
+
+    CHECK(vgk_framebuffer_required_size(720U, 1344U, &required_size) &&
+          required_size == UINT64_C(3870720),
+          "padded framebuffer span calculated incorrectly");
+    required_size = UINT64_MAX;
+    CHECK(!vgk_framebuffer_required_size(0U, 1344U, &required_size) &&
+          required_size == 0U,
+          "zero-height framebuffer span accepted");
+    required_size = UINT64_MAX;
+    CHECK(vgk_framebuffer_required_size(16384U, 4096U, &required_size) &&
+          required_size == VGK_FRAMEBUFFER_MAX_MAPPED_SIZE,
+          "maximum supported framebuffer span rejected");
+    required_size = UINT64_MAX;
+    CHECK(!vgk_framebuffer_required_size(16385U, 4096U, &required_size) &&
+          required_size == 0U,
+          "framebuffer span above the supported maximum accepted");
+    required_size = UINT64_MAX;
+    CHECK(!vgk_framebuffer_required_size(UINT32_MAX, UINT32_MAX,
+                                         &required_size) &&
+          required_size == 0U,
+          "overflowing framebuffer span accepted");
 
     CHECK(vgk_framebuffer_is_valid(
         UINT64_C(0xE0000000), UINT64_C(0x400000),
