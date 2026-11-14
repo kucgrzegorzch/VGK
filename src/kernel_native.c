@@ -201,7 +201,7 @@ static int page_table_pool_has_capacity(
     if (ranges_result != VGK_PAGING_RANGES_OK) {
         serial_write("VGK: wspolny builder zakresow odrzucil dane, kod = ");
         serial_write_hex((uint64_t)ranges_result);
-        serial_write("\\r\\n");
+        serial_write("\r\n");
         return 0;
     }
 
@@ -210,7 +210,7 @@ static int page_table_pool_has_capacity(
     if (calc_result != VGK_PAGING_REQUIREMENTS_OK) {
         serial_write("VGK: kalkulator zapotrzebowania odrzucil zakresy, kod = ");
         serial_write_hex((uint64_t)calc_result);
-        serial_write("\\r\\n");
+        serial_write("\r\n");
         return 0;
     }
 
@@ -218,7 +218,7 @@ static int page_table_pool_has_capacity(
     serial_write_hex(requirements.total_pages);
     serial_write("; dostepne = ");
     serial_write_hex(boot_info->page_table_pool_pages);
-    serial_write("\\r\\n");
+    serial_write("\r\n");
 
     return requirements.total_pages <= boot_info->page_table_pool_pages;
 }
