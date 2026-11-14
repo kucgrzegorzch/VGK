@@ -11,7 +11,7 @@ UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machin
 CRYPTO_DIR := boot/crypto
 MONOCYPHER_DIR := $(CRYPTO_DIR)/monocypher
 
-.PHONY: all clean iso check-tools test paging-requirements-test native-kernel native-kernel-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test cpu-features-test interrupts-test exception-test framebuffer-test pci-test uefi-pci-test paging-test paging-ranges-test paging-ranges-compile-test paging-preflight-test acpi-test
+.PHONY: all clean iso check-tools test paging-requirements-test native-kernel native-kernel-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test cpu-features-test interrupts-test exception-test framebuffer-test pci-test uefi-pci-test paging-test paging-ranges-test paging-ranges-compile-test paging-preflight-test acpi-test uefi-paging-pool-test
 all: build/vgk-kernel.elf
 
 test: build/vgk-kernel.elf
@@ -90,7 +90,7 @@ build/paging_preflight_uefi.obj: src/paging_preflight.c include/vgk_paging_prefl
 build/paging_pool_policy_uefi.obj: src/paging_pool_policy.c include/vgk_paging_pool_policy.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
 
-build/uefi_page_table_pool.obj: boot/uefi/uefi_page_table_pool.c boot/uefi/uefi_page_table_pool.h include/vgk_boot_info.h include/vgk_paging_pool_policy.h boot/uefi/uefi_page_table_pool.h | build
+build/uefi_page_table_pool.obj: boot/uefi/uefi_page_table_pool.c boot/uefi/uefi_page_table_pool.h include/vgk_boot_info.h include/vgk_paging_pool_policy.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iinclude -Iboot/uefi -c $< -o $@
 
 paging-ranges-compile-test: build/paging_ranges_native.o build/paging_ranges_uefi.obj build/paging_preflight_native.o build/paging_preflight_uefi.obj
@@ -119,7 +119,7 @@ exception-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/exception.c tests/test_exception.c -o build/test_exception
 	./build/test_exception
 
-build/bootx64.obj: boot/uefi/bootx64.c include/vgk_boot_info.h include/vgk_acpi.h include/vgk_cpu_features.h include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h include/vgk_paging_pool_policy.h boot/uefi/uefi_graphics.h include/vgk_framebuffer.h boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/crypto/manifest.h | build
+build/bootx64.obj: boot/uefi/bootx64.c include/vgk_boot_info.h include/vgk_acpi.h include/vgk_cpu_features.h include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h include/vgk_paging_pool_policy.h boot/uefi/uefi_page_table_pool.h boot/uefi/uefi_graphics.h include/vgk_framebuffer.h boot/uefi/uefi_file.h boot/uefi/uefi_services.h boot/uefi/uefi_release_verify.h boot/crypto/manifest.h | build
 	$(CLANG) $(UEFI_CFLAGS) -Iinclude -Iboot/uefi -Iboot/crypto -c $< -o $@
 
 # Most UEFI functions use Microsoft x64 ABI; this bridge prepares the native
@@ -285,6 +285,10 @@ framebuffer-test: | build
 pci-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/pci.c tests/test_pci.c -o build/test_pci
 	./build/test_pci
+
+uefi-paging-pool-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude -Iboot/uefi boot/uefi/uefi_page_table_pool.c src/paging_pool_policy.c tests/test_uefi_page_table_pool.c -o build/test_uefi_page_table_pool
+	./build/test_uefi_page_table_pool
 
 uefi-pci-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude -Iboot/uefi src/pci.c boot/uefi/uefi_pci.c tests/test_uefi_pci.c -o build/test_uefi_pci
