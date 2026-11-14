@@ -44,6 +44,13 @@ int main(void)
     }
     info = valid_info();
 
+    info.version = UINT32_C(4);
+    if (vgk_boot_info_is_valid(&info)) {
+        puts("FAIL: zaakceptowano poprzednia wersje protokolu");
+        ++failures;
+    }
+
+    info = valid_info();
     info.version++;
     if (vgk_boot_info_is_valid(&info)) {
         puts("FAIL: zaakceptowano nieznana wersje");
