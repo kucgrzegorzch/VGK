@@ -5,6 +5,7 @@
 #include "vgk_cpu_features.h"
 #include "vgk_paging.h"
 #include "vgk_paging_requirements.h"
+#include "vgk_paging_ranges.h"
 
 #define COM1_PORT 0x3F8U
 
@@ -145,34 +146,13 @@ static int framebuffer_pcd_pwt_is_uncacheable(void)
 }
 
 
-/* Add an object using the same page-flooring rule as map_identity_object(). */
-static int add_paging_requirement_range(
-    VGK_PAGING_VIRTUAL_RANGE *ranges,
-    size_t *range_count,
-    uint64_t address,
-    uint64_t length)
-{
-    uint64_t page_base;
-    uint64_t offset;
-
-    if (ranges == 0 || range_count == 0 || address == 0U || length == 0U ||
-        *range_count >= VGK_PAGING_REQUIREMENTS_MAX_RANGES)
-        return 0;
-
-    page_base = address & ~(VGK_PAGING_PAGE_SIZE - 1U);
-    offset = address - page_base;
-    if (length > UINT64_MAX - offset)
-        return 0;
-
-    ranges[*range_count].virtual_address = page_base;
-    ranges[*range_count].length = length + offset;
-    ++(*range_count);
-    return 1;
-}
-
 /*
  * Count every identity-mapped object before allocating a single page-table
  * page. The stack is already contained in a writable, NX ELF segment.
+ *
+ * ACPI is validated here because that check depends on CPU physical-address
+ * width and the normalized memory map. The shared builder receives only the
+ * resulting validated RSDP length; all other range construction is shared.
  */
 static int page_table_pool_has_capacity(
     const VGK_BOOT_INFO *boot_info,
@@ -184,34 +164,10 @@ static int page_table_pool_has_capacity(
     const VGK_MEMORY_MAP_ENTRY *memory_map;
     size_t range_count = 0U;
     uint64_t rsdp_length = 0U;
+    VGK_PAGING_RANGES_RESULT ranges_result;
     VGK_PAGING_REQUIREMENTS_RESULT calc_result;
 
     if (boot_info == 0 || cpu_features == 0)
-        return 0;
-
-    for (uint32_t i = 0U; i < boot_info->kernel_segment_count; ++i) {
-        const VGK_KERNEL_SEGMENT *segment = &boot_info->kernel_segments[i];
-        if (!add_paging_requirement_range(
-                ranges, &range_count,
-                segment->physical_base, segment->memory_size))
-            return 0;
-    }
-
-    if (!add_paging_requirement_range(
-            ranges, &range_count,
-            (uint64_t)(uintptr_t)boot_info, sizeof(*boot_info)) ||
-        !add_paging_requirement_range(
-            ranges, &range_count,
-            boot_info->memory_map_address, boot_info->memory_map_size))
-        return 0;
-
-    if (boot_info->page_table_pool_pages >
-        UINT64_MAX / VGK_BOOT_PAGE_SIZE)
-        return 0;
-    if (!add_paging_requirement_range(
-            ranges, &range_count,
-            boot_info->page_table_pool_base,
-            boot_info->page_table_pool_pages * VGK_BOOT_PAGE_SIZE))
         return 0;
 
     if ((boot_info->flags & VGK_BOOT_FLAG_ACPI) != 0U) {
@@ -230,26 +186,31 @@ static int page_table_pool_has_capacity(
                 memory_map, memory_map_count,
                 boot_info->acpi_rsdp_address,
                 cpu_features->physical_address_bits,
-                rsdp, &rsdp_length) ||
-            !add_paging_requirement_range(
-                ranges, &range_count,
-                boot_info->acpi_rsdp_address, rsdp_length))
+                rsdp, &rsdp_length))
             return 0;
     }
 
-    if ((boot_info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0U &&
-        framebuffer_is_uncacheable != 0 &&
-        !add_paging_requirement_range(
-            ranges, &range_count,
-            boot_info->framebuffer_base, boot_info->framebuffer_size))
+    ranges_result = vgk_paging_ranges_build(
+        boot_info,
+        (uint64_t)(uintptr_t)boot_info,
+        rsdp_length,
+        framebuffer_is_uncacheable,
+        ranges,
+        VGK_PAGING_REQUIREMENTS_MAX_RANGES,
+        &range_count);
+    if (ranges_result != VGK_PAGING_RANGES_OK) {
+        serial_write("VGK: wspolny builder zakresow odrzucil dane, kod = ");
+        serial_write_hex((uint64_t)ranges_result);
+        serial_write("\\r\\n");
         return 0;
+    }
 
     calc_result = vgk_paging_requirements_calculate(
         ranges, range_count, &requirements);
     if (calc_result != VGK_PAGING_REQUIREMENTS_OK) {
         serial_write("VGK: kalkulator zapotrzebowania odrzucil zakresy, kod = ");
         serial_write_hex((uint64_t)calc_result);
-        serial_write("\r\n");
+        serial_write("\\r\\n");
         return 0;
     }
 
@@ -257,7 +218,7 @@ static int page_table_pool_has_capacity(
     serial_write_hex(requirements.total_pages);
     serial_write("; dostepne = ");
     serial_write_hex(boot_info->page_table_pool_pages);
-    serial_write("\r\n");
+    serial_write("\\r\\n");
 
     return requirements.total_pages <= boot_info->page_table_pool_pages;
 }
