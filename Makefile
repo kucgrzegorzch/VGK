@@ -11,7 +11,7 @@ UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machin
 CRYPTO_DIR := boot/crypto
 MONOCYPHER_DIR := $(CRYPTO_DIR)/monocypher
 
-.PHONY: all clean iso check-tools test paging-requirements-test native-kernel native-kernel-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test cpu-features-test interrupts-test exception-test framebuffer-test pci-test uefi-pci-test paging-test paging-ranges-test acpi-test
+.PHONY: all clean iso check-tools test paging-requirements-test native-kernel native-kernel-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test cpu-features-test interrupts-test exception-test framebuffer-test pci-test uefi-pci-test paging-test paging-ranges-test paging-ranges-compile-test acpi-test
 all: build/vgk-kernel.elf
 
 test: build/vgk-kernel.elf
@@ -75,7 +75,15 @@ paging-requirements-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/paging_requirements.c tests/test_paging_requirements.c -o build/test_paging_requirements
 	./build/test_paging_requirements
 
-paging-ranges-test: | build
+build/paging_ranges_native.o: src/paging_ranges.c include/vgk_paging_ranges.h include/vgk_boot_info.h include/vgk_paging_requirements.h | build
+	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
+
+build/paging_ranges_uefi.obj: src/paging_ranges.c include/vgk_paging_ranges.h include/vgk_boot_info.h include/vgk_paging_requirements.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
+
+paging-ranges-compile-test: build/paging_ranges_native.o build/paging_ranges_uefi.obj
+
+paging-ranges-test: paging-ranges-compile-test | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/paging_ranges.c src/paging_requirements.c tests/test_paging_ranges.c -o build/test_paging_ranges
 	./build/test_paging_ranges
 
