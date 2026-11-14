@@ -15,8 +15,10 @@
 #include "vgk_pci.h"
 
 #define VGK_BOOT_INFO_MAGIC UINT64_C(0x314F464E494B4756) /* "VGKINFO1" */
-#define VGK_BOOT_INFO_VERSION UINT32_C(4)
-#define VGK_BOOT_PAGE_TABLE_POOL_PAGES UINT64_C(64)
+#define VGK_BOOT_INFO_VERSION UINT32_C(5)
+#define VGK_BOOT_PAGE_TABLE_POOL_INITIAL_PAGES UINT64_C(64)
+#define VGK_BOOT_PAGE_TABLE_POOL_MIN_PAGES UINT64_C(64)
+#define VGK_BOOT_PAGE_TABLE_POOL_MAX_PAGES UINT64_C(1024)
 #define VGK_BOOT_PAGE_SIZE UINT64_C(4096)
 #define VGK_BOOT_MAX_KERNEL_SEGMENTS 16U
 #define VGK_KERNEL_SEGMENT_READ  UINT32_C(0x4)
@@ -146,7 +148,8 @@ static inline int vgk_boot_info_is_valid(const VGK_BOOT_INFO *info)
         info->kernel_physical_base == 0 || info->kernel_size == 0 ||
         info->kernel_entry == 0 ||
         info->page_table_pool_base == 0 ||
-        info->page_table_pool_pages != VGK_BOOT_PAGE_TABLE_POOL_PAGES ||
+        info->page_table_pool_pages < VGK_BOOT_PAGE_TABLE_POOL_MIN_PAGES ||
+        info->page_table_pool_pages > VGK_BOOT_PAGE_TABLE_POOL_MAX_PAGES ||
         (info->page_table_pool_base & (VGK_BOOT_PAGE_SIZE - 1U)) != 0 ||
         info->page_table_pool_pages > UINT64_MAX / VGK_BOOT_PAGE_SIZE ||
         info->memory_map_address > UINT64_MAX - info->memory_map_size ||
