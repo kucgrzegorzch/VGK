@@ -136,7 +136,7 @@ int main(void)
 
     allocator.fail_frees = 1U;
     failures += check(vgk_uefi_page_table_pool_grow(
-        &pool, 129U, 1024U, test_allocate, test_free, &allocator,
+        &pool, 129U, 8U, 1024U, test_allocate, test_free, &allocator,
         &orphan_address, &orphan_pages) ==
             VGK_UEFI_PAGE_POOL_FREE_FAILED && pool.pages == 128U &&
             allocator.active == 1U && orphan_address == 0U,
@@ -144,7 +144,7 @@ int main(void)
 
     allocator.fail_frees = 2U;
     failures += check(vgk_uefi_page_table_pool_grow(
-        &pool, 129U, 1024U, test_allocate, test_free, &allocator,
+        &pool, 129U, 8U, 1024U, test_allocate, test_free, &allocator,
         &orphan_address, &orphan_pages) ==
             VGK_UEFI_PAGE_POOL_ORPHANED_ALLOCATION &&
             pool.pages == 128U && allocator.active == 2U &&
