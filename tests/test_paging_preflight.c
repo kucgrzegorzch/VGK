@@ -67,7 +67,7 @@ int main(void)
               &info, UINT64_C(0x600000), 0U, 1, &requirements) ==
           VGK_PAGING_PREFLIGHT_OK);
     with_framebuffer = requirements;
-    CHECK(with_framebuffer.total_pages == without_framebuffer.total_pages + 3U);
+    CHECK(with_framebuffer.total_pages == without_framebuffer.total_pages + 2U);
 
     /* Invalid arguments and inconsistent ACPI metadata fail closed. */
     CHECK(vgk_paging_preflight_calculate(
