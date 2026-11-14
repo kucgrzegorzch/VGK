@@ -128,7 +128,7 @@ info.acpi_rsdp_address=UINT64_C(0x3fffffff800);
     info.framebuffer_width = 4096U;
     info.framebuffer_height = 16384U;
     info.framebuffer_stride = 4096U;
-    CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x2FFFFFFFB5C), 4096U, 1,
+    CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x2FFFFFFFB60), 4096U, 1,
               ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
           VGK_PAGING_RANGES_OK);
     CHECK(count == VGK_BOOT_MAX_KERNEL_SEGMENTS + 5U);
