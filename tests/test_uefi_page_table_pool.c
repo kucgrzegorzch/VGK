@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "uefi_page_table_pool.h"
+#include "vgk_boot_info.h"
 
 typedef struct {
     uint64_t old_base;
