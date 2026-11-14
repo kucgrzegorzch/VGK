@@ -458,10 +458,61 @@ static int uefi_page_table_pool_requirements(
     return 1;
 }
 
-/*
- * Allocate and zero a replacement before releasing the current pool.
- * The caller must fetch and normalize a fresh firmware memory map afterwards.
- */
+typedef struct {
+    VGK_EFI_BOOT_SERVICES_PREFIX *services;
+} VGK_UEFI_POOL_CONTEXT;
+
+static int uefi_pool_allocate_callback(
+    void *context, uint64_t pages, uint64_t *physical_address)
+{
+    VGK_UEFI_POOL_CONTEXT *pool_context =
+        (VGK_UEFI_POOL_CONTEXT *)context;
+    VGK_EFI_STATUS status;
+
+    if (pool_context == 0 || pool_context->services == 0 ||
+        pool_context->services->allocate_pages == 0 ||
+        physical_address == 0)
+        return -1;
+
+    *physical_address = 0U;
+    status = pool_context->services->allocate_pages(
+        VGK_EFI_ALLOCATE_ANY_PAGES, VGK_EFI_LOADER_DATA,
+        (VGK_EFI_UINTN)pages, physical_address);
+    return EFI_ERROR(status) ? -1 : 0;
+}
+
+static int uefi_pool_release_callback(
+    void *context, uint64_t physical_address, uint64_t pages)
+{
+    VGK_UEFI_POOL_CONTEXT *pool_context =
+        (VGK_UEFI_POOL_CONTEXT *)context;
+    VGK_EFI_STATUS status;
+
+    if (pool_context == 0 || pool_context->services == 0 ||
+        pool_context->services->free_pages == 0)
+        return -1;
+
+    status = pool_context->services->free_pages(
+        physical_address, (VGK_EFI_UINTN)pages);
+    return EFI_ERROR(status) ? -1 : 0;
+}
+
+static int uefi_pool_zero_callback(
+    void *context, uint64_t physical_address, uint64_t pages)
+{
+    volatile uint64_t *words =
+        (volatile uint64_t *)(uintptr_t)physical_address;
+    uint64_t word_count = pages *
+        (VGK_BOOT_PAGE_SIZE / sizeof(uint64_t));
+
+    (void)context;
+    if (physical_address == 0U || pages == 0U)
+        return -1;
+    for (uint64_t i = 0; i < word_count; ++i)
+        words[i] = 0U;
+    return 0;
+}
+
 static int uefi_page_table_pool_grow(
     VGK_EFI_BOOT_SERVICES_PREFIX *services,
     uint64_t *pool_address,
@@ -469,87 +520,18 @@ static int uefi_page_table_pool_grow(
     uint64_t required_pages,
     uint8_t physical_address_bits)
 {
-    VGK_PAGING_POOL_POLICY_RESULT policy_result;
-    uint64_t next_pages = 0U;
-    uint64_t next_size;
-    uint64_t next_base = 0U;
-    uint64_t physical_limit;
-    VGK_EFI_STATUS status;
+    VGK_UEFI_POOL_CONTEXT context = { services };
+    const VGK_UEFI_PAGE_TABLE_POOL_SERVICES pool_services = {
+        &context,
+        uefi_pool_allocate_callback,
+        uefi_pool_release_callback,
+        uefi_pool_zero_callback
+    };
 
-    if (services == 0 || services->allocate_pages == 0 ||
-        services->free_pages == 0 || pool_address == 0 || pool_pages == 0 ||
-        *pool_address == 0 ||
-        physical_address_bits < 32U || physical_address_bits > 52U)
-        return 0;
-
-    policy_result = vgk_paging_pool_next_size(
-        *pool_pages, required_pages, VGK_PAGING_POOL_RESERVE_PAGES,
-        VGK_BOOT_PAGE_TABLE_POOL_MAX_PAGES, &next_pages);
-    if (policy_result != VGK_PAGING_POOL_POLICY_GROW ||
-        next_pages <= *pool_pages ||
-        next_pages > UINT64_MAX / VGK_BOOT_PAGE_SIZE)
-        return 0;
-
-    next_size = next_pages * VGK_BOOT_PAGE_SIZE;
-    status = services->allocate_pages(
-        VGK_EFI_ALLOCATE_ANY_PAGES, VGK_EFI_LOADER_DATA,
-        (VGK_EFI_UINTN)next_pages, &next_base);
-    if (EFI_ERROR(status) || next_base == 0U)
-        return 0;
-
-    physical_limit = (UINT64_C(1) << physical_address_bits) - 1U;
-    if ((next_base & (VGK_BOOT_PAGE_SIZE - 1U)) != 0U ||
-        next_base > UINT64_MAX - next_size ||
-        next_base > physical_limit ||
-        next_size - 1U > physical_limit - next_base) {
-        (void)services->free_pages(next_base, (VGK_EFI_UINTN)next_pages);
-        return 0;
-    }
-
-    {
-        volatile uint64_t *pool_words =
-            (volatile uint64_t *)(uintptr_t)next_base;
-        const uint64_t word_count =
-            next_pages * (VGK_BOOT_PAGE_SIZE / sizeof(uint64_t));
-        for (uint64_t i = 0; i < word_count; ++i)
-            pool_words[i] = 0;
-    }
-
-    status = services->free_pages(
-        *pool_address, (VGK_EFI_UINTN)*pool_pages);
-    if (EFI_ERROR(status)) {
-        (void)services->free_pages(next_base, (VGK_EFI_UINTN)next_pages);
-        return 0;
-    }
-
-    *pool_address = next_base;
-    *pool_pages = next_pages;
-    return 1;
-}
-
-static void release_loaded_kernel(
-    VGK_UEFI_ELF_ALLOCATOR *allocator,
-    const VGK_ELF_LOADED_IMAGE *loaded)
-{
-    if (allocator == 0 || loaded == 0)
-        return;
-    for (uint32_t i = 0; i < loaded->range_count; ++i) {
-        vgk_uefi_elf_release(allocator,
-            loaded->ranges[i].physical_address,
-            loaded->ranges[i].page_count);
-    }
-}
-
-/*
- * ExitBootServices may partially shut down firmware even when it fails.
- * After the first attempt, do not free pages, close protocols, print, or
- * return to firmware. A failed retry path must stop without further services.
- */
-static _Noreturn void halt_after_exit_boot_services_failure(void)
-{
-    for (;;) {
-        __asm__ volatile ("cli; hlt");
-    }
+    return vgk_uefi_page_table_pool_grow(
+        &pool_services, pool_address, pool_pages, required_pages,
+        VGK_PAGING_POOL_RESERVE_PAGES, physical_address_bits) ==
+        VGK_UEFI_POOL_GROW_OK;
 }
 
 static EFI_STATUS start_verified_kernel(
