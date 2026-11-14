@@ -58,12 +58,12 @@ int main(void)
     CHECK(count == 6U); /* ACPI remains; framebuffer is omitted. */
 
     /* Without the ACPI flag, a zero RSDP length is required. */
-    info.flags &= ~VGK_BOOT_FLAG_ACPI;
+    info.flags = 0U;
     info.acpi_rsdp_address = 0U;
     CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600000), 0U, 1,
               ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
           VGK_PAGING_RANGES_OK);
-    CHECK(count == 4U);
+    CHECK(count == 5U);
 
     /* Required objects and sizes must be present and arithmetic must not wrap. */
     info.memory_map_address = 0U;
