@@ -122,13 +122,13 @@ int main(void)
     info.memory_map_size = UINT64_C(512) * 1024U;
     info.page_table_pool_base = UINT64_C(0x4FFFFC01000);
     info.page_table_pool_pages = 1024U;
-    info.acpi_rsdp_address = UINT64_C(0x3FFFFFFFFEE);
+info.acpi_rsdp_address=UINT64_C(0x3FFFFFFFF800);
     info.framebuffer_base = UINT64_C(0xFFF8001000);
     info.framebuffer_size = VGK_FRAMEBUFFER_MAX_MAPPED_SIZE;
     info.framebuffer_width = 4096U;
     info.framebuffer_height = 16384U;
     info.framebuffer_stride = 4096U;
-    CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x2FFFFFFFB5C), 36U, 1,
+    CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x2FFFFFFFB5C), 4096U, 1,
               ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
           VGK_PAGING_RANGES_OK);
     CHECK(count == VGK_BOOT_MAX_KERNEL_SEGMENTS + 5U);
