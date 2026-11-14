@@ -122,7 +122,7 @@ int main(void)
     info.memory_map_size = UINT64_C(512) * 1024U;
     info.page_table_pool_base = UINT64_C(0x4FFFFC01000);
     info.page_table_pool_pages = 1024U;
-info.acpi_rsdp_address=UINT64_C(0x3FFFFFFFF800);
+info.acpi_rsdp_address=UINT64_C(0x3fffffff800);
     info.framebuffer_base = UINT64_C(0xFFF8001000);
     info.framebuffer_size = VGK_FRAMEBUFFER_MAX_MAPPED_SIZE;
     info.framebuffer_width = 4096U;
