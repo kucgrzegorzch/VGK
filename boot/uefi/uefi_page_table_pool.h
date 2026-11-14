@@ -36,8 +36,8 @@ typedef enum {
 
 /*
  * Grow a contiguous pool without discarding the old allocation until the
- * replacement has been allocated, validated, and zeroed. Growth doubles the
- * current capacity where possible, but never exceeds max_pages.
+ * replacement has been allocated, validated, and zeroed. The shared bounded
+ * growth policy selects the replacement size, including optional headroom.
  *
  * On failure, pool remains unchanged. If firmware refuses to free a newly
  * allocated replacement as well, its address and size are returned through
@@ -47,6 +47,7 @@ typedef enum {
 VGK_UEFI_PAGE_POOL_RESULT vgk_uefi_page_table_pool_grow(
     VGK_UEFI_PAGE_TABLE_POOL *pool,
     uint64_t required_pages,
+    uint64_t reserve_pages,
     uint64_t max_pages,
     VGK_UEFI_PAGE_POOL_ALLOCATE allocate_pages,
     VGK_UEFI_PAGE_POOL_FREE free_pages,
