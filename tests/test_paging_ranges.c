@@ -67,6 +67,16 @@ int main(void)
     CHECK(count == 0U);
     info = sample_info();
 
+    /* A valid-looking allocation cannot exceed the supported mapped span. */
+    info.framebuffer_height = 16385U;
+    info.framebuffer_stride = 4096U;
+    info.framebuffer_size = UINT64_C(16385) * 4096U * 4U;
+    CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600123), 36U, 1,
+              ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
+          VGK_PAGING_RANGES_BAD_OBJECT);
+    CHECK(count == 0U);
+    info = sample_info();
+
     /* Framebuffer is omitted unless the caller proves its UC policy. */
     CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600123), 36U, 0,
               ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
