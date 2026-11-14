@@ -79,6 +79,16 @@ int main(void)
     CHECK(count == 0U);
 
     info = sample_info();
+    info.flags = 0U;
+    info.acpi_rsdp_address = 0U;
+    info.kernel_segments[0].physical_base = UINT64_MAX - UINT64_C(0x7FF);
+    info.kernel_segments[0].memory_size = 0x1000U;
+    CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600000), 0U, 0,
+              ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
+          VGK_PAGING_RANGES_BAD_OBJECT);
+    CHECK(count == 0U);
+
+    info = sample_info();
     CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600000), 36U, 1,
               ranges, 5U, &count) == VGK_PAGING_RANGES_TOO_MANY);
     CHECK(count == 0U);
