@@ -2,7 +2,7 @@
 
 #define VGK_ACPI_RSDP_MIN_LENGTH UINT64_C(20)
 #define VGK_ACPI_RSDP_EXTENDED_PREFIX UINT64_C(24)
-#define VGK_ACPI_RSDP_MAX_LENGTH UINT64_C(4096)
+#define VGK_ACPI_RSDP_MAX_LENGTH VGK_BOOT_ACPI_RSDP_MAX_SIZE
 
 static int acpi_memory_type_is_readable(uint64_t type)
 {
