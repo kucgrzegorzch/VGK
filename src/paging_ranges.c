@@ -11,6 +11,8 @@ static VGK_PAGING_RANGES_RESULT add_object(
 {
     uint64_t page_base;
     uint64_t offset;
+    uint64_t mapped_length;
+    uint64_t rounded_length;
 
     if (address == 0U || length == 0U)
         return VGK_PAGING_RANGES_BAD_OBJECT;
@@ -22,9 +24,17 @@ static VGK_PAGING_RANGES_RESULT add_object(
     offset = address - page_base;
     if (length > UINT64_MAX - offset)
         return VGK_PAGING_RANGES_BAD_OBJECT;
+    mapped_length = length + offset;
+    if (mapped_length > UINT64_MAX - (VGK_PAGING_RANGE_PAGE_SIZE - 1U))
+        return VGK_PAGING_RANGES_BAD_OBJECT;
+    rounded_length = (mapped_length + VGK_PAGING_RANGE_PAGE_SIZE - 1U) &
+                     ~(VGK_PAGING_RANGE_PAGE_SIZE - 1U);
+    if (rounded_length == 0U ||
+        page_base > UINT64_MAX - (rounded_length - 1U))
+        return VGK_PAGING_RANGES_BAD_OBJECT;
 
     ranges[*count].virtual_address = page_base;
-    ranges[*count].length = length + offset;
+    ranges[*count].length = mapped_length;
     ++(*count);
     return VGK_PAGING_RANGES_OK;
 }
