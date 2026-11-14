@@ -42,7 +42,7 @@ typedef enum {
  * On failure, pool remains unchanged. If firmware refuses to free a newly
  * allocated replacement as well, its address and size are returned through
  * orphan_* so the caller can account for and clean up that allocation.
- * orphan_* are set to zero on entry.
+ * orphan_* are set to zero on entry; orphan_pages != 0 signals an orphan.
  */
 VGK_UEFI_PAGE_POOL_RESULT vgk_uefi_page_table_pool_grow(
     VGK_UEFI_PAGE_TABLE_POOL *pool,
