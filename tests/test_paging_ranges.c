@@ -62,6 +62,21 @@ int main(void)
           VGK_PAGING_RANGES_OK);
     CHECK(count == 6U); /* ACPI remains; framebuffer is omitted. */
 
+    /* The protocol maximum is 16 ELF segments plus five shared objects. */
+    info = sample_info();
+    info.kernel_segment_count = VGK_BOOT_MAX_KERNEL_SEGMENTS;
+    for (uint32_t i = 0U; i < VGK_BOOT_MAX_KERNEL_SEGMENTS; ++i) {
+        info.kernel_segments[i].physical_base =
+            UINT64_C(0x200000) + (uint64_t)i * UINT64_C(0x10000);
+        info.kernel_segments[i].memory_size = 0x1000U;
+    }
+    CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600000), 36U, 1,
+              ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
+          VGK_PAGING_RANGES_OK);
+    CHECK(count == VGK_BOOT_MAX_KERNEL_SEGMENTS + 5U);
+    CHECK(ranges[VGK_BOOT_MAX_KERNEL_SEGMENTS].virtual_address ==
+          UINT64_C(0x600000));
+
     /* Without the ACPI flag, a zero RSDP length is required. */
     info.flags = 0U;
     info.acpi_rsdp_address = 0U;
