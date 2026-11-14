@@ -7,6 +7,8 @@
 #define VGK_FRAMEBUFFER_FORMAT_RGBX8 UINT32_C(1)
 #define VGK_FRAMEBUFFER_FORMAT_BGRX8 UINT32_C(2)
 #define VGK_FRAMEBUFFER_BYTES_PER_PIXEL UINT64_C(4)
+/* Maximum identity-mapped framebuffer span supported by the current boot path. */
+#define VGK_FRAMEBUFFER_MAX_MAPPED_SIZE (UINT64_C(256) * 1024U * 1024U)
 
 /*
  * Return the byte span needed for all framebuffer scanlines, including
@@ -32,7 +34,12 @@ static inline int vgk_framebuffer_required_size(
         return 0;
 
     *required_size = row_bytes * (uint64_t)height;
-    return *required_size != 0;
+    if (*required_size == 0 ||
+        *required_size > VGK_FRAMEBUFFER_MAX_MAPPED_SIZE) {
+        *required_size = 0;
+        return 0;
+    }
+    return 1;
 }
 
 /*
