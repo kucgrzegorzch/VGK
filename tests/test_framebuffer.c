@@ -20,6 +20,14 @@ int main(void)
           required_size == 0U,
           "zero-height framebuffer span accepted");
     required_size = UINT64_MAX;
+    CHECK(vgk_framebuffer_required_size(16384U, 4096U, &required_size) &&
+          required_size == VGK_FRAMEBUFFER_MAX_MAPPED_SIZE,
+          "maximum supported framebuffer span rejected");
+    required_size = UINT64_MAX;
+    CHECK(!vgk_framebuffer_required_size(16385U, 4096U, &required_size) &&
+          required_size == 0U,
+          "framebuffer span above the supported maximum accepted");
+    required_size = UINT64_MAX;
     CHECK(!vgk_framebuffer_required_size(UINT32_MAX, UINT32_MAX,
                                          &required_size) &&
           required_size == 0U,
