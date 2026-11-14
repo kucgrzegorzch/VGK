@@ -82,6 +82,7 @@ int main(void)
     CHECK(count == 0U);
 
     /* Without the ACPI flag, a zero RSDP length is required. */
+    info = sample_info();
     info.flags = 0U;
     info.acpi_rsdp_address = 0U;
     CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600000), 0U, 1,
