@@ -1,7 +1,5 @@
 #include "vgk_paging_ranges.h"
 
-#define VGK_PAGING_RANGE_PAGE_SIZE UINT64_C(4096)
-
 static VGK_PAGING_RANGES_RESULT add_object(
     VGK_PAGING_VIRTUAL_RANGE *ranges,
     size_t capacity,
@@ -20,15 +18,15 @@ static VGK_PAGING_RANGES_RESULT add_object(
         *count >= VGK_PAGING_REQUIREMENTS_MAX_RANGES)
         return VGK_PAGING_RANGES_TOO_MANY;
 
-    page_base = address & ~(VGK_PAGING_RANGE_PAGE_SIZE - 1U);
+    page_base = address & ~(VGK_BOOT_PAGE_SIZE - 1U);
     offset = address - page_base;
     if (length > UINT64_MAX - offset)
         return VGK_PAGING_RANGES_BAD_OBJECT;
     mapped_length = length + offset;
-    if (mapped_length > UINT64_MAX - (VGK_PAGING_RANGE_PAGE_SIZE - 1U))
+    if (mapped_length > UINT64_MAX - (VGK_BOOT_PAGE_SIZE - 1U))
         return VGK_PAGING_RANGES_BAD_OBJECT;
-    rounded_length = (mapped_length + VGK_PAGING_RANGE_PAGE_SIZE - 1U) &
-                     ~(VGK_PAGING_RANGE_PAGE_SIZE - 1U);
+    rounded_length = (mapped_length + VGK_BOOT_PAGE_SIZE - 1U) &
+                     ~(VGK_BOOT_PAGE_SIZE - 1U);
     if (rounded_length == 0U ||
         page_base > UINT64_MAX - (rounded_length - 1U))
         return VGK_PAGING_RANGES_BAD_OBJECT;
