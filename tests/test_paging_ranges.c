@@ -31,11 +31,16 @@ int main(void)
     VGK_BOOT_INFO info = sample_info();
     VGK_PAGING_VIRTUAL_RANGE ranges[VGK_PAGING_REQUIREMENTS_MAX_RANGES];
     size_t count = 99U;
+    VGK_PAGING_REQUIREMENTS requirements;
 
     CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600123), 36U, 1,
               ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
           VGK_PAGING_RANGES_OK);
     CHECK(count == 7U);
+    CHECK(vgk_paging_requirements_calculate(ranges, count, &requirements) ==
+          VGK_PAGING_REQUIREMENTS_OK);
+    CHECK(requirements.pml4_pages == 1U);
+    CHECK(requirements.total_pages >= requirements.pml4_pages);
     CHECK(ranges[0].virtual_address == UINT64_C(0x200000));
     CHECK(ranges[0].length == 0x1800U);
     CHECK(ranges[1].virtual_address == UINT64_C(0x204000));
@@ -72,6 +77,20 @@ int main(void)
           VGK_PAGING_RANGES_BAD_OBJECT);
     CHECK(count == 0U);
     info = sample_info();
+    info.kernel_segment_count = VGK_BOOT_MAX_KERNEL_SEGMENTS + 1U;
+    CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600000), 36U, 1,
+              ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
+          VGK_PAGING_RANGES_BAD_OBJECT);
+    CHECK(count == 0U);
+
+    info = sample_info();
+    info.kernel_segments[0].memory_size = 0U;
+    CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600000), 36U, 1,
+              ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
+          VGK_PAGING_RANGES_BAD_OBJECT);
+    CHECK(count == 0U);
+
+    info = sample_info();
     info.page_table_pool_pages = UINT64_MAX;
     CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600000), 36U, 1,
               ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
@@ -84,6 +103,14 @@ int main(void)
     info.kernel_segments[0].physical_base = UINT64_MAX - UINT64_C(0x7FF);
     info.kernel_segments[0].memory_size = 0x1000U;
     CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600000), 0U, 0,
+              ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
+          VGK_PAGING_RANGES_BAD_OBJECT);
+    CHECK(count == 0U);
+
+    info = sample_info();
+    info.memory_map_address = UINT64_MAX - UINT64_C(0x7FF);
+    info.memory_map_size = 0x1000U;
+    CHECK(vgk_paging_ranges_build(&info, UINT64_C(0x600000), 36U, 1,
               ranges, VGK_PAGING_REQUIREMENTS_MAX_RANGES, &count) ==
           VGK_PAGING_RANGES_BAD_OBJECT);
     CHECK(count == 0U);
