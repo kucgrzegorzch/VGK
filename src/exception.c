@@ -10,7 +10,7 @@ uint8_t vgk_exception_vector_has_error_code(uint8_t vector)
     case 13U: /* #GP */
     case 14U: /* #PF */
     case 17U: /* #AC */
-    case 20U: /* #VE */
+    /* #VE (vector 20) does not push an error code. */
     case 21U: /* #CP */
     case 29U: /* #VC */
     case 30U: /* #SX */
