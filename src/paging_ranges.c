@@ -102,7 +102,8 @@ VGK_PAGING_RANGES_RESULT vgk_paging_ranges_build(
                 boot_info->framebuffer_height,
                 boot_info->framebuffer_stride,
                 &framebuffer_length) ||
-            framebuffer_length > boot_info->framebuffer_size) {
+            framebuffer_length > boot_info->framebuffer_size ||
+            framebuffer_length > VGK_FRAMEBUFFER_MAX_MAPPED_SIZE) {
             result = VGK_PAGING_RANGES_BAD_OBJECT;
             goto fail;
         }

@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "vgk_paging_requirements.h"
+#include "vgk_boot_info.h"
 
 #define CHECK(x) do { if (!(x)) { fprintf(stderr, "FAIL line %d: %s\n", __LINE__, #x); return 1; } } while (0)
 
@@ -25,8 +26,48 @@ static int expect(
     return 0;
 }
 
+static int test_worst_case_page_table_requirement(void)
+{
+    const uint64_t pml4_span = UINT64_C(1) << 39U;
+    const VGK_PAGING_VIRTUAL_RANGE ranges[] = {
+        /* Kernel can occupy the entire allowed 2 MiB..1 GiB load window. */
+        { UINT64_C(0x00200000), UINT64_C(0x3FE00000) },
+        /* 256 MiB framebuffer straddling a 512 GiB PML4 boundary. */
+        { (UINT64_C(2) * pml4_span) - (UINT64_C(128) << 20U) +
+              UINT64_C(4096),
+          UINT64_C(256) << 20U },
+        /* 4 MiB pool, page-aligned but offset from a 2 MiB boundary. */
+        { (UINT64_C(4) * pml4_span) - (UINT64_C(2) << 20U) +
+              UINT64_C(4096),
+          UINT64_C(4) << 20U },
+        /* Maximum normalized map buffer, crossing 2 MiB/1 GiB/512 GiB. */
+        { (UINT64_C(6) * pml4_span) - UINT64_C(4096),
+          (UINT64_C(512) << 10U) + UINT64_C(4080) },
+        /* VGK_BOOT_INFO is 8-byte aligned and may straddle the same boundaries. */
+        { (UINT64_C(8) * pml4_span) - UINT64_C(4096),
+          (uint64_t)sizeof(VGK_BOOT_INFO) + UINT64_C(4088) },
+        /* The 16-byte-aligned ACPI RSDP may straddle a page boundary. */
+        { (UINT64_C(10) * pml4_span) - UINT64_C(4096),
+          UINT64_C(36) + UINT64_C(4080) }
+    };
+    VGK_PAGING_REQUIREMENTS result;
+
+    CHECK(sizeof(VGK_BOOT_INFO) == 2376U);
+    CHECK(vgk_paging_requirements_calculate(
+              ranges, sizeof(ranges) / sizeof(ranges[0]), &result) ==
+          VGK_PAGING_REQUIREMENTS_OK);
+    CHECK(result.pml4_pages == 1U);
+    CHECK(result.pt_pages == 649U);
+    CHECK(result.pd_pages == 11U);
+    CHECK(result.pdpt_pages == 11U);
+    CHECK(result.total_pages == 672U);
+    CHECK(result.total_pages < 1024U);
+    return 0;
+}
+
 int main(void)
 {
+    CHECK(test_worst_case_page_table_requirement() == 0);
     VGK_PAGING_REQUIREMENTS result;
     VGK_PAGING_VIRTUAL_RANGE ranges[VGK_PAGING_REQUIREMENTS_MAX_RANGES];
 

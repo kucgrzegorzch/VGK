@@ -11,6 +11,14 @@
 #define VGK_FRAMEBUFFER_MAX_MAPPED_SIZE (UINT64_C(256) * 1024U * 1024U)
 
 /*
+ * Maximum framebuffer byte span that VGK will identity-map.
+ * This accommodates 8K UHD 32-bit modes with normal GOP stride padding,
+ * while keeping page-table demand bounded for firmware-selected modes.
+ */
+#define VGK_FRAMEBUFFER_MAX_MAPPED_SIZE \
+    (UINT64_C(256) * UINT64_C(1024) * UINT64_C(1024))
+
+/*
  * Return the byte span needed for all framebuffer scanlines, including
  * per-row stride padding. A zero result is never published on failure.
  */
@@ -64,7 +72,9 @@ static inline int vgk_framebuffer_is_valid(
         !vgk_framebuffer_required_size(height, stride, &required_bytes))
         return 0;
 
-    if (required_bytes > size || base > UINT64_MAX - size)
+    if (required_bytes > size ||
+        required_bytes > VGK_FRAMEBUFFER_MAX_MAPPED_SIZE ||
+        base > UINT64_MAX - size)
         return 0;
 
     return 1;
