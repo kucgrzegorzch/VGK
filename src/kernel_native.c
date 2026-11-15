@@ -435,12 +435,12 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
         serial_write("VGK: trzy odrebne stosy IST w BSS zweryfikowane; pozostaja nieaktywne.\r\n");
         if (vgk_tss64_init(&vgk_kernel_tss, 0U, ist_tops) != VGK_GDT_OK ||
             vgk_gdt_build(vgk_kernel_gdt, &vgk_kernel_tss) != VGK_GDT_OK) {
-            serial_write("VGK: BLAD przygotowania TSS/GDT; pozostaja nieaktywne.\\r\\n");
+            serial_write("VGK: BLAD przygotowania TSS/GDT; pozostaja nieaktywne.\r\n");
             for (;;) {
                 __asm__ volatile ("cli; hlt");
             }
         }
-        serial_write("VGK: TSS wypelniony adresami IST, deskryptor GDT zbudowany; LGDT/LTR nie wykonano.\\r\\n");
+        serial_write("VGK: TSS wypelniony adresami IST, deskryptor GDT zbudowany; LGDT/LTR nie wykonano.\r\n");
         serial_write("VGK: IST1/#DF top = ");
         serial_write_hex(ist_tops[0]);
         serial_write("; IST2/NMI top = ");
