@@ -44,7 +44,7 @@ VGK_INTERRUPT_STATUS vgk_idt_build_exception_table(
 
     /* Validate all input before modifying any descriptor. */
     for (uint32_t i = 0; i < VGK_IDT_EXCEPTION_COUNT; ++i) {
-        if (handlers[i] == 0)
+        if (handlers[i] == 0 || !is_canonical_48(handlers[i]))
             return VGK_INTERRUPT_INVALID_ARGUMENT;
     }
 
