@@ -6,8 +6,13 @@
 #include "vgk_paging.h"
 #include "vgk_paging_preflight.h"
 #include "vgk_ist_stacks.h"
+#include "vgk_gdt.h"
 
 #define COM1_PORT 0x3F8U
+
+/* Prepared in BSS; deliberately not loaded with LGDT or LTR yet. */
+static VGK_TSS64 vgk_kernel_tss __attribute__((aligned(16)));
+static uint64_t vgk_kernel_gdt[VGK_GDT_ENTRY_COUNT] __attribute__((aligned(16)));
 
 extern char vgk_boot_stack[];
 extern char vgk_boot_stack_top[];
@@ -428,6 +433,14 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
             }
         }
         serial_write("VGK: trzy odrebne stosy IST w BSS zweryfikowane; pozostaja nieaktywne.\r\n");
+        if (vgk_tss64_init(&vgk_kernel_tss, 0U, ist_tops) != VGK_GDT_OK ||
+            vgk_gdt_build(vgk_kernel_gdt, &vgk_kernel_tss) != VGK_GDT_OK) {
+            serial_write("VGK: BLAD przygotowania TSS/GDT; pozostaja nieaktywne.\\r\\n");
+            for (;;) {
+                __asm__ volatile ("cli; hlt");
+            }
+        }
+        serial_write("VGK: TSS wypelniony adresami IST, deskryptor GDT zbudowany; LGDT/LTR nie wykonano.\\r\\n");
         serial_write("VGK: IST1/#DF top = ");
         serial_write_hex(ist_tops[0]);
         serial_write("; IST2/NMI top = ");
