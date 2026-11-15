@@ -38,6 +38,10 @@ int main(void)
                               VGK_IDT_GATE_INTERRUPT, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
     assert(vgk_idt_gate_build(&gate, 0U, 0x08U, 0U, 0U,
                               VGK_IDT_GATE_INTERRUPT, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
+    assert(vgk_idt_gate_build(&gate, UINT64_C(0x0000800000000000), 0x08U, 0U, 0U,
+                              VGK_IDT_GATE_INTERRUPT, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
+    assert(vgk_idt_gate_build(&gate, UINT64_C(0xFFFF000000000000), 0x08U, 0U, 0U,
+                              VGK_IDT_GATE_INTERRUPT, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
     assert(vgk_idt_gate_build(&gate, address, 0U, 0U, 0U,
                               VGK_IDT_GATE_INTERRUPT, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
     assert(vgk_idt_gate_build(&gate, address, 0x08U, 8U, 0U,
