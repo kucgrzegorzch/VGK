@@ -74,6 +74,56 @@ int main(void)
                VGK_GDT_INVALID_ARGUMENT);
     }
 
+    /* Reject a misaligned TSS object before touching its contents. */
+    {
+        unsigned char raw[sizeof(VGK_TSS64) + 16U] __attribute__((aligned(16)));
+        VGK_TSS64 *misaligned = (VGK_TSS64 *)(void *)(raw + 1U);
+        memset(raw, 0x5A, sizeof(raw));
+        assert(vgk_tss64_init(misaligned, 0U, ist) ==
+               VGK_GDT_INVALID_ARGUMENT);
+        for (size_t i = 0; i < sizeof(raw); ++i)
+            assert(raw[i] == 0x5AU);
+    }
+
+    /* A bad final IST slot must not leave a partially initialized TSS. */
+    {
+        const uint64_t bad_last_ist[7] = {
+            ist[0], ist[1], ist[2], ist[3], ist[4], ist[5],
+            UINT64_C(0x0000800000000000)
+        };
+        unsigned char before[sizeof(tss)];
+        memset(&tss, 0xA5, sizeof(tss));
+        memcpy(before, &tss, sizeof(tss));
+        assert(vgk_tss64_init(&tss, 0U, bad_last_ist) ==
+               VGK_GDT_INVALID_ARGUMENT);
+        assert(memcmp(&tss, before, sizeof(tss)) == 0);
+    }
+
+    /* A noncanonical privilege-transition stack is rejected as well. */
+    {
+        const uint64_t bad_rsp0 = UINT64_C(0x0000800000000000);
+        memset(&tss, 0xA5, sizeof(tss));
+        unsigned char before[sizeof(tss)];
+        memcpy(before, &tss, sizeof(tss));
+        assert(vgk_tss64_init(&tss, bad_rsp0, ist) ==
+               VGK_GDT_INVALID_ARGUMENT);
+        assert(memcmp(&tss, before, sizeof(tss)) == 0);
+    }
+
+    /* A misaligned TSS pointer must not modify the destination GDT. */
+    {
+        unsigned char raw[sizeof(VGK_TSS64) + 16U] __attribute__((aligned(16)));
+        const VGK_TSS64 *misaligned =
+            (const VGK_TSS64 *)(const void *)(raw + 1U);
+        uint64_t untouched[VGK_GDT_ENTRY_COUNT];
+        for (size_t i = 0; i < VGK_GDT_ENTRY_COUNT; ++i)
+            untouched[i] = UINT64_C(0xA5A5A5A5A5A5A5A5);
+        memcpy(gdt, untouched, sizeof(gdt));
+        assert(vgk_gdt_build(gdt, misaligned) ==
+               VGK_GDT_INVALID_ARGUMENT);
+        assert(memcmp(gdt, untouched, sizeof(gdt)) == 0);
+    }
+
     puts("VGK GDT/TSS descriptor tests: OK");
     return 0;
 }
