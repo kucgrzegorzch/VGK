@@ -434,7 +434,7 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
         serial_write_hex(ist_tops[1]);
         serial_write("; IST3/#MC top = ");
         serial_write_hex(ist_tops[2]);
-        serial_write("\\r\\n");
+        serial_write("\r\n");
     }
 
     if ((boot_info->flags & VGK_BOOT_FLAG_PCI) != 0) {
