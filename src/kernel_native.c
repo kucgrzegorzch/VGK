@@ -447,12 +447,12 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
         if (vgk_idt_build_exception_table_with_ist(
                 vgk_kernel_idt, vgk_exception_stub_table,
                 VGK_GDT_SELECTOR_CODE) != VGK_INTERRUPT_OK) {
-            serial_write("VGK: BLAD przygotowania IDT; LIDT nie wykonano.\\r\\n");
+            serial_write("VGK: BLAD przygotowania IDT; LIDT nie wykonano.\r\n");
             for (;;) {
                 __asm__ volatile ("cli; hlt");
             }
         }
-        serial_write("VGK: IDT zbudowana z 32 rzeczywistych stubow; LIDT nie wykonano.\\r\\n");
+        serial_write("VGK: IDT zbudowana z 32 rzeczywistych stubow; LIDT nie wykonano.\r\n");
         serial_write("VGK: IST1/#DF top = ");
         serial_write_hex(ist_tops[0]);
         serial_write("; IST2/NMI top = ");
