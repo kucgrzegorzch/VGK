@@ -51,6 +51,8 @@ jobs:
         run: make cpu-features-test
       - name: Test x86 interrupt descriptor encoding
         run: make interrupts-test
+      - name: Test cooperation of GDT, TSS, IST and IDT builders
+        run: make gdt-idt-contract-test
       - name: Test x86 exception context and error-code classification
         run: make exception-test
       - name: Test framebuffer format and memory bounds
