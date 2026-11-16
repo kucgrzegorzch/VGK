@@ -41,8 +41,9 @@ VGK_DECLARE_EXCEPTION_STUB(30);
 VGK_DECLARE_EXCEPTION_STUB(31);
 #undef VGK_DECLARE_EXCEPTION_STUB
 
-#define VGK_EXCEPTION_STUB_ADDRESS(n) ((uintptr_t)&vgk_exception_stub_##n)
-static const uintptr_t expected_stub_addresses[VGK_IDT_EXCEPTION_COUNT] = {
+typedef void (*VGK_EXCEPTION_STUB)(void);
+#define VGK_EXCEPTION_STUB_ADDRESS(n) vgk_exception_stub_##n
+static VGK_EXCEPTION_STUB const expected_stub_addresses[VGK_IDT_EXCEPTION_COUNT] = {
     VGK_EXCEPTION_STUB_ADDRESS(0), VGK_EXCEPTION_STUB_ADDRESS(1),
     VGK_EXCEPTION_STUB_ADDRESS(2), VGK_EXCEPTION_STUB_ADDRESS(3),
     VGK_EXCEPTION_STUB_ADDRESS(4), VGK_EXCEPTION_STUB_ADDRESS(5),
@@ -90,7 +91,7 @@ int main(void)
 
     for (uint32_t i = 0; i < VGK_IDT_EXCEPTION_COUNT; ++i) {
         /* Compare addresses only; exception stubs are never executed here. */
-        assert(vgk_exception_stub_table[i] == expected_stub_addresses[i]);
+        assert(vgk_exception_stub_table[i] == (uintptr_t)expected_stub_addresses[i]);
         handlers[i] = (uint64_t)vgk_exception_stub_table[i];
         assert(handlers[i] != 0U);
         for (uint32_t j = 0; j < i; ++j)
@@ -100,8 +101,7 @@ int main(void)
     assert(vgk_idt_build_exception_table_with_ist(
                idt, handlers, VGK_GDT_SELECTOR_CODE) == VGK_INTERRUPT_OK);
 
-    /* Every IDT gate must point to its real, separately linked assembly stub. */
-    /* GDT code selector and every IDT gate selector must agree. */
+    /* The IDT must point to the real assembly stubs and use the GDT code selector. */
     assert(VGK_GDT_SELECTOR_CODE == 0x08U);
     assert(gdt[1] == UINT64_C(0x00AF9A000000FFFF));
     for (uint32_t i = 0; i < VGK_IDT_EXCEPTION_COUNT; ++i) {
