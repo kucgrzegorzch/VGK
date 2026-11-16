@@ -124,7 +124,7 @@ interrupts-test: | build
 	./build/test_interrupts
 
 gdt-idt-contract-test: | build
-	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/gdt.c src/interrupts.c src/ist_stacks.c tests/test_gdt_idt_contract.c -o build/test_gdt_idt_contract
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -no-pie -Iinclude src/gdt.c src/interrupts.c src/ist_stacks.c boot/exception_stubs.S tests/test_gdt_idt_contract.c -o build/test_gdt_idt_contract
 	./build/test_gdt_idt_contract
 
 exception-test: | build
