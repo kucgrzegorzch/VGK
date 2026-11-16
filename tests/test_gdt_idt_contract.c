@@ -5,7 +5,6 @@
 #include "vgk_interrupts.h"
 #include "vgk_ist_stacks.h"
 
-extern const uintptr_t vgk_exception_stub_table[VGK_IDT_EXCEPTION_COUNT];
 #define VGK_DECLARE_EXCEPTION_STUB(n) extern void vgk_exception_stub_##n(void)
 VGK_DECLARE_EXCEPTION_STUB(0);
 VGK_DECLARE_EXCEPTION_STUB(1);
