@@ -59,7 +59,7 @@ disassembly = subprocess.run(
     check=True, capture_output=True, text=True
 ).stdout
 forbidden_instruction = re.compile(
-    r"\\b(?:lgdt|ltr|lidt)\\b|\\bmov[a-z]*\\s+[^,\\n]+,\\s*%cr3\\b",
+    r"\b(?:lgdt|ltr|lidt)\b|\bmov[a-z]*\s+[^,\n]+,\s*%cr3\b",
     re.IGNORECASE,
 )
 for line in disassembly.splitlines():
