@@ -5,6 +5,8 @@
 #include "vgk_interrupts.h"
 #include "vgk_ist_stacks.h"
 
+extern const uintptr_t vgk_exception_stub_table[VGK_IDT_EXCEPTION_COUNT];
+
 static uint64_t idt_handler(const VGK_IDT_GATE *gate)
 {
     return (uint64_t)gate->offset_low |
@@ -31,13 +33,17 @@ int main(void)
     assert(vgk_tss64_init(&tss, 0U, ist_tops) == VGK_GDT_OK);
     assert(vgk_gdt_build(gdt, &tss) == VGK_GDT_OK);
 
-    for (uint32_t i = 0; i < VGK_IDT_EXCEPTION_COUNT; ++i)
-        handlers[i] = UINT64_C(0xFFFF800000200000) +
-                      ((uint64_t)i * UINT64_C(0x100));
+    for (uint32_t i = 0; i < VGK_IDT_EXCEPTION_COUNT; ++i) {
+        handlers[i] = (uint64_t)vgk_exception_stub_table[i];
+        assert(handlers[i] != 0U);
+        for (uint32_t j = 0; j < i; ++j)
+            assert(handlers[i] != handlers[j]);
+    }
 
     assert(vgk_idt_build_exception_table_with_ist(
                idt, handlers, VGK_GDT_SELECTOR_CODE) == VGK_INTERRUPT_OK);
 
+    /* Every IDT gate must point to its real, separately linked assembly stub. */
     /* GDT code selector and every IDT gate selector must agree. */
     assert(VGK_GDT_SELECTOR_CODE == 0x08U);
     assert(gdt[1] == UINT64_C(0x00AF9A000000FFFF));
