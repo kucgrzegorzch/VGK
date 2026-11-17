@@ -36,7 +36,7 @@ build/entry_native.o: boot/entry_native.S | build
 build/exception_stubs_native.o: boot/exception_stubs.S | build
 	$(CC) -m64 -ffreestanding -fno-pic -fno-pie -c $< -o $@
 
-build/kernel_native.o: src/kernel_native.c include/vgk_boot_info.h include/vgk_framebuffer.h include/vgk_acpi.h include/vgk_memory.h include/vgk_cpu_features.h include/vgk_paging.h include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h include/vgk_ist_stacks.h include/vgk_gdt.h | build
+build/kernel_native.o: src/kernel_native.c include/vgk_boot_info.h include/vgk_framebuffer.h include/vgk_acpi.h include/vgk_memory.h include/vgk_cpu_features.h include/vgk_paging.h include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h include/vgk_ist_stacks.h include/vgk_gdt.h include/vgk_interrupts.h | build
 	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
 build/cpu_features_native.o: src/cpu_features.c include/vgk_cpu_features.h | build
@@ -57,6 +57,9 @@ build/paging_requirements_native.o: src/paging_requirements.c include/vgk_paging
 build/gdt_native.o: src/gdt.c include/vgk_gdt.h | build
 	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
+build/interrupts_native.o: src/interrupts.c include/vgk_interrupts.h | build
+	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
+
 build/ist_stacks_native.o: src/ist_stacks.c include/vgk_ist_stacks.h | build
 	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
@@ -68,8 +71,8 @@ gdt-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/gdt.c tests/test_gdt.c -o build/test_gdt
 	./build/test_gdt
 
-build/vgk-kernel-native.elf: build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o linker-native.ld
-	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o
+build/vgk-kernel-native.elf: build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/interrupts_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o linker-native.ld
+	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/interrupts_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o
 
 native-kernel: build/vgk-kernel-native.elf
 

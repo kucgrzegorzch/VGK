@@ -4,6 +4,9 @@
 #include <stdint.h>
 
 #define VGK_IDT_EXCEPTION_COUNT 32U
+
+/* Read-only address table exported by boot/exception_stubs.S. */
+extern const uint64_t vgk_exception_stub_table[VGK_IDT_EXCEPTION_COUNT];
 #define VGK_IDT_IST_DOUBLE_FAULT 1U
 #define VGK_IDT_IST_NMI           2U
 #define VGK_IDT_IST_MACHINE_CHECK 3U

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
+import re
 import struct
+import subprocess
 import sys
 
 if len(sys.argv) != 2:
@@ -52,4 +54,19 @@ if any(flags & 2 and flags & 1 for _, _, flags in loads):
 if not any((flags & 7) == 4 for _, _, flags in loads):
     raise SystemExit("FAIL: expected a dedicated read-only, non-executable PT_LOAD segment")
 
-print(f"OK: native VGK ELF64 x86-64; entry=0x{entry:x}; PT_LOAD={len(loads)}; RX/R/RW permissions separated")
+disassembly = subprocess.run(
+    ["objdump", "-d", path],
+    check=True, capture_output=True, text=True
+).stdout
+forbidden_instruction = re.compile(
+    r"\b(?:lgdt|ltr|lidt)\b|\bmov[a-z]*\s+[^,\n]+,\s*%cr3\b",
+    re.IGNORECASE,
+)
+for line in disassembly.splitlines():
+    if forbidden_instruction.search(line):
+        raise SystemExit(
+            "FAIL: privileged descriptor/CR3 activation is not permitted yet: "
+            + line.strip()
+        )
+
+print(f"OK: native VGK ELF64 x86-64; entry=0x{entry:x}; PT_LOAD={len(loads)}; RX/R/RW separated; LGDT/LTR/LIDT/CR3 writes absent")
