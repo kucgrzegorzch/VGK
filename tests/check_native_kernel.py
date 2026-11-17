@@ -30,6 +30,7 @@ if not (0x200000 <= entry < 0x40000000):
     raise SystemExit(f"FAIL: entry outside expected low physical range: 0x{entry:x}")
 
 loads = []
+load_segments = []
 for index in range(phnum):
     off = phoff + index * phentsize
     p_type, p_flags = struct.unpack_from("<II", data, off)
@@ -44,6 +45,7 @@ for index in range(phnum):
         if (p_flags & 4) == 0 or (p_flags & ~7) != 0:
             raise SystemExit("FAIL: PT_LOAD must use known ELF R/W/X permissions")
         loads.append((p_paddr, p_memsz, p_flags))
+        load_segments.append((p_paddr, p_filesz, p_memsz, p_flags))
 
 if not loads:
     raise SystemExit("FAIL: no PT_LOAD segments")
@@ -51,6 +53,48 @@ if not any(start <= entry < start + size and (flags & 1) for start, size, flags 
     raise SystemExit("FAIL: entry is not in an executable PT_LOAD segment")
 if any(flags & 2 and flags & 1 for _, _, flags in loads):
     raise SystemExit("FAIL: writable executable segment detected")
+
+# The emergency IST stacks live in .bss.ist. Verify that the linker keeps
+# them inside the RW, non-executable PT_LOAD zero-fill tail: the UEFI ELF
+# loader allocates p_memsz and explicitly zeroes the bytes after p_filesz.
+required_ist_stacks = {
+    "vgk_ist_double_fault_stack",
+    "vgk_ist_nmi_stack",
+    "vgk_ist_machine_check_stack",
+    "vgk_ist_page_fault_stack",
+}
+nm_output = subprocess.run(
+    ["nm", "-S", "--defined-only", path],
+    check=True, capture_output=True, text=True
+).stdout
+symbols = {}
+for line in nm_output.splitlines():
+    fields = line.split()
+    if len(fields) >= 4 and fields[3] in required_ist_stacks:
+        try:
+            symbols[fields[3]] = (int(fields[0], 16), int(fields[1], 16), fields[2])
+        except ValueError:
+            raise SystemExit("FAIL: malformed IST stack symbol from nm")
+
+if set(symbols) != required_ist_stacks:
+    missing = sorted(required_ist_stacks - set(symbols))
+    raise SystemExit("FAIL: missing IST stack symbols: " + ", ".join(missing))
+
+for name, (address, size, symbol_type) in symbols.items():
+    if symbol_type.lower() != "b" or size != 16 * 1024:
+        raise SystemExit(f"FAIL: {name} must be a 16 KiB BSS object")
+    if address % 4096 != 0:
+        raise SystemExit(f"FAIL: {name} is not 4 KiB aligned")
+    end = address + size
+    in_zero_filled_rw_segment = any(
+        (flags & 6) == 6 and (flags & 1) == 0 and
+        address >= start + file_size and end <= start + memory_size
+        for start, file_size, memory_size, flags in load_segments
+    )
+    if not in_zero_filled_rw_segment:
+        raise SystemExit(
+            f"FAIL: {name} is not wholly inside an RW, NX PT_LOAD BSS tail"
+        )
 if not any((flags & 7) == 4 for _, _, flags in loads):
     raise SystemExit("FAIL: expected a dedicated read-only, non-executable PT_LOAD segment")
 
