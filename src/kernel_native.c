@@ -5,6 +5,7 @@
 #include "vgk_cpu_features.h"
 #include "vgk_paging.h"
 #include "vgk_paging_preflight.h"
+#include "vgk_ist_stacks.h"
 
 #define COM1_PORT 0x3F8U
 
@@ -417,6 +418,24 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
     }
 
     serial_write("VGK: protokol startowy poprawny.\r\n");
+
+    {
+        uint64_t ist_tops[7];
+        if (vgk_ist_stacks_get_tops(ist_tops) != VGK_IST_STACKS_OK) {
+            serial_write("VGK: BLAD ukladu statycznych stosow IST.\r\n");
+            for (;;) {
+                __asm__ volatile ("cli; hlt");
+            }
+        }
+        serial_write("VGK: trzy odrebne stosy IST w BSS zweryfikowane; pozostaja nieaktywne.\r\n");
+        serial_write("VGK: IST1/#DF top = ");
+        serial_write_hex(ist_tops[0]);
+        serial_write("; IST2/NMI top = ");
+        serial_write_hex(ist_tops[1]);
+        serial_write("; IST3/#MC top = ");
+        serial_write_hex(ist_tops[2]);
+        serial_write("\r\n");
+    }
 
     if ((boot_info->flags & VGK_BOOT_FLAG_PCI) != 0) {
         serial_write("VGK: otrzymano inwentarz urzadzen PCI z UEFI.\r\n");

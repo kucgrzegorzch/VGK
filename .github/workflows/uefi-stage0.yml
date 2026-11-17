@@ -104,6 +104,7 @@ jobs:
           fi
           cat build/qemu-serial.log
           grep -aF "VGK: uruchomiono wlasne jadro." build/qemu-serial.log
+          grep -aF "VGK: trzy odrebne stosy IST w BSS zweryfikowane; pozostaja nieaktywne." build/qemu-serial.log
           grep -aF "VGK: protokol startowy poprawny." build/qemu-serial.log
           grep -aF "VGK: otrzymano inwentarz urzadzen PCI z UEFI." build/qemu-serial.log
           grep -aF "VGK: procesor obsluguje NX;" build/qemu-serial.log
