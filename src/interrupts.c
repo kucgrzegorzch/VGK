@@ -72,5 +72,6 @@ VGK_INTERRUPT_STATUS vgk_idt_build_exception_table_with_ist(
     table[8U].ist = VGK_IDT_IST_DOUBLE_FAULT;
     table[2U].ist = VGK_IDT_IST_NMI;
     table[18U].ist = VGK_IDT_IST_MACHINE_CHECK;
+    table[14U].ist = VGK_IDT_IST_PAGE_FAULT;
     return VGK_INTERRUPT_OK;
 }

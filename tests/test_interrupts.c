@@ -92,13 +92,14 @@ int main(void)
             assert(table[i].reserved == 0U);
         }
 
-        /* Emergency routing is explicit and limited to the three selected vectors. */
+        /* Emergency routing is explicit and limited to the selected vectors. */
         assert(vgk_idt_build_exception_table_with_ist(table, handlers, 0x08U) == VGK_INTERRUPT_OK);
         for (uint32_t i = 0; i < VGK_IDT_EXCEPTION_COUNT; ++i) {
             const uint8_t expected =
                 i == 8U ? VGK_IDT_IST_DOUBLE_FAULT :
                 i == 2U ? VGK_IDT_IST_NMI :
-                i == 18U ? VGK_IDT_IST_MACHINE_CHECK : 0U;
+                i == 18U ? VGK_IDT_IST_MACHINE_CHECK :
+                i == 14U ? VGK_IDT_IST_PAGE_FAULT : 0U;
             assert(table[i].ist == expected);
             assert(gate_handler(&table[i]) == handlers[i]);
         }

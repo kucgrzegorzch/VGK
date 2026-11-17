@@ -107,7 +107,8 @@ int main(void)
         const uint8_t expected_ist =
             i == 8U ? VGK_IDT_IST_DOUBLE_FAULT :
             i == 2U ? VGK_IDT_IST_NMI :
-            i == 18U ? VGK_IDT_IST_MACHINE_CHECK : 0U;
+            i == 18U ? VGK_IDT_IST_MACHINE_CHECK :
+            i == 14U ? VGK_IDT_IST_PAGE_FAULT : 0U;
         assert(idt[i].selector == VGK_GDT_SELECTOR_CODE);
         assert(idt[i].ist == expected_ist);
         assert(idt[i].attributes == 0x8EU);
@@ -119,11 +120,13 @@ int main(void)
     assert(tss.ist[0] == ist_tops[0]);
     assert(tss.ist[1] == ist_tops[1]);
     assert(tss.ist[2] == ist_tops[2]);
-    for (uint32_t i = 3U; i < 7U; ++i)
+    assert(tss.ist[3] == ist_tops[3]);
+    for (uint32_t i = 4U; i < 7U; ++i)
         assert(tss.ist[i] == 0U);
     assert(idt[8U].ist == 1U && tss.ist[idt[8U].ist - 1U] == ist_tops[0]);
     assert(idt[2U].ist == 2U && tss.ist[idt[2U].ist - 1U] == ist_tops[1]);
     assert(idt[18U].ist == 3U && tss.ist[idt[18U].ist - 1U] == ist_tops[2]);
+    assert(idt[14U].ist == 4U && tss.ist[idt[14U].ist - 1U] == ist_tops[3]);
 
     /* The GDT TSS descriptor must point at this initialized TSS object. */
     assert(tss_base(gdt) == (uint64_t)(uintptr_t)&tss);
