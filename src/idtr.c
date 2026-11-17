@@ -17,7 +17,7 @@ VGK_IDTR_STATUS vgk_idtr_build(
     uint64_t last_byte;
 
     if (descriptor == 0 || table == 0 ||
-        entry_count == 0U || entry_count > 4096U)
+        entry_count == 0U || entry_count > VGK_IDT_MAX_ENTRIES)
         return VGK_IDTR_INVALID_ARGUMENT;
 
     base = (uint64_t)(uintptr_t)table;

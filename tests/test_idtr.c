@@ -6,7 +6,7 @@
 
 static VGK_IDT_GATE valid_table[VGK_IDT_EXCEPTION_COUNT]
     __attribute__((aligned(16)));
-static VGK_IDT_GATE maximum_table[4096]
+static VGK_IDT_GATE maximum_table[VGK_IDT_MAX_ENTRIES]
     __attribute__((aligned(16)));
 
 int main(void)
@@ -23,9 +23,10 @@ int main(void)
            (VGK_IDT_EXCEPTION_COUNT * sizeof(VGK_IDT_GATE)) - 1U);
     assert(descriptor.limit == 511U);
 
-    assert(vgk_idtr_build(&descriptor, maximum_table, 4096U) == VGK_IDTR_OK);
+    assert(vgk_idtr_build(&descriptor, maximum_table,
+                         VGK_IDT_MAX_ENTRIES) == VGK_IDTR_OK);
     assert(descriptor.base == (uint64_t)(uintptr_t)maximum_table);
-    assert(descriptor.limit == UINT16_MAX);
+    assert(descriptor.limit == 4095U);
 
     /* Every rejected request must leave the descriptor byte-for-byte intact. */
     memset(&descriptor, 0x5C, sizeof(descriptor));
@@ -34,7 +35,8 @@ int main(void)
            VGK_IDTR_INVALID_ARGUMENT);
     assert(memcmp(before, &descriptor, sizeof(descriptor)) == 0);
 
-    assert(vgk_idtr_build(&descriptor, valid_table, 4097U) ==
+    assert(vgk_idtr_build(&descriptor, maximum_table,
+                          VGK_IDT_MAX_ENTRIES + 1U) ==
            VGK_IDTR_INVALID_ARGUMENT);
     assert(memcmp(before, &descriptor, sizeof(descriptor)) == 0);
 
