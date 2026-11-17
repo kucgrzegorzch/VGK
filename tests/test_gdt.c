@@ -21,7 +21,7 @@ static uint32_t tss_descriptor_limit(const uint64_t *gdt)
 int main(void)
 {
     VGK_TSS64 tss __attribute__((aligned(16)));
-    uint64_t gdt[VGK_GDT_ENTRY_COUNT];
+    uint64_t gdt[VGK_GDT_ENTRY_COUNT] __attribute__((aligned(16)));
     const uint64_t ist[7] = {
         UINT64_C(0xFFFF800000010000),
         UINT64_C(0xFFFF800000012000),
@@ -49,7 +49,7 @@ int main(void)
     assert(gdt[1] == UINT64_C(0x00AF9A000000FFFF));
     assert(gdt[2] == UINT64_C(0x00CF92000000FFFF));
     assert(tss_descriptor_base(gdt) == (uint64_t)(uintptr_t)&tss);
-    assert((gdt[4] >> 32) == 0U); /* reserved upper half of TSS descriptor */
+    assert((gdt[4] >> 32) == 0U);
     assert(tss_descriptor_limit(gdt) == VGK_TSS64_SIZE - 1U);
     assert(((gdt[3] >> 40) & 0xFFU) == 0x89U);
     assert((gdt[3] & (UINT64_C(1) << 47)) != 0U);
@@ -59,12 +59,16 @@ int main(void)
     assert(vgk_gdt_build(gdt, 0) == VGK_GDT_INVALID_ARGUMENT);
 
     {
-        const uint64_t bad_alignment[7] = { UINT64_C(0xFFFF800000010008), 0, 0, 0, 0, 0, 0 };
+        const uint64_t bad_alignment[7] = {
+            UINT64_C(0xFFFF800000010008), 0, 0, 0, 0, 0, 0
+        };
         assert(vgk_tss64_init(&tss, 0U, bad_alignment) ==
                VGK_GDT_INVALID_ARGUMENT);
     }
     {
-        const uint64_t noncanonical[7] = { UINT64_C(0x0000800000000000), 0, 0, 0, 0, 0, 0 };
+        const uint64_t noncanonical[7] = {
+            UINT64_C(0x0000800000000000), 0, 0, 0, 0, 0, 0
+        };
         assert(vgk_tss64_init(&tss, 0U, noncanonical) ==
                VGK_GDT_INVALID_ARGUMENT);
     }
@@ -73,6 +77,27 @@ int main(void)
         assert(vgk_tss64_init(&tss, bad_rsp0, ist) ==
                VGK_GDT_INVALID_ARGUMENT);
     }
+
+    /* Reject non-canonical objects before dereferencing them. */
+    assert(vgk_tss64_init(
+               (VGK_TSS64 *)(uintptr_t)UINT64_C(0x0000800000000000),
+               0U, ist) == VGK_GDT_INVALID_ARGUMENT);
+    assert(vgk_tss64_init(
+               (VGK_TSS64 *)(uintptr_t)UINT64_C(0x00007FFFFFFFFFF0),
+               0U, ist) == VGK_GDT_INVALID_ARGUMENT);
+    assert(vgk_tss64_init(
+               &tss, 0U,
+               (const uint64_t *)(uintptr_t)UINT64_C(0x00007FFFFFFFFFF0)) ==
+           VGK_GDT_INVALID_ARGUMENT);
+
+    /* Both the GDT storage and the full 104-byte TSS must fit canonically. */
+    assert(vgk_gdt_build(
+               gdt,
+               (const VGK_TSS64 *)(uintptr_t)UINT64_C(0x00007FFFFFFFFFF0)) ==
+           VGK_GDT_INVALID_ARGUMENT);
+    assert(vgk_gdt_build(
+               (uint64_t *)(uintptr_t)UINT64_C(0x00007FFFFFFFFFF0),
+               &tss) == VGK_GDT_INVALID_ARGUMENT);
 
     puts("VGK GDT/TSS descriptor tests: OK");
     return 0;
