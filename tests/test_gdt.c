@@ -99,6 +99,42 @@ int main(void)
                (uint64_t *)(uintptr_t)UINT64_C(0x00007FFFFFFFFFF0),
                &tss) == VGK_GDT_INVALID_ARGUMENT);
 
+    /* Invalid TSS inputs must not partially overwrite the destination. */
+    {
+        uint8_t before[sizeof(tss)];
+        uint64_t bad_last_ist[7] = {
+            ist[0], ist[1], ist[2], 0U, 0U, 0U,
+            UINT64_C(0x0000800000000000)
+        };
+        memset(&tss, 0x6B, sizeof(tss));
+        memcpy(before, &tss, sizeof(tss));
+        assert(vgk_tss64_init(&tss, 0U, bad_last_ist) ==
+               VGK_GDT_INVALID_ARGUMENT);
+        assert(memcmp(before, &tss, sizeof(tss)) == 0);
+    }
+    {
+        uint8_t raw_tss[sizeof(VGK_TSS64) + 16U] __attribute__((aligned(16)));
+        uint8_t before[sizeof(tss)];
+        /* Build the deliberately unaligned x86-64 address via uintptr_t. */
+        VGK_TSS64 *misaligned = (VGK_TSS64 *)(uintptr_t)
+            ((uintptr_t)raw_tss + 1U);
+        memset(&tss, 0x39, sizeof(tss));
+        memcpy(before, &tss, sizeof(tss));
+        assert(vgk_tss64_init(misaligned, 0U, ist) ==
+               VGK_GDT_INVALID_ARGUMENT);
+        assert(memcmp(before, &tss, sizeof(tss)) == 0);
+    }
+    {
+        uint8_t raw_tss[sizeof(VGK_TSS64) + 16U] __attribute__((aligned(16)));
+        uint64_t before[VGK_GDT_ENTRY_COUNT];
+        VGK_TSS64 *misaligned = (VGK_TSS64 *)(void *)(raw_tss + 1U);
+        memset(gdt, 0xC7, sizeof(gdt));
+        memcpy(before, gdt, sizeof(gdt));
+        assert(vgk_gdt_build(gdt, misaligned) == VGK_GDT_INVALID_ARGUMENT);
+        assert(memcmp(before, gdt, sizeof(gdt)) == 0);
+    }
+
+
     puts("VGK GDT/TSS descriptor tests: OK");
     return 0;
 }
