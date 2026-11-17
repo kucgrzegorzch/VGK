@@ -113,4 +113,5 @@ for line in disassembly.splitlines():
             + line.strip()
         )
 
+
 print(f"OK: native VGK ELF64 x86-64; entry=0x{entry:x}; PT_LOAD={len(loads)}; RX/R/RW separated; LGDT/LTR/LIDT/CR3 writes absent")
