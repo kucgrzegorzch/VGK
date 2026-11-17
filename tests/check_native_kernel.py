@@ -113,4 +113,27 @@ for line in disassembly.splitlines():
             + line.strip()
         )
 
+# The page-fault stub must preserve interrupted RAX and capture CR2 before
+# adding the vector number or performing the common GPR-save sequence.
+pf_disassembly = subprocess.run(
+    ["objdump", "-d", "--disassemble=vgk_exception_stub_14", path],
+    check=True, capture_output=True, text=True
+).stdout
+required_pf_order = [
+    r"\\bpush\\s+%rax\\b",
+    r"\\bmov\\s+%cr2\\s*,\\s*%rax\\b",
+    r"\\bxchg\\s+%rax\\s*,\\s*\\(%rsp\\)",
+    r"\\bpush\\s+\\$0xe\\b",
+    r"\\bjmp\\s+.*<vgk_exception_fatal_entry>",
+]
+positions = []
+for pattern in required_pf_order:
+    match = re.search(pattern, pf_disassembly, re.IGNORECASE)
+    if match is None:
+        raise SystemExit("FAIL: page-fault early CR2 capture sequence is incomplete: " + pattern)
+    positions.append(match.start())
+if positions != sorted(positions):
+    raise SystemExit("FAIL: page-fault stub does not capture CR2 before vector/common entry")
+
+
 print(f"OK: native VGK ELF64 x86-64; entry=0x{entry:x}; PT_LOAD={len(loads)}; RX/R/RW separated; LGDT/LTR/LIDT/CR3 writes absent")
