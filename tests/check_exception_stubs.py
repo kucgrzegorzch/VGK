@@ -70,6 +70,24 @@ for line in disassembly.stdout.splitlines():
 for vector in range(32):
     name = f"vgk_exception_stub_{vector}"
     instructions = blocks.get(name, [])
+
+    if vector == 14:
+        expected_pf = [
+            ("push", "%rax"),
+            ("mov", "%cr2,%rax"),
+            ("xchg", "%rax,(%rsp)"),
+            ("push", "$0xe"),
+        ]
+        if instructions[:4] != expected_pf or len(instructions) != 5 or \
+           instructions[4][0] != "jmp" or \
+           "vgk_exception_fatal_entry" not in instructions[4][1]:
+            raise SystemExit(
+                "FAIL: page-fault stub must preserve RAX, capture CR2, "
+                "then push vector 14 and jump to fatal entry; "
+                f"found {instructions}"
+            )
+        continue
+
     expected_pushes = [vector] if vector in ERROR_CODE_VECTORS else [0, vector]
     expected_mnemonics = ["push"] * len(expected_pushes) + ["jmp"]
 
