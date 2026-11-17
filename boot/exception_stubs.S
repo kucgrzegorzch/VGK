@@ -91,6 +91,7 @@ VGK_EXCEPTION_NO_ERROR 31
  * Od najnizszego adresu stosu po tych instrukcjach:
  * R15..R8, RDI, RSI, RBP, RDX, RCX, RBX, RAX,
  * wektor, kod bledu, RIP, CS, RFLAGS, RSP, SS.
+ * Wyjatek: #PF ma dodatkowy slot CR2 pomiedzy wektorem a kodem bledu.
  * W trybie 64-bitowym procesor zawsze zapisuje RSP i SS w ramce,
  * rowniez bez zmiany CPL i bez uzycia IST.
  */
