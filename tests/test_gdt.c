@@ -102,7 +102,9 @@ int main(void)
     /* Reject a misaligned TSS object before touching its contents. */
     {
         unsigned char raw[sizeof(VGK_TSS64) + 16U] __attribute__((aligned(16)));
-        VGK_TSS64 *misaligned = (VGK_TSS64 *)(void *)(raw + 1U);
+        /* Build the deliberately unaligned x86-64 address via uintptr_t. */
+        VGK_TSS64 *misaligned = (VGK_TSS64 *)(uintptr_t)
+            ((uintptr_t)raw + 1U);
         memset(raw, 0x5A, sizeof(raw));
         assert(vgk_tss64_init(misaligned, 0U, ist) ==
                VGK_GDT_INVALID_ARGUMENT);
