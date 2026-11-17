@@ -11,7 +11,7 @@ UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machin
 CRYPTO_DIR := boot/crypto
 MONOCYPHER_DIR := $(CRYPTO_DIR)/monocypher
 
-.PHONY: all clean iso check-tools test paging-requirements-test gdt-test ist-stacks-test native-kernel native-kernel-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test cpu-features-test interrupts-test exception-test framebuffer-test pci-test uefi-pci-test paging-test paging-ranges-test paging-ranges-compile-test paging-preflight-test acpi-test uefi-page-table-pool-test
+.PHONY: all clean iso check-tools test paging-requirements-test gdt-test ist-stacks-test native-kernel native-kernel-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test cpu-features-test interrupts-test gdt-idt-contract-test exception-test framebuffer-test pci-test uefi-pci-test paging-test paging-ranges-test paging-ranges-compile-test paging-preflight-test acpi-test uefi-page-table-pool-test
 all: build/vgk-kernel.elf
 
 test: build/vgk-kernel.elf
@@ -122,6 +122,13 @@ cpu-features-test: | build
 interrupts-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/interrupts.c tests/test_interrupts.c -o build/test_interrupts
 	./build/test_interrupts
+
+build/exception_stubs_test.o: boot/exception_stubs.S | build
+	$(CC) -m64 -fno-pic -fno-pie -c $< -o $@
+
+gdt-idt-contract-test: build/exception_stubs_test.o | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -no-pie -Iinclude src/gdt.c src/interrupts.c src/ist_stacks.c tests/test_gdt_idt_contract.c build/exception_stubs_test.o -o build/test_gdt_idt_contract
+	./build/test_gdt_idt_contract
 
 exception-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/exception.c tests/test_exception.c -o build/test_exception
