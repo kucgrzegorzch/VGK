@@ -3,7 +3,7 @@ import re
 import subprocess
 import sys
 
-ERROR_CODE_VECTORS = {8, 10, 11, 12, 13, 14, 17, 21, 29, 30}
+ERROR_CODE_VECTORS = {8, 10, 11, 12, 13, 14, 17, 20, 21, 29, 30}
 SAVED_REGISTERS = [
     "rax", "rbx", "rcx", "rdx", "rbp", "rsi", "rdi",
     "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15",
