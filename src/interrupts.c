@@ -35,7 +35,7 @@ VGK_INTERRUPT_STATUS vgk_idt_build_exception_table(
     if (table == 0 || handlers == 0 || code_selector == 0)
         return VGK_INTERRUPT_INVALID_ARGUMENT;
 
-    /* Najpierw sprawdzamy caly zestaw, aby blad nie zostawil pol-tablicy. */
+    /* Validate all input before modifying any descriptor. */
     for (uint32_t i = 0; i < VGK_IDT_EXCEPTION_COUNT; ++i) {
         if (handlers[i] == 0)
             return VGK_INTERRUPT_INVALID_ARGUMENT;
@@ -51,5 +51,19 @@ VGK_INTERRUPT_STATUS vgk_idt_build_exception_table(
     return VGK_INTERRUPT_OK;
 }
 
-_Static_assert(sizeof(VGK_IDT_GATE) == 16,
-               "VGK IDT gate must be exactly 16 bytes");
+VGK_INTERRUPT_STATUS vgk_idt_build_exception_table_with_ist(
+    VGK_IDT_GATE table[VGK_IDT_EXCEPTION_COUNT],
+    const uint64_t handlers[VGK_IDT_EXCEPTION_COUNT],
+    uint16_t code_selector)
+{
+    VGK_INTERRUPT_STATUS status =
+        vgk_idt_build_exception_table(table, handlers, code_selector);
+
+    if (status != VGK_INTERRUPT_OK)
+        return status;
+
+    table[8U].ist = VGK_IDT_IST_DOUBLE_FAULT;
+    table[2U].ist = VGK_IDT_IST_NMI;
+    table[18U].ist = VGK_IDT_IST_MACHINE_CHECK;
+    return VGK_INTERRUPT_OK;
+}

@@ -35,25 +35,19 @@ int main(void)
     assert(gate.attributes == 0x0EU);
 
     assert(vgk_idt_gate_build(0, address, 0x08U, 0U, 0U,
-                              VGK_IDT_GATE_INTERRUPT, 1U) ==
-           VGK_INTERRUPT_INVALID_ARGUMENT);
+                              VGK_IDT_GATE_INTERRUPT, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
     assert(vgk_idt_gate_build(&gate, 0U, 0x08U, 0U, 0U,
-                              VGK_IDT_GATE_INTERRUPT, 1U) ==
-           VGK_INTERRUPT_INVALID_ARGUMENT);
+                              VGK_IDT_GATE_INTERRUPT, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
     assert(vgk_idt_gate_build(&gate, address, 0U, 0U, 0U,
-                              VGK_IDT_GATE_INTERRUPT, 1U) ==
-           VGK_INTERRUPT_INVALID_ARGUMENT);
+                              VGK_IDT_GATE_INTERRUPT, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
     assert(vgk_idt_gate_build(&gate, address, 0x08U, 8U, 0U,
-                              VGK_IDT_GATE_INTERRUPT, 1U) ==
-           VGK_INTERRUPT_INVALID_ARGUMENT);
+                              VGK_IDT_GATE_INTERRUPT, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
     assert(vgk_idt_gate_build(&gate, address, 0x08U, 0U, 4U,
-                              VGK_IDT_GATE_INTERRUPT, 1U) ==
-           VGK_INTERRUPT_INVALID_ARGUMENT);
+                              VGK_IDT_GATE_INTERRUPT, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
     assert(vgk_idt_gate_build(&gate, address, 0x08U, 0U, 0U,
                               0x0CU, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
     assert(vgk_idt_gate_build(&gate, address, 0x08U, 0U, 0U,
-                              VGK_IDT_GATE_INTERRUPT, 2U) ==
-           VGK_INTERRUPT_INVALID_ARGUMENT);
+                              VGK_IDT_GATE_INTERRUPT, 2U) == VGK_INTERRUPT_INVALID_ARGUMENT);
 
     {
         VGK_IDT_GATE table[VGK_IDT_EXCEPTION_COUNT];
@@ -64,8 +58,7 @@ int main(void)
                           ((uint64_t)i * UINT64_C(0x100));
 
         memset(table, 0xA5, sizeof(table));
-        assert(vgk_idt_build_exception_table(table, handlers, 0x08U) ==
-               VGK_INTERRUPT_OK);
+        assert(vgk_idt_build_exception_table(table, handlers, 0x08U) == VGK_INTERRUPT_OK);
         for (uint32_t i = 0; i < VGK_IDT_EXCEPTION_COUNT; ++i) {
             assert(gate_handler(&table[i]) == handlers[i]);
             assert(table[i].selector == 0x08U);
@@ -74,22 +67,29 @@ int main(void)
             assert(table[i].reserved == 0U);
         }
 
-        /* Niepoprawny wpis nie moze pozostawic czesciowo zmienionej tablicy. */
+        /* Emergency routing is explicit and limited to the three selected vectors. */
+        assert(vgk_idt_build_exception_table_with_ist(table, handlers, 0x08U) == VGK_INTERRUPT_OK);
+        for (uint32_t i = 0; i < VGK_IDT_EXCEPTION_COUNT; ++i) {
+            const uint8_t expected =
+                i == 8U ? VGK_IDT_IST_DOUBLE_FAULT :
+                i == 2U ? VGK_IDT_IST_NMI :
+                i == 18U ? VGK_IDT_IST_MACHINE_CHECK : 0U;
+            assert(table[i].ist == expected);
+            assert(gate_handler(&table[i]) == handlers[i]);
+        }
+
         memset(table, 0x5A, sizeof(table));
         handlers[17] = 0U;
-        assert(vgk_idt_build_exception_table(table, handlers, 0x08U) ==
+        assert(vgk_idt_build_exception_table_with_ist(table, handlers, 0x08U) ==
                VGK_INTERRUPT_INVALID_ARGUMENT);
         for (uint32_t i = 0; i < VGK_IDT_EXCEPTION_COUNT; ++i) {
             const uint8_t *bytes = (const uint8_t *)&table[i];
             for (size_t j = 0; j < sizeof(table[i]); ++j)
                 assert(bytes[j] == 0x5AU);
         }
-        assert(vgk_idt_build_exception_table(table, handlers, 0U) ==
-               VGK_INTERRUPT_INVALID_ARGUMENT);
-        assert(vgk_idt_build_exception_table(0, handlers, 0x08U) ==
-               VGK_INTERRUPT_INVALID_ARGUMENT);
-        assert(vgk_idt_build_exception_table(table, 0, 0x08U) ==
-               VGK_INTERRUPT_INVALID_ARGUMENT);
+        assert(vgk_idt_build_exception_table(table, handlers, 0U) == VGK_INTERRUPT_INVALID_ARGUMENT);
+        assert(vgk_idt_build_exception_table(0, handlers, 0x08U) == VGK_INTERRUPT_INVALID_ARGUMENT);
+        assert(vgk_idt_build_exception_table(table, 0, 0x08U) == VGK_INTERRUPT_INVALID_ARGUMENT);
     }
 
     puts("VGK IDT gate and exception table tests: OK");
