@@ -115,7 +115,9 @@ int main(void)
     {
         uint8_t raw_tss[sizeof(VGK_TSS64) + 16U] __attribute__((aligned(16)));
         uint8_t before[sizeof(tss)];
-        VGK_TSS64 *misaligned = (VGK_TSS64 *)(void *)(raw_tss + 1U);
+        /* Build the deliberately unaligned x86-64 address via uintptr_t. */
+        VGK_TSS64 *misaligned = (VGK_TSS64 *)(uintptr_t)
+            ((uintptr_t)raw_tss + 1U);
         memset(&tss, 0x39, sizeof(tss));
         memcpy(before, &tss, sizeof(tss));
         assert(vgk_tss64_init(misaligned, 0U, ist) ==
