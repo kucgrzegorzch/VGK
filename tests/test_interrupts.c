@@ -53,6 +53,27 @@ int main(void)
     assert(vgk_idt_gate_build(&gate, address, 0x08U, 0U, 0U,
                               VGK_IDT_GATE_INTERRUPT, 2U) == VGK_INTERRUPT_INVALID_ARGUMENT);
 
+    /* A rejected single-gate build must leave every destination byte intact. */
+    {
+        uint8_t before[sizeof(gate)];
+        memset(&gate, 0xD6, sizeof(gate));
+        memcpy(before, &gate, sizeof(gate));
+        assert(vgk_idt_gate_build(&gate, UINT64_C(0x0000800000000000),
+                                  0x08U, 0U, 0U,
+                                  VGK_IDT_GATE_INTERRUPT, 1U) ==
+               VGK_INTERRUPT_INVALID_ARGUMENT);
+        assert(memcmp(before, &gate, sizeof(gate)) == 0);
+    }
+    {
+        uint8_t before[sizeof(gate)];
+        memset(&gate, 0xB9, sizeof(gate));
+        memcpy(before, &gate, sizeof(gate));
+        assert(vgk_idt_gate_build(&gate, address, 0x08U, 8U, 0U,
+                                  VGK_IDT_GATE_INTERRUPT, 1U) ==
+               VGK_INTERRUPT_INVALID_ARGUMENT);
+        assert(memcmp(before, &gate, sizeof(gate)) == 0);
+    }
+
     {
         VGK_IDT_GATE table[VGK_IDT_EXCEPTION_COUNT];
         uint64_t handlers[VGK_IDT_EXCEPTION_COUNT];
