@@ -51,6 +51,13 @@ int main(void)
            VGK_IDTR_INVALID_ARGUMENT);
     assert(memcmp(before, &descriptor, sizeof(descriptor)) == 0);
 
+    /* A canonical start is not sufficient if the final byte is non-canonical. */
+    assert(vgk_idtr_build(
+               &descriptor,
+               (const VGK_IDT_GATE *)(uintptr_t)0x00007FFFFFFFFFF0ULL,
+               VGK_IDT_EXCEPTION_COUNT) == VGK_IDTR_INVALID_ARGUMENT);
+    assert(memcmp(before, &descriptor, sizeof(descriptor)) == 0);
+
     assert(vgk_idtr_build(&descriptor,
                           (const VGK_IDT_GATE *)(uintptr_t)
                               ((uintptr_t)valid_table + 1U),
