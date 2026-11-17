@@ -38,6 +38,10 @@ int main(void)
                               VGK_IDT_GATE_INTERRUPT, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
     assert(vgk_idt_gate_build(&gate, 0U, 0x08U, 0U, 0U,
                               VGK_IDT_GATE_INTERRUPT, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
+    assert(vgk_idt_gate_build(&gate, UINT64_C(0x0000800000000000), 0x08U, 0U, 0U,
+                              VGK_IDT_GATE_INTERRUPT, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
+    assert(vgk_idt_gate_build(&gate, UINT64_C(0xFFFF000000000000), 0x08U, 0U, 0U,
+                              VGK_IDT_GATE_INTERRUPT, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
     assert(vgk_idt_gate_build(&gate, address, 0U, 0U, 0U,
                               VGK_IDT_GATE_INTERRUPT, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
     assert(vgk_idt_gate_build(&gate, address, 0x08U, 8U, 0U,
@@ -86,6 +90,15 @@ int main(void)
             const uint8_t *bytes = (const uint8_t *)&table[i];
             for (size_t j = 0; j < sizeof(table[i]); ++j)
                 assert(bytes[j] == 0x5AU);
+        }
+        handlers[17] = UINT64_C(0x0000800000000000);
+        memset(table, 0x3C, sizeof(table));
+        assert(vgk_idt_build_exception_table_with_ist(table, handlers, 0x08U) ==
+               VGK_INTERRUPT_INVALID_ARGUMENT);
+        for (uint32_t i = 0; i < VGK_IDT_EXCEPTION_COUNT; ++i) {
+            const uint8_t *bytes = (const uint8_t *)&table[i];
+            for (size_t j = 0; j < sizeof(table[i]); ++j)
+                assert(bytes[j] == 0x3CU);
         }
         assert(vgk_idt_build_exception_table(table, handlers, 0U) == VGK_INTERRUPT_INVALID_ARGUMENT);
         assert(vgk_idt_build_exception_table(0, handlers, 0x08U) == VGK_INTERRUPT_INVALID_ARGUMENT);

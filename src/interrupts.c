@@ -1,5 +1,12 @@
 #include "vgk_interrupts.h"
 
+static int is_canonical_48(uint64_t address)
+{
+    const uint64_t upper = address >> 48;
+    const uint64_t sign = (address >> 47) & UINT64_C(1);
+    return sign != 0U ? upper == UINT64_C(0xFFFF) : upper == 0U;
+}
+
 VGK_INTERRUPT_STATUS vgk_idt_gate_build(
     VGK_IDT_GATE *gate,
     uint64_t handler,
@@ -9,7 +16,7 @@ VGK_INTERRUPT_STATUS vgk_idt_gate_build(
     uint8_t gate_type,
     uint8_t present)
 {
-    if (gate == 0 || handler == 0 || selector == 0 ||
+    if (gate == 0 || handler == 0 || !is_canonical_48(handler) || selector == 0 ||
         ist > 7U || dpl > 3U ||
         (gate_type != VGK_IDT_GATE_INTERRUPT &&
          gate_type != VGK_IDT_GATE_TRAP) ||
@@ -37,7 +44,7 @@ VGK_INTERRUPT_STATUS vgk_idt_build_exception_table(
 
     /* Validate all input before modifying any descriptor. */
     for (uint32_t i = 0; i < VGK_IDT_EXCEPTION_COUNT; ++i) {
-        if (handlers[i] == 0)
+        if (handlers[i] == 0 || !is_canonical_48(handlers[i]))
             return VGK_INTERRUPT_INVALID_ARGUMENT;
     }
 
