@@ -8,6 +8,7 @@
 #include "vgk_ist_stacks.h"
 #include "vgk_gdt.h"
 #include "vgk_interrupts.h"
+#include "vgk_idtr.h"
 
 #define COM1_PORT 0x3F8U
 
@@ -16,6 +17,8 @@ static VGK_TSS64 vgk_kernel_tss __attribute__((aligned(16)));
 static uint64_t vgk_kernel_gdt[VGK_GDT_ENTRY_COUNT] __attribute__((aligned(16)));
 /* Prepared in BSS but deliberately not loaded with LIDT yet. */
 static VGK_IDT_GATE vgk_kernel_idt[VGK_IDT_EXCEPTION_COUNT] __attribute__((aligned(16)));
+/* Prepared in BSS; deliberately not loaded with LIDT. */
+static VGK_IDTR vgk_kernel_idtr __attribute__((aligned(16)));
 
 extern char vgk_boot_stack[];
 extern char vgk_boot_stack_top[];
@@ -453,6 +456,14 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
             }
         }
         serial_write("VGK: IDT zbudowana z 32 rzeczywistych stubow; LIDT nie wykonano.\r\n");
+        if (vgk_idtr_build(&vgk_kernel_idtr, vgk_kernel_idt,
+                           VGK_IDT_EXCEPTION_COUNT) != VGK_IDTR_OK) {
+            serial_write("VGK: BLAD przygotowania IDTR; LIDT nie wykonano.\r\n");
+            for (;;) {
+                __asm__ volatile ("cli; hlt");
+            }
+        }
+        serial_write("VGK: IDTR przygotowany (limit/adres); LIDT nie wykonano.\r\n");
         serial_write("VGK: IST1/#DF top = ");
         serial_write_hex(ist_tops[0]);
         serial_write("; IST2/NMI top = ");
