@@ -120,11 +120,11 @@ pf_disassembly = subprocess.run(
     check=True, capture_output=True, text=True
 ).stdout
 required_pf_order = [
-    r"\\bpush\\s+%rax\\b",
-    r"\\bmov\\s+%cr2\\s*,\\s*%rax\\b",
-    r"\\bxchg\\s+%rax\\s*,\\s*\\(%rsp\\)",
-    r"\\bpush\\s+\\$0xe\\b",
-    r"\\bjmp\\s+.*<vgk_exception_fatal_entry>",
+    r"\bpush\s+%rax\b",
+    r"\bmov\s+%cr2\s*,\s*%rax\b",
+    r"\bxchg\s+%rax\s*,\s*\(%rsp\)",
+    r"\bpush\s+\$0xe\b",
+    r"\bjmp\s+.*<vgk_exception_fatal_entry>",
 ]
 positions = []
 for pattern in required_pf_order:
