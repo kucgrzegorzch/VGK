@@ -7,6 +7,7 @@
 /*
  * Znormalizowany zapis diagnostyczny. Procedury asemblerowe beda musialy
  * wypelnic wszystkie pola jawnie; nie jest to bezposredni obraz stosu CPU.
+ * W 64-bitowej ramce sprzetowej SS:RSP wystepuja zawsze po RFLAGS.
  */
 typedef struct {
     uint64_t r15;

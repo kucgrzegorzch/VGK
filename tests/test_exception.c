@@ -21,6 +21,11 @@ int main(void)
     assert(offsetof(VGK_EXCEPTION_CONTEXT, vector) == 15U * sizeof(uint64_t));
     assert(offsetof(VGK_EXCEPTION_CONTEXT, error_code) == 16U * sizeof(uint64_t));
     assert(offsetof(VGK_EXCEPTION_CONTEXT, rip) == 17U * sizeof(uint64_t));
+    assert(offsetof(VGK_EXCEPTION_CONTEXT, cs) == 18U * sizeof(uint64_t));
+    assert(offsetof(VGK_EXCEPTION_CONTEXT, rflags) == 19U * sizeof(uint64_t));
+    assert(offsetof(VGK_EXCEPTION_CONTEXT, rsp) == 20U * sizeof(uint64_t));
+    assert(offsetof(VGK_EXCEPTION_CONTEXT, ss) == 21U * sizeof(uint64_t));
+    assert(offsetof(VGK_EXCEPTION_CONTEXT, cr2) == 22U * sizeof(uint64_t));
 
     puts("VGK exception context and error-code classification tests: OK");
     return 0;

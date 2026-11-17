@@ -66,8 +66,9 @@ VGK_EXCEPTION_NO_ERROR 31
  *
  * Od najnizszego adresu stosu po tych instrukcjach:
  * R15..R8, RDI, RSI, RBP, RDX, RCX, RBX, RAX,
- * wektor, kod bledu, RIP, CS, RFLAGS.
- * RSP/SS z ramki CPU wystepuja tylko przy zmianie poziomu/IST.
+ * wektor, kod bledu, RIP, CS, RFLAGS, RSP, SS.
+ * W trybie 64-bitowym procesor zawsze zapisuje RSP i SS w ramce,
+ * rowniez bez zmiany CPL i bez uzycia IST.
  */
 .global vgk_exception_fatal_entry
 .type vgk_exception_fatal_entry, @function
