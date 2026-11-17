@@ -36,7 +36,7 @@ build/entry_native.o: boot/entry_native.S | build
 build/exception_stubs_native.o: boot/exception_stubs.S | build
 	$(CC) -m64 -ffreestanding -fno-pic -fno-pie -c $< -o $@
 
-build/kernel_native.o: src/kernel_native.c include/vgk_boot_info.h include/vgk_framebuffer.h include/vgk_acpi.h include/vgk_memory.h include/vgk_cpu_features.h include/vgk_paging.h include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h include/vgk_ist_stacks.h | build
+build/kernel_native.o: src/kernel_native.c include/vgk_boot_info.h include/vgk_framebuffer.h include/vgk_acpi.h include/vgk_memory.h include/vgk_cpu_features.h include/vgk_paging.h include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h include/vgk_ist_stacks.h include/vgk_gdt.h | build
 	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
 build/cpu_features_native.o: src/cpu_features.c include/vgk_cpu_features.h | build
