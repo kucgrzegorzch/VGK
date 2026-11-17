@@ -41,7 +41,31 @@ VGK_EXCEPTION_WITH_ERROR 10
 VGK_EXCEPTION_WITH_ERROR 11
 VGK_EXCEPTION_WITH_ERROR 12
 VGK_EXCEPTION_WITH_ERROR 13
-VGK_EXCEPTION_WITH_ERROR 14
+
+/*
+ * #PF has a dedicated early-capture path. The CPU has already placed its
+ * error code and return frame on the mapped IST4 stack. Save the interrupted
+ * RAX, read CR2 before adding the vector or saving the remaining GPRs, then
+ * exchange CR2 into a private stack slot while restoring the original RAX.
+ *
+ * Resulting low-to-high stack order after the common GPR saves:
+ * R15..R8, RDI, RSI, RBP, RDX, RCX, RBX, RAX,
+ * vector, captured CR2, CPU error code, RIP, CS, RFLAGS, RSP, SS.
+ *
+ * The private CR2 slot is intentionally distinct from the CPU error code.
+ * This is an emergency/fatal path and does not yet build the normalized
+ * VGK_EXCEPTION_CONTEXT or call C.
+ */
+.global vgk_exception_stub_14
+.type vgk_exception_stub_14, @function
+vgk_exception_stub_14:
+    pushq %rax
+    movq %cr2, %rax
+    xchgq %rax, (%rsp)
+    pushq $14
+    jmp vgk_exception_fatal_entry
+.size vgk_exception_stub_14, .-vgk_exception_stub_14
+
 VGK_EXCEPTION_NO_ERROR 15
 VGK_EXCEPTION_NO_ERROR 16
 VGK_EXCEPTION_WITH_ERROR 17
