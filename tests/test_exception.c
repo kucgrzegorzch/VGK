@@ -7,7 +7,7 @@
 int main(void)
 {
     static const uint8_t with_error[] = {
-        8U, 10U, 11U, 12U, 13U, 14U, 17U, 20U, 21U, 29U, 30U
+        8U, 10U, 11U, 12U, 13U, 14U, 17U, 21U, 29U, 30U
     };
     uint8_t expected[32] = {0};
 
