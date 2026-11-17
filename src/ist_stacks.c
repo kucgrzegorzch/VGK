@@ -13,6 +13,8 @@ static uint8_t vgk_ist_nmi_stack[VGK_IST_STACK_SIZE]
     __attribute__((aligned(VGK_IST_STACK_ALIGNMENT), section(".bss.ist")));
 static uint8_t vgk_ist_machine_check_stack[VGK_IST_STACK_SIZE]
     __attribute__((aligned(VGK_IST_STACK_ALIGNMENT), section(".bss.ist")));
+static uint8_t vgk_ist_page_fault_stack[VGK_IST_STACK_SIZE]
+    __attribute__((aligned(VGK_IST_STACK_ALIGNMENT), section(".bss.ist")));
 
 static int is_canonical_48(uint64_t address)
 {
@@ -26,12 +28,14 @@ VGK_IST_STACKS_STATUS vgk_ist_stacks_get_tops(uint64_t ist_tops[7])
     const uintptr_t starts[VGK_IST_STACK_COUNT] = {
         (uintptr_t)vgk_ist_double_fault_stack,
         (uintptr_t)vgk_ist_nmi_stack,
-        (uintptr_t)vgk_ist_machine_check_stack
+        (uintptr_t)vgk_ist_machine_check_stack,
+        (uintptr_t)vgk_ist_page_fault_stack
     };
     const uintptr_t ends[VGK_IST_STACK_COUNT] = {
         (uintptr_t)(vgk_ist_double_fault_stack + sizeof(vgk_ist_double_fault_stack)),
         (uintptr_t)(vgk_ist_nmi_stack + sizeof(vgk_ist_nmi_stack)),
-        (uintptr_t)(vgk_ist_machine_check_stack + sizeof(vgk_ist_machine_check_stack))
+        (uintptr_t)(vgk_ist_machine_check_stack + sizeof(vgk_ist_machine_check_stack)),
+        (uintptr_t)(vgk_ist_page_fault_stack + sizeof(vgk_ist_page_fault_stack))
     };
 
     if (ist_tops == 0)
@@ -58,6 +62,7 @@ VGK_IST_STACKS_STATUS vgk_ist_stacks_get_tops(uint64_t ist_tops[7])
     ist_tops[0] = (uint64_t)ends[0]; /* TSS.IST1: double fault */
     ist_tops[1] = (uint64_t)ends[1]; /* TSS.IST2: NMI */
     ist_tops[2] = (uint64_t)ends[2]; /* TSS.IST3: machine check */
+    ist_tops[3] = (uint64_t)ends[3]; /* TSS.IST4: page fault */
     return VGK_IST_STACKS_OK;
 }
 

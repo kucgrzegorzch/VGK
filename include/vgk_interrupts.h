@@ -10,6 +10,7 @@ extern const uint64_t vgk_exception_stub_table[VGK_IDT_EXCEPTION_COUNT];
 #define VGK_IDT_IST_DOUBLE_FAULT 1U
 #define VGK_IDT_IST_NMI           2U
 #define VGK_IDT_IST_MACHINE_CHECK 3U
+#define VGK_IDT_IST_PAGE_FAULT    4U
 
 typedef struct __attribute__((packed)) {
     uint16_t offset_low;
@@ -46,7 +47,7 @@ VGK_INTERRUPT_STATUS vgk_idt_build_exception_table(
 
 /*
  * Builds the VGK emergency-stack policy:
- * #DF (8)->IST1, #NMI (2)->IST2, #MC (18)->IST3.
+ * #DF (8)->IST1, #NMI (2)->IST2, #MC (18)->IST3, #PF (14)->IST4.
  * The caller MUST initialize matching TSS.IST entries before LIDT.
  * This function only prepares descriptors; it allocates no stacks and
  * executes no privileged instruction.
