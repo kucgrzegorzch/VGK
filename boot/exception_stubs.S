@@ -138,6 +138,14 @@ vgk_exception_fatal_entry:
     lodsb
     testb %al, %al
     jz 5f
+    movb %al, %bl
+    movw $0x3FD, %dx
+6:
+    inb %dx, %al
+    testb $0x20, %al
+    jz 6b
+    movb %bl, %al
+    movw $0x3F8, %dx
     outb %al, %dx
     jmp 4b
 5:
