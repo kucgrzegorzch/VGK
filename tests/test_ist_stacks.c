@@ -31,6 +31,22 @@ int main(void)
         assert(tops[i] == 0U);
 
     assert(vgk_ist_stacks_get_tops(0) == VGK_IST_STACKS_INVALID_ARGUMENT);
+    {
+        uint64_t base = 0U;
+        uint64_t end = 0U;
+        assert(vgk_ist_page_fault_stack_get_bounds(&base, &end) ==
+               VGK_IST_STACKS_OK);
+        assert(base != 0U);
+        assert(end > base);
+        assert(end - base == VGK_IST_STACK_SIZE);
+        assert((base & (VGK_IST_STACK_ALIGNMENT - 1U)) == 0U);
+        assert(tops[3] == end);
+        assert(vgk_ist_page_fault_stack_get_bounds(0, &end) ==
+               VGK_IST_STACKS_INVALID_ARGUMENT);
+        assert(vgk_ist_page_fault_stack_get_bounds(&base, 0) ==
+               VGK_IST_STACKS_INVALID_ARGUMENT);
+    }
+
     puts("VGK IST stack storage tests: OK");
     return 0;
 }

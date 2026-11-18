@@ -31,12 +31,13 @@ symbols = subprocess.run(
 defined_names = {line.split()[-1] for line in symbols.splitlines() if line.split()}
 for symbol in ("vgk_kernel_entry", "vgk_exception_stub_14",
                "vgk_exception_fatal_entry", "vgk_exception_stub_table",
-               "vgk_qemu_page_fault_observe"):
+               "vgk_qemu_page_fault_observe", "vgk_ist_page_fault_stack_get_bounds"):
     if symbol not in defined_names:
         raise SystemExit(f"FAIL: missing required test symbol: {symbol}")
 
-if not any("call" in line and "<vgk_qemu_page_fault_observe>" in line
-           for line in disassembly.splitlines()):
-    raise SystemExit("FAIL: #PF stub does not call the C context observer")
+for target in ("vgk_qemu_page_fault_observe", "vgk_ist_page_fault_stack_get_bounds"):
+    if not any("call" in line and f"<{target}>" in line
+               for line in disassembly.splitlines()):
+        raise SystemExit(f"FAIL: missing call to {target}")
 
 print("OK: isolated QEMU #PF test ELF; C context observer linked and called; LGDT/LTR/LIDT present; CR3 unchanged")

@@ -20,4 +20,9 @@ typedef enum {
  */
 VGK_IST_STACKS_STATUS vgk_ist_stacks_get_tops(uint64_t ist_tops[7]);
 
+/* Returns the half-open address range [base, end) of the dedicated #PF IST4 stack. */
+VGK_IST_STACKS_STATUS vgk_ist_page_fault_stack_get_bounds(
+    uint64_t *base,
+    uint64_t *end);
+
 #endif
