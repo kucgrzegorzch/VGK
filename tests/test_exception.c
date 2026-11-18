@@ -36,8 +36,7 @@ int main(void)
         for (size_t i = 0; i < 23U; ++i)
             raw_stack[i] = UINT64_C(0xA500000000000000) + i;
         raw_stack[15] = 14U;
-        for (size_t i = 0; i < sizeof(context) / sizeof(uint64_t); ++i)
-            ((uint64_t *)&context)[i] = UINT64_C(0xDEADBEEFDEADBEEF);
+        memset(&context, 0xDE, sizeof(context));
 
         assert(vgk_exception_context_from_page_fault_stack(
                    raw_stack, &context) == 1U);
