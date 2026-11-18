@@ -54,7 +54,8 @@ VGK_EXCEPTION_WITH_ERROR 13
  *
  * The private CR2 slot is intentionally distinct from the CPU error code.
  * This is an emergency/fatal path and does not yet build the normalized
- * VGK_EXCEPTION_CONTEXT or call C.
+ * VGK_EXCEPTION_CONTEXT in the normal kernel; only the isolated QEMU test
+ * build calls a dedicated C observer.
  */
 .global vgk_exception_stub_14
 .type vgk_exception_stub_14, @function
