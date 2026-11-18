@@ -4,32 +4,38 @@ uint8_t vgk_exception_context_from_page_fault_stack(
     const uint64_t raw_stack[23],
     VGK_EXCEPTION_CONTEXT *context)
 {
-    if (raw_stack == 0 || context == 0 || raw_stack[15] != 14U)
+    uint64_t frame[23];
+
+    if (raw_stack == 0 || context == 0)
+        return 0U;
+    for (size_t i = 0; i < 23U; ++i)
+        frame[i] = raw_stack[i];
+    if (frame[15] != 14U)
         return 0U;
 
-    context->r15 = raw_stack[0];
-    context->r14 = raw_stack[1];
-    context->r13 = raw_stack[2];
-    context->r12 = raw_stack[3];
-    context->r11 = raw_stack[4];
-    context->r10 = raw_stack[5];
-    context->r9 = raw_stack[6];
-    context->r8 = raw_stack[7];
-    context->rdi = raw_stack[8];
-    context->rsi = raw_stack[9];
-    context->rbp = raw_stack[10];
-    context->rdx = raw_stack[11];
-    context->rcx = raw_stack[12];
-    context->rbx = raw_stack[13];
-    context->rax = raw_stack[14];
-    context->vector = raw_stack[15];
-    context->cr2 = raw_stack[16];
-    context->error_code = raw_stack[17];
-    context->rip = raw_stack[18];
-    context->cs = raw_stack[19];
-    context->rflags = raw_stack[20];
-    context->rsp = raw_stack[21];
-    context->ss = raw_stack[22];
+    context->r15 = frame[0];
+    context->r14 = frame[1];
+    context->r13 = frame[2];
+    context->r12 = frame[3];
+    context->r11 = frame[4];
+    context->r10 = frame[5];
+    context->r9 = frame[6];
+    context->r8 = frame[7];
+    context->rdi = frame[8];
+    context->rsi = frame[9];
+    context->rbp = frame[10];
+    context->rdx = frame[11];
+    context->rcx = frame[12];
+    context->rbx = frame[13];
+    context->rax = frame[14];
+    context->vector = frame[15];
+    context->cr2 = frame[16];
+    context->error_code = frame[17];
+    context->rip = frame[18];
+    context->cs = frame[19];
+    context->rflags = frame[20];
+    context->rsp = frame[21];
+    context->ss = frame[22];
     return 1U;
 }
 
