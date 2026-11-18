@@ -116,41 +116,14 @@ vgk_exception_fatal_entry:
     pushq %r15
 #ifdef VGK_QEMU_PAGE_FAULT_TEST
     /*
-     * Test-only observer. At this point vector is at +120, captured CR2
-     * at +128, and the CPU error code at +136 from the current RSP.
-     * The test build reports PASS only for the exact expected #PF frame.
+     * The raw 23-qword frame starts at RSP. The IST top is 16-byte
+     * aligned; after the CPU/stub/GPR pushes RSP is 8 mod 16.
+     * Align the caller stack before entering the SysV C observer.
      */
-    cmpq $14, 120(%rsp)
-    jne 1f
-    movq 128(%rsp), %rax
-    movabsq $0x0000400000000000, %rdx
-    cmpq %rdx, %rax
-    jne 2f
-    cmpq $0, 136(%rsp)
-    jne 2f
-    leaq .Lvgk_qemu_pf_pass(%rip), %rsi
-    jmp 3f
-2:
-    leaq .Lvgk_qemu_pf_fail(%rip), %rsi
-3:
-    movw $0x3F8, %dx
-4:
-    lodsb
-    testb %al, %al
-    jz 5f
-    movb %al, %bl
-    movw $0x3FD, %dx
-6:
-    inb %dx, %al
-    testb $0x20, %al
-    jz 6b
-    movb %bl, %al
-    movw $0x3F8, %dx
-    outb %al, %dx
-    jmp 4b
-5:
-    hlt
-    jmp 5b
+    movq %rsp, %rdi
+    subq $8, %rsp
+    call vgk_qemu_page_fault_observe
+    ud2
 #endif
 1:
     hlt
