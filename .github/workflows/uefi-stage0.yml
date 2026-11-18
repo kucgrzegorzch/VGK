@@ -153,6 +153,7 @@ jobs:
           fi
           cat build/qemu-page-fault-serial.log
           grep -aF "VGK: QEMU test IDT loaded; triggering controlled #PF." build/qemu-page-fault-serial.log
+          grep -aF "VGK: QEMU PAGE FAULT IST4 PASS" build/qemu-page-fault-serial.log
           grep -aF "VGK: QEMU PAGE FAULT CONTEXT PASS" build/qemu-page-fault-serial.log
           if grep -aF "VGK: QEMU PAGE FAULT CONTEXT FAIL" build/qemu-page-fault-serial.log; then
             echo "FAIL: C normalization rejected the delivered #PF context"
