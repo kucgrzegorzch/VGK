@@ -31,6 +31,8 @@ jobs:
         run: make native-kernel
       - name: Validate native VGK kernel ELF
         run: make native-kernel-test
+      - name: Build isolated QEMU controlled page-fault test kernel
+        run: make native-kernel-qemu-pf-test
       - name: Diagnose native kernel instruction addresses
         run: |
           nm -n build/vgk-kernel-native.elf
@@ -74,6 +76,10 @@ jobs:
           cp build/BOOTX64-QEMU-TEST.EFI build/esp/EFI/BOOT/BOOTX64.EFI
           cp build/vgk-kernel-native.elf build/esp/boot/kernel.elf
           python3 tools/przygotuj_wydanie.py --root build/esp --release VGK-QEMU-CI --private-key build/test-signing-key.pem --manifest build/esp/EFI/VGK/VGKM --signature build/esp/EFI/VGK/VGKM.sig boot/kernel.elf
+          mkdir -p build/esp-pf/EFI/BOOT build/esp-pf/EFI/VGK build/esp-pf/boot
+          cp build/BOOTX64-QEMU-TEST.EFI build/esp-pf/EFI/BOOT/BOOTX64.EFI
+          cp build/vgk-kernel-native-qemu-pf-test.elf build/esp-pf/boot/kernel.elf
+          python3 tools/przygotuj_wydanie.py --root build/esp-pf --release VGK-QEMU-PF-CI --private-key build/test-signing-key.pem --manifest build/esp-pf/EFI/VGK/VGKM --signature build/esp-pf/EFI/VGK/VGKM.sig boot/kernel.elf
       - name: Boot VGK kernel in QEMU with OVMF
         run: |
           set -eu
@@ -117,6 +123,41 @@ jobs:
           grep -aF "VGK: nieaktywne mapowania jadra, stosu, danych startowych i puli sa gotowe." build/qemu-serial.log
           grep -aF "VGK: framebuffer GOP zmapowany RW+NX; PCD+PWT zweryfikowane jako UC." build/qemu-serial.log
           grep -aF "VGK: menedzer pamieci uruchomiony." build/qemu-serial.log
+      - name: Trigger and verify a controlled page fault in QEMU
+        run: |
+          set -eu
+          if [ -f /usr/share/OVMF/OVMF_CODE.fd ]; then
+            OVMF_CODE=/usr/share/OVMF/OVMF_CODE.fd
+            OVMF_VARS=/usr/share/OVMF/OVMF_VARS.fd
+          else
+            OVMF_CODE=/usr/share/OVMF/OVMF_CODE_4M.fd
+            OVMF_VARS=/usr/share/OVMF/OVMF_VARS_4M.fd
+          fi
+          cp "$OVMF_VARS" build/OVMF_VARS_PF.fd
+          set +e
+          timeout -k 3s 12s qemu-system-x86_64 \
+            -machine q35 -m 1024 -cpu qemu64 \
+            -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
+            -drive if=pflash,format=raw,file=build/OVMF_VARS_PF.fd \
+            -device qemu-xhci,id=xhci \
+            -drive if=none,id=usbstick,format=raw,file=fat:rw:build/esp-pf \
+            -device usb-storage,drive=usbstick,bootindex=1 \
+            -display none -monitor none -serial file:build/qemu-page-fault-serial.log \
+            -no-reboot
+          qemu_status=$?
+          set -e
+          if [ "$qemu_status" -ne 124 ] && [ "$qemu_status" -ne 0 ]; then
+            echo "QEMU test kontrolowanego #PF zakonczyl sie kodem $qemu_status"
+            cat build/qemu-page-fault-serial.log || true
+            exit "$qemu_status"
+          fi
+          cat build/qemu-page-fault-serial.log
+          grep -aF "VGK: QEMU test IDT loaded; triggering controlled #PF." build/qemu-page-fault-serial.log
+          grep -aF "VGK: QEMU PAGE FAULT PASS" build/qemu-page-fault-serial.log
+          if grep -aF "VGK: QEMU PAGE FAULT FAIL" build/qemu-page-fault-serial.log; then
+            echo "FAIL: CR2 or #PF error code did not match the expected frame"
+            exit 1
+          fi
       - name: Package verified UEFI USB test files
         run: |
           set -eu
