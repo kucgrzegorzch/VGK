@@ -452,7 +452,6 @@ void vgk_qemu_page_fault_observe(const uint64_t raw_stack[23])
         __asm__ volatile ("cli; hlt");
     }
 }
-#endif
 typedef struct __attribute__((packed)) {
     uint16_t limit;
     uint64_t base;
