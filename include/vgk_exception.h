@@ -46,6 +46,22 @@ uint8_t vgk_exception_context_from_page_fault_stack(
     const uint64_t raw_stack[23],
     VGK_EXCEPTION_CONTEXT *context);
 
+
+/*
+ * Normalized #DF diagnostic context. Unlike #PF, #DF has no CR2 slot.
+ * Raw frame order: GPR[15], vector, CPU error code, RIP, CS, RFLAGS, RSP, SS.
+ */
+typedef struct {
+    uint64_t r15, r14, r13, r12, r11, r10, r9, r8;
+    uint64_t rdi, rsi, rbp, rdx, rcx, rbx, rax;
+    uint64_t vector, error_code, rip, cs, rflags, rsp, ss;
+} VGK_DOUBLE_FAULT_CONTEXT;
+
+/* Accepts only a hardware #DF frame (vector 8, error code zero). */
+uint8_t vgk_double_fault_context_from_stack(
+    const uint64_t raw_stack[22],
+    VGK_DOUBLE_FAULT_CONTEXT *context);
+
 /* Zwraca 1, gdy procesor dostarcza kod bledu dla danego wektora. */
 uint8_t vgk_exception_vector_has_error_code(uint8_t vector);
 
