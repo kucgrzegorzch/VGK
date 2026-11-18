@@ -418,6 +418,16 @@ __attribute__((noreturn))
 void vgk_qemu_page_fault_observe(const uint64_t raw_stack[23])
 {
     VGK_EXCEPTION_CONTEXT context;
+    uint64_t ist4_base = 0U;
+    uint64_t ist4_end = 0U;
+    const uintptr_t raw_start = (uintptr_t)raw_stack;
+    const uint64_t raw_size = 23U * sizeof(uint64_t);
+    const int frame_on_ist4 =
+        vgk_ist_page_fault_stack_get_bounds(&ist4_base, &ist4_end) ==
+            VGK_IST_STACKS_OK &&
+        raw_start >= (uintptr_t)ist4_base &&
+        raw_start <= (uintptr_t)ist4_end &&
+        raw_size <= (uint64_t)((uintptr_t)ist4_end - raw_start);
 
     if (vgk_exception_context_from_page_fault_stack(raw_stack, &context) == 0U) {
         serial_write("VGK: QEMU PAGE FAULT MAPPER FAIL\r\n");
@@ -434,9 +444,12 @@ void vgk_qemu_page_fault_observe(const uint64_t raw_stack[23])
     serial_write(" RFLAGS="); serial_write_hex(context.rflags);
     serial_write(" RSP="); serial_write_hex(context.rsp);
     serial_write(" SS="); serial_write_hex(context.ss);
+    serial_write(" IST4=");
+    serial_write(frame_on_ist4 ? "PASS" : "FAIL");
     serial_write("\r\n");
 
-    if (context.vector == 14U &&
+    if (frame_on_ist4 &&
+        context.vector == 14U &&
         context.cr2 == UINT64_C(0x0000400000000000) &&
         context.error_code == 0U &&
         context.rip != 0U &&
@@ -444,6 +457,7 @@ void vgk_qemu_page_fault_observe(const uint64_t raw_stack[23])
         (context.rflags & UINT64_C(2)) != 0U &&
         context.rsp != 0U &&
         context.ss != 0U && (context.ss & UINT64_C(3)) == 0U) {
+        serial_write("VGK: QEMU PAGE FAULT IST4 PASS\r\n");
         serial_write("VGK: QEMU PAGE FAULT CONTEXT PASS\r\n");
     } else {
         serial_write("VGK: QEMU PAGE FAULT CONTEXT FAIL\r\n");
