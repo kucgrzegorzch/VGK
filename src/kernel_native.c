@@ -9,6 +9,7 @@
 #include "vgk_gdt.h"
 #include "vgk_interrupts.h"
 #include "vgk_idtr.h"
+#include "vgk_exception.h"
 
 #define COM1_PORT 0x3F8U
 
@@ -413,6 +414,45 @@ static int build_inactive_page_tables(
 }
 
 #ifdef VGK_QEMU_PAGE_FAULT_TEST
+__attribute__((noreturn))
+void vgk_qemu_page_fault_observe(const uint64_t raw_stack[23])
+{
+    VGK_EXCEPTION_CONTEXT context;
+
+    if (vgk_exception_context_from_page_fault_stack(raw_stack, &context) == 0U) {
+        serial_write("VGK: QEMU PAGE FAULT MAPPER FAIL\r\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+
+    serial_write("VGK: PF context vector="); serial_write_hex(context.vector);
+    serial_write(" CR2="); serial_write_hex(context.cr2);
+    serial_write(" error="); serial_write_hex(context.error_code);
+    serial_write(" RIP="); serial_write_hex(context.rip);
+    serial_write(" CS="); serial_write_hex(context.cs);
+    serial_write(" RFLAGS="); serial_write_hex(context.rflags);
+    serial_write(" RSP="); serial_write_hex(context.rsp);
+    serial_write(" SS="); serial_write_hex(context.ss);
+    serial_write("\r\n");
+
+    if (context.vector == 14U &&
+        context.cr2 == UINT64_C(0x0000400000000000) &&
+        context.error_code == 0U &&
+        context.rip != 0U &&
+        context.cs != 0U && (context.cs & UINT64_C(3)) == 0U &&
+        (context.rflags & UINT64_C(2)) != 0U &&
+        context.rsp != 0U &&
+        context.ss != 0U && (context.ss & UINT64_C(3)) == 0U) {
+        serial_write("VGK: QEMU PAGE FAULT CONTEXT PASS\r\n");
+    } else {
+        serial_write("VGK: QEMU PAGE FAULT CONTEXT FAIL\r\n");
+    }
+
+    for (;;) {
+        __asm__ volatile ("cli; hlt");
+    }
+}
 typedef struct __attribute__((packed)) {
     uint16_t limit;
     uint64_t base;
