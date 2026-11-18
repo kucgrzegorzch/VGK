@@ -28,7 +28,10 @@ for line in nm.stdout.splitlines():
             continue
 
 required = [f"vgk_exception_stub_{i}" for i in range(32)]
-required += ["vgk_exception_fatal_entry", "vgk_exception_stub_table"]
+required += [
+    "vgk_exception_fatal_entry", "vgk_exception_stub_table",
+    "vgk_double_fault_test_stub", "vgk_double_fault_capture_entry",
+]
 missing = [name for name in required if name not in symbols]
 if missing:
     raise SystemExit("FAIL: missing exception symbols: " + ", ".join(missing))
@@ -43,6 +46,10 @@ if table_size != 32 * 8 or table_type.upper() != "R":
 for i in range(32):
     if symbols[f"vgk_exception_stub_{i}"][1].upper() != "T":
         raise SystemExit(f"FAIL: vector {i} stub is not in executable text")
+
+for name in ("vgk_double_fault_test_stub", "vgk_double_fault_capture_entry"):
+    if symbols[name][1].upper() != "T":
+        raise SystemExit(f"FAIL: {name} is not in executable text")
 
 disassembly = subprocess.run(
     ["objdump", "-d", "--no-show-raw-insn", elf],
@@ -108,6 +115,42 @@ for vector in range(32):
     if "vgk_exception_fatal_entry" not in instructions[-1][1]:
         raise SystemExit(f"FAIL: {name} does not jump to fatal entry")
 
+# The isolated #DF stub is intentionally separate from the live IDT table.
+df_stub = blocks.get("vgk_double_fault_test_stub", [])
+if (
+    len(df_stub) != 2
+    or df_stub[0] != ("push", "$0x8")
+    or df_stub[1][0] != "jmp"
+    or "vgk_double_fault_capture_entry" not in df_stub[1][1]
+):
+    raise SystemExit(
+        "FAIL: isolated #DF stub must push vector 8 and jump to its own entry; "
+        f"found {df_stub}"
+    )
+
+df_entry = blocks.get("vgk_double_fault_capture_entry", [])
+df_mnemonics = [mnemonic for mnemonic, _ in df_entry]
+df_operands = [operand.replace("%", "").strip() for _, operand in df_entry]
+df_expected_save = ["push " + register for register in SAVED_REGISTERS]
+df_actual_save = [
+    f"{mnemonic} {operand}"
+    for mnemonic, operand in zip(df_mnemonics, df_operands)
+][1:1 + len(SAVED_REGISTERS)]
+if (
+    not df_mnemonics
+    or df_mnemonics[0] != "cli"
+    or df_actual_save != df_expected_save
+    or "hlt" not in df_mnemonics
+    or not any(
+        mnemonic == "jmp" and "vgk_double_fault_capture_entry+" in operand
+        for mnemonic, operand in df_entry
+    )
+):
+    raise SystemExit(
+        "FAIL: #DF capture entry must CLI, save all 15 GPRs in order, then halt; "
+        f"found {df_entry}"
+    )
+
 fatal = blocks.get("vgk_exception_fatal_entry", [])
 fatal_mnemonics = [mnemonic for mnemonic, _ in fatal]
 fatal_operands = [operand.replace("%", "").strip() for _, operand in fatal]
@@ -141,6 +184,6 @@ if (
     )
 
 print(
-    "OK: 32 exception stubs normalize vector/error code; "
-    "fatal entry saves all 15 general-purpose registers and halts"
+    "OK: 32 exception stubs normalize vector/error code; isolated #DF stub "
+    "uses its own 22-qword capture entry; both fatal paths save all 15 GPRs"
 )

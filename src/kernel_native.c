@@ -23,6 +23,9 @@ static VGK_IDTR vgk_kernel_idtr __attribute__((aligned(16)));
 
 extern char vgk_boot_stack[];
 extern char vgk_boot_stack_top[];
+#ifdef VGK_QEMU_PAGE_FAULT_TEST
+extern void vgk_double_fault_test_stub(void);
+#endif
 
 static inline void outb(uint16_t port, uint8_t value)
 {
@@ -467,6 +470,58 @@ void vgk_qemu_page_fault_observe(const uint64_t raw_stack[23])
         __asm__ volatile ("cli; hlt");
     }
 }
+__attribute__((noreturn))
+void vgk_qemu_double_fault_observe(const uint64_t raw_stack[22])
+{
+    VGK_DOUBLE_FAULT_CONTEXT context;
+    uint64_t ist1_base = 0U;
+    uint64_t ist1_end = 0U;
+    const uintptr_t raw_start = (uintptr_t)raw_stack;
+    const uint64_t raw_size = 22U * sizeof(uint64_t);
+    const int frame_on_ist1 =
+        vgk_ist_double_fault_stack_get_bounds(&ist1_base, &ist1_end) ==
+            VGK_IST_STACKS_OK &&
+        raw_start >= (uintptr_t)ist1_base &&
+        raw_start <= (uintptr_t)ist1_end &&
+        raw_size <= (uint64_t)((uintptr_t)ist1_end - raw_start);
+
+    if (vgk_double_fault_context_from_stack(raw_stack, &context) == 0U) {
+        serial_write("VGK: QEMU DOUBLE FAULT MAPPER FAIL\\r\\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+
+    serial_write("VGK: DF context vector="); serial_write_hex(context.vector);
+    serial_write(" error="); serial_write_hex(context.error_code);
+    serial_write(" RIP="); serial_write_hex(context.rip);
+    serial_write(" CS="); serial_write_hex(context.cs);
+    serial_write(" RFLAGS="); serial_write_hex(context.rflags);
+    serial_write(" RSP="); serial_write_hex(context.rsp);
+    serial_write(" SS="); serial_write_hex(context.ss);
+    serial_write(" IST1=");
+    serial_write(frame_on_ist1 ? "PASS" : "FAIL");
+    serial_write("\\r\\n");
+
+    if (frame_on_ist1 &&
+        context.vector == 8U &&
+        context.error_code == 0U &&
+        context.rip != 0U &&
+        context.cs != 0U && (context.cs & UINT64_C(3)) == 0U &&
+        (context.rflags & UINT64_C(2)) != 0U &&
+        context.rsp != 0U &&
+        context.ss != 0U && (context.ss & UINT64_C(3)) == 0U) {
+        serial_write("VGK: QEMU DOUBLE FAULT IST1 PASS\\r\\n");
+        serial_write("VGK: QEMU DOUBLE FAULT CAPTURE PASS\\r\\n");
+    } else {
+        serial_write("VGK: QEMU DOUBLE FAULT CAPTURE FAIL\\r\\n");
+    }
+
+    for (;;) {
+        __asm__ volatile ("cli; hlt");
+    }
+}
+
 typedef struct __attribute__((packed)) {
     uint16_t limit;
     uint64_t base;
@@ -543,6 +598,27 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
             }
         }
         serial_write("VGK: IDT zbudowana z 32 rzeczywistych stubow; LIDT nie wykonano.\r\n");
+#ifdef VGK_QEMU_PAGE_FAULT_TEST
+        /*
+         * Only the isolated QEMU image routes #DF to its dedicated capture
+         * stub. Production/native IDT construction remains unchanged.
+         */
+        if (vgk_idt_gate_build(
+                &vgk_kernel_idt[8],
+                (uint64_t)(uintptr_t)vgk_double_fault_test_stub,
+                VGK_GDT_SELECTOR_CODE,
+                VGK_IDT_IST_DOUBLE_FAULT,
+                0U, VGK_IDT_GATE_INTERRUPT, 1U) != VGK_INTERRUPT_OK ||
+            vgk_kernel_idt[8].ist != VGK_IDT_IST_DOUBLE_FAULT ||
+            vgk_kernel_idt[8].attributes != 0x8EU ||
+            vgk_kernel_idt[8].reserved != 0U) {
+            serial_write("VGK: BLAD przygotowania testowej bramy #DF.\\r\\n");
+            for (;;) {
+                __asm__ volatile ("cli; hlt");
+            }
+        }
+        serial_write("VGK: QEMU brama #DF wskazuje osobny stub na IST1; #DF nie wywolano.\\r\\n");
+#endif
         if (vgk_idtr_build(&vgk_kernel_idtr, vgk_kernel_idt,
                            VGK_IDT_EXCEPTION_COUNT) != VGK_IDTR_OK) {
             serial_write("VGK: BLAD przygotowania IDTR; LIDT nie wykonano.\r\n");
