@@ -8,7 +8,7 @@ if len(sys.argv) != 2:
 
 path = sys.argv[1]
 data = open(path, "rb").read()
-if len(data) < 64 or data[:4] != b"\\x7fELF":
+if len(data) < 64 or data[:4] != b"\x7fELF":
     raise SystemExit("FAIL: missing ELF header")
 if data[4] != 2 or data[5] != 1 or data[6] != 1:
     raise SystemExit("FAIL: expected ELF64 little-endian")
