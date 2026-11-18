@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import re
 import struct
 import subprocess
 import sys
@@ -21,21 +20,23 @@ disassembly = subprocess.run(
     ["objdump", "-d", path], check=True, capture_output=True, text=True
 ).stdout.lower()
 for instruction in ("lgdt", "ltr", "lidt"):
-    if not re.search(r"\\b" + instruction + r"\\b", disassembly):
+    if instruction not in disassembly:
         raise SystemExit(f"FAIL: QEMU test image is missing {instruction}")
-if re.search(r"\\bmov[a-z]*\\s+[^,\\n]+,\\s*%cr3\\b", disassembly):
+if any("mov" in line and "%cr3" in line for line in disassembly.splitlines()):
     raise SystemExit("FAIL: QEMU page-fault test must not activate a new CR3")
 
 symbols = subprocess.run(
     ["nm", "--defined-only", path], check=True, capture_output=True, text=True
 ).stdout
+defined_names = {line.split()[-1] for line in symbols.splitlines() if line.split()}
 for symbol in ("vgk_kernel_entry", "vgk_exception_stub_14",
                "vgk_exception_fatal_entry", "vgk_exception_stub_table",
                "vgk_qemu_page_fault_observe"):
-    if not re.search(r"\\b" + symbol + r"$", symbols, re.MULTILINE):
+    if symbol not in defined_names:
         raise SystemExit(f"FAIL: missing required test symbol: {symbol}")
 
-if not re.search(r"\\bcall[q]?\\s+[^\\n]*<vgk_qemu_page_fault_observe>", disassembly):
+if not any("call" in line and "<vgk_qemu_page_fault_observe>" in line
+           for line in disassembly.splitlines()):
     raise SystemExit("FAIL: #PF stub does not call the C context observer")
 
 print("OK: isolated QEMU #PF test ELF; C context observer linked and called; LGDT/LTR/LIDT present; CR3 unchanged")
