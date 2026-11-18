@@ -23,6 +23,9 @@ static VGK_IDTR vgk_kernel_idtr __attribute__((aligned(16)));
 
 extern char vgk_boot_stack[];
 extern char vgk_boot_stack_top[];
+#ifdef VGK_QEMU_PAGE_FAULT_TEST
+extern void vgk_double_fault_test_stub(void);
+#endif
 
 static inline void outb(uint16_t port, uint8_t value)
 {
@@ -595,6 +598,27 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
             }
         }
         serial_write("VGK: IDT zbudowana z 32 rzeczywistych stubow; LIDT nie wykonano.\r\n");
+#ifdef VGK_QEMU_PAGE_FAULT_TEST
+        /*
+         * Only the isolated QEMU image routes #DF to its dedicated capture
+         * stub. Production/native IDT construction remains unchanged.
+         */
+        if (vgk_idt_gate_build(
+                &vgk_kernel_idt[8],
+                (uint64_t)(uintptr_t)vgk_double_fault_test_stub,
+                VGK_GDT_SELECTOR_CODE,
+                VGK_IDT_IST_DOUBLE_FAULT,
+                0U, VGK_IDT_GATE_INTERRUPT, 1U) != VGK_INTERRUPT_OK ||
+            vgk_kernel_idt[8].ist != VGK_IDT_IST_DOUBLE_FAULT ||
+            vgk_kernel_idt[8].attributes != 0x8EU ||
+            vgk_kernel_idt[8].reserved != 0U) {
+            serial_write("VGK: BLAD przygotowania testowej bramy #DF.\\r\\n");
+            for (;;) {
+                __asm__ volatile ("cli; hlt");
+            }
+        }
+        serial_write("VGK: QEMU brama #DF wskazuje osobny stub na IST1; #DF nie wywolano.\\r\\n");
+#endif
         if (vgk_idtr_build(&vgk_kernel_idtr, vgk_kernel_idt,
                            VGK_IDT_EXCEPTION_COUNT) != VGK_IDTR_OK) {
             serial_write("VGK: BLAD przygotowania IDTR; LIDT nie wykonano.\r\n");
