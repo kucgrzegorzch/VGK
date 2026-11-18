@@ -23,6 +23,25 @@ static int is_canonical_48(uint64_t address)
     return sign != 0U ? upper == UINT64_C(0xFFFF) : upper == 0U;
 }
 
+VGK_IST_STACKS_STATUS vgk_ist_double_fault_stack_get_bounds(
+    uint64_t *base,
+    uint64_t *end)
+{
+    const uintptr_t start = (uintptr_t)vgk_ist_double_fault_stack;
+    const uintptr_t limit = start + sizeof(vgk_ist_double_fault_stack);
+
+    if (base == 0 || end == 0)
+        return VGK_IST_STACKS_INVALID_ARGUMENT;
+    if (start == 0U || limit <= start ||
+        limit - start != VGK_IST_STACK_SIZE ||
+        (start & (VGK_IST_STACK_ALIGNMENT - 1U)) != 0U)
+        return VGK_IST_STACKS_BAD_LAYOUT;
+
+    *base = (uint64_t)start;
+    *end = (uint64_t)limit;
+    return VGK_IST_STACKS_OK;
+}
+
 VGK_IST_STACKS_STATUS vgk_ist_page_fault_stack_get_bounds(
     uint64_t *base,
     uint64_t *end)
