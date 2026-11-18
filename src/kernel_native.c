@@ -412,6 +412,39 @@ static int build_inactive_page_tables(
            boot_info->page_table_pool_base;
 }
 
+#ifdef VGK_QEMU_PAGE_FAULT_TEST
+typedef struct __attribute__((packed)) {
+    uint16_t limit;
+    uint64_t base;
+} VGK_QEMU_GDTR;
+
+static __attribute__((noreturn)) void vgk_qemu_trigger_page_fault(void)
+{
+    const VGK_QEMU_GDTR gdtr = {
+        (uint16_t)(sizeof(vgk_kernel_gdt) - 1U),
+        (uint64_t)(uintptr_t)vgk_kernel_gdt
+    };
+    const uint16_t tss_selector = VGK_GDT_SELECTOR_TSS;
+
+    /* This activation path is compiled only into the dedicated QEMU test kernel. */
+    __asm__ volatile ("lgdt %0" : : "m"(gdtr) : "memory");
+    __asm__ volatile ("ltr %w0" : : "r"(tss_selector) : "memory");
+    __asm__ volatile ("lidt %0" : : "m"(vgk_kernel_idtr) : "memory");
+
+    serial_write("VGK: QEMU test IDT loaded; triggering controlled #PF.\r\n");
+    {
+        volatile uint64_t value = *(volatile uint64_t *)(uintptr_t)
+            UINT64_C(0x0000400000000000);
+        (void)value;
+    }
+
+    serial_write("VGK: QEMU PAGE FAULT NOT RAISED\r\n");
+    for (;;) {
+        __asm__ volatile ("cli; hlt");
+    }
+}
+#endif
+
 __attribute__((noreturn))
 void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
 {
@@ -547,6 +580,10 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
     }
     serial_write("VGK: menedzer pamieci uruchomiony.\r\n");
     serial_write("VGK: etap diagnostyczny; sterowniki i uslugi nie sa jeszcze gotowe.\r\n");
+
+#ifdef VGK_QEMU_PAGE_FAULT_TEST
+    vgk_qemu_trigger_page_fault();
+#endif
 
     for (;;) {
         __asm__ volatile ("cli; hlt");
