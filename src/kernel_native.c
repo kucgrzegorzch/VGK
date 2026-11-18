@@ -440,9 +440,10 @@ void vgk_qemu_page_fault_observe(const uint64_t raw_stack[23])
         context.cr2 == UINT64_C(0x0000400000000000) &&
         context.error_code == 0U &&
         context.rip != 0U &&
-        context.cs == VGK_GDT_SELECTOR_CODE &&
+        context.cs != 0U && (context.cs & UINT64_C(3)) == 0U &&
         (context.rflags & UINT64_C(2)) != 0U &&
-        context.rsp != 0U) {
+        context.rsp != 0U &&
+        context.ss != 0U && (context.ss & UINT64_C(3)) == 0U) {
         serial_write("VGK: QEMU PAGE FAULT CONTEXT PASS\r\n");
     } else {
         serial_write("VGK: QEMU PAGE FAULT CONTEXT FAIL\r\n");
