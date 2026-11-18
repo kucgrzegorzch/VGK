@@ -86,6 +86,50 @@ VGK_EXCEPTION_WITH_ERROR 30
 VGK_EXCEPTION_NO_ERROR 31
 
 /*
+ * Separate #DF capture stub for the isolated test path.
+ * It is deliberately NOT installed in vgk_exception_stub_table yet.
+ * The CPU has already pushed the #DF error code and return frame on IST1.
+ * Unlike #PF, this frame has no CR2 slot: 15 GPRs + vector + error code
+ * + RIP + CS + RFLAGS + RSP + SS = 22 qwords.
+ */
+.global vgk_double_fault_test_stub
+.type vgk_double_fault_test_stub, @function
+vgk_double_fault_test_stub:
+    pushq $8
+    jmp vgk_double_fault_capture_entry
+.size vgk_double_fault_test_stub, .-vgk_double_fault_test_stub
+
+/*
+ * Capture-only #DF entry. Save every GPR in the same normalized order as
+ * the #PF path, then stop. This is intentionally not a C observer yet:
+ * the next step will add IST1 range validation and the 22-qword mapper
+ * before any controlled #DF is generated.
+ */
+.global vgk_double_fault_capture_entry
+.type vgk_double_fault_capture_entry, @function
+vgk_double_fault_capture_entry:
+    cli
+    pushq %rax
+    pushq %rbx
+    pushq %rcx
+    pushq %rdx
+    pushq %rbp
+    pushq %rsi
+    pushq %rdi
+    pushq %r8
+    pushq %r9
+    pushq %r10
+    pushq %r11
+    pushq %r12
+    pushq %r13
+    pushq %r14
+    pushq %r15
+1:
+    hlt
+    jmp 1b
+.size vgk_double_fault_capture_entry, .-vgk_double_fault_capture_entry
+
+/*
  * Punkt awaryjny: najpierw wylaczamy maskowalne IRQ, potem zachowujemy
  * wszystkie rejestry ogolnego przeznaczenia (RSP nie jest pushowany).
  *
