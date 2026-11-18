@@ -114,12 +114,56 @@ vgk_exception_fatal_entry:
     pushq %r13
     pushq %r14
     pushq %r15
+#ifdef VGK_QEMU_PAGE_FAULT_TEST
+    /*
+     * Test-only observer. At this point vector is at +120, captured CR2
+     * at +128, and the CPU error code at +136 from the current RSP.
+     * The test build reports PASS only for the exact expected #PF frame.
+     */
+    cmpq $14, 120(%rsp)
+    jne 1f
+    movq 128(%rsp), %rax
+    movabsq $0x0000400000000000, %rdx
+    cmpq %rdx, %rax
+    jne 2f
+    cmpq $0, 136(%rsp)
+    jne 2f
+    leaq .Lvgk_qemu_pf_pass(%rip), %rsi
+    jmp 3f
+2:
+    leaq .Lvgk_qemu_pf_fail(%rip), %rsi
+3:
+    movw $0x3F8, %dx
+4:
+    lodsb
+    testb %al, %al
+    jz 5f
+    movb %al, %bl
+    movw $0x3FD, %dx
+6:
+    inb %dx, %al
+    testb $0x20, %al
+    jz 6b
+    movb %bl, %al
+    movw $0x3F8, %dx
+    outb %al, %dx
+    jmp 4b
+5:
+    hlt
+    jmp 5b
+#endif
 1:
     hlt
     jmp 1b
 .size vgk_exception_fatal_entry, .-vgk_exception_fatal_entry
 
 .section .rodata
+#ifdef VGK_QEMU_PAGE_FAULT_TEST
+.Lvgk_qemu_pf_pass:
+    .asciz "VGK: QEMU PAGE FAULT PASS\r\n"
+.Lvgk_qemu_pf_fail:
+    .asciz "VGK: QEMU PAGE FAULT FAIL\r\n"
+#endif
 .align 8
 .global vgk_exception_stub_table
 .type vgk_exception_stub_table, @object
