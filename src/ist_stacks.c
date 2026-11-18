@@ -34,7 +34,9 @@ VGK_IST_STACKS_STATUS vgk_ist_double_fault_stack_get_bounds(
         return VGK_IST_STACKS_INVALID_ARGUMENT;
     if (start == 0U || limit <= start ||
         limit - start != VGK_IST_STACK_SIZE ||
-        (start & (VGK_IST_STACK_ALIGNMENT - 1U)) != 0U)
+        (start & (VGK_IST_STACK_ALIGNMENT - 1U)) != 0U ||
+        !is_canonical_48((uint64_t)start) ||
+        !is_canonical_48((uint64_t)limit))
         return VGK_IST_STACKS_BAD_LAYOUT;
 
     *base = (uint64_t)start;
