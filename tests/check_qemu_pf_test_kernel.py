@@ -31,13 +31,13 @@ symbols = subprocess.run(
 defined_names = {line.split()[-1] for line in symbols.splitlines() if line.split()}
 for symbol in ("vgk_kernel_entry", "vgk_exception_stub_14",
                "vgk_exception_fatal_entry", "vgk_exception_stub_table",
-               "vgk_qemu_page_fault_observe", "vgk_ist_page_fault_stack_get_bounds"):
+               "vgk_qemu_page_fault_observe", "vgk_ist_page_fault_stack_get_bounds",\n               "vgk_qemu_double_fault_observe", "vgk_double_fault_test_stub",\n               "vgk_double_fault_capture_entry", "vgk_ist_double_fault_stack_get_bounds"):
     if symbol not in defined_names:
         raise SystemExit(f"FAIL: missing required test symbol: {symbol}")
 
-for target in ("vgk_qemu_page_fault_observe", "vgk_ist_page_fault_stack_get_bounds"):
+for target in ("vgk_qemu_page_fault_observe", "vgk_ist_page_fault_stack_get_bounds",\n               "vgk_qemu_double_fault_observe", "vgk_ist_double_fault_stack_get_bounds"):
     if not any("call" in line and f"<{target}>" in line
                for line in disassembly.splitlines()):
         raise SystemExit(f"FAIL: missing call to {target}")
 
-print("OK: isolated QEMU #PF test ELF; C context observer linked and called; LGDT/LTR/LIDT present; CR3 unchanged")
+print("OK: isolated QEMU image links #PF and #DF observers; IST range checks are called; LGDT/LTR/LIDT present; CR3 unchanged")
