@@ -649,7 +649,7 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
             vgk_kernel_idt[8].ist != VGK_IDT_IST_DOUBLE_FAULT ||
             vgk_kernel_idt[8].attributes != 0x8EU ||
             vgk_kernel_idt[8].reserved != 0U) {
-            serial_write("VGK: BLAD przygotowania testowej bramy #DF.\\r\\n");
+            serial_write("VGK: BLAD przygotowania testowej bramy #DF.\r\n");
             for (;;) {
                 __asm__ volatile ("cli; hlt");
             }
@@ -659,21 +659,21 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
         if (vgk_kernel_idt[14].attributes != 0x8EU ||
             vgk_kernel_idt[14].ist != VGK_IDT_IST_PAGE_FAULT ||
             vgk_kernel_idt[14].reserved != 0U) {
-            serial_write("VGK: QEMU DOUBLE FAULT #PF GATE CHECK FAIL\\r\\n");
+            serial_write("VGK: QEMU DOUBLE FAULT #PF GATE CHECK FAIL\r\n");
             for (;;) {
                 __asm__ volatile ("cli; hlt");
             }
         }
         vgk_kernel_idt[14].attributes &= 0x7FU;
         if (vgk_kernel_idt[14].attributes != 0x0EU) {
-            serial_write("VGK: QEMU DOUBLE FAULT #PF GATE DISABLE FAIL\\r\\n");
+            serial_write("VGK: QEMU DOUBLE FAULT #PF GATE DISABLE FAIL\r\n");
             for (;;) {
                 __asm__ volatile ("cli; hlt");
             }
         }
-        serial_write("VGK: QEMU #PF gate intentionally not present; #DF gate remains present on IST1.\\r\\n");
+        serial_write("VGK: QEMU #PF gate intentionally not present; #DF gate remains present on IST1.\r\n");
 #else
-        serial_write("VGK: QEMU brama #DF wskazuje osobny stub na IST1; #DF nie wywolano.\\r\\n");
+        serial_write("VGK: QEMU brama #DF wskazuje osobny stub na IST1; #DF nie wywolano.\r\n");
 #endif
 #endif
         if (vgk_idtr_build(&vgk_kernel_idtr, vgk_kernel_idt,
