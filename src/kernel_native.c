@@ -527,6 +527,7 @@ typedef struct __attribute__((packed)) {
     uint64_t base;
 } VGK_QEMU_GDTR;
 
+#ifndef VGK_QEMU_DOUBLE_FAULT_TEST
 static __attribute__((noreturn)) void vgk_qemu_trigger_page_fault(void)
 {
     const VGK_QEMU_GDTR gdtr = {
@@ -552,6 +553,7 @@ static __attribute__((noreturn)) void vgk_qemu_trigger_page_fault(void)
         __asm__ volatile ("cli; hlt");
     }
 }
+#endif /* !VGK_QEMU_DOUBLE_FAULT_TEST */
 
 #ifdef VGK_QEMU_DOUBLE_FAULT_TEST
 static __attribute__((noreturn, noinline)) void vgk_qemu_trigger_double_fault(void)
