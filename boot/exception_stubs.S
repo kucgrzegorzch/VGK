@@ -124,7 +124,7 @@ vgk_double_fault_capture_entry:
     pushq %r13
     pushq %r14
     pushq %r15
-#ifdef VGK_QEMU_DOUBLE_FAULT_TEST
+#ifdef VGK_QEMU_PAGE_FAULT_TEST
     /*
      * #DF frame: 6 CPU qwords + vector + 15 GPRs = 22 qwords.
      * With an aligned IST1 top, RSP is 16-byte aligned here; SysV
