@@ -486,7 +486,7 @@ void vgk_qemu_double_fault_observe(const uint64_t raw_stack[22])
         raw_size <= (uint64_t)((uintptr_t)ist1_end - raw_start);
 
     if (vgk_double_fault_context_from_stack(raw_stack, &context) == 0U) {
-        serial_write("VGK: QEMU DOUBLE FAULT MAPPER FAIL\\r\\n");
+        serial_write("VGK: QEMU DOUBLE FAULT MAPPER FAIL\r\n");
         for (;;) {
             __asm__ volatile ("cli; hlt");
         }
@@ -501,7 +501,7 @@ void vgk_qemu_double_fault_observe(const uint64_t raw_stack[22])
     serial_write(" SS="); serial_write_hex(context.ss);
     serial_write(" IST1=");
     serial_write(frame_on_ist1 ? "PASS" : "FAIL");
-    serial_write("\\r\\n");
+    serial_write("\r\n");
 
     if (frame_on_ist1 &&
         context.vector == 8U &&
@@ -511,10 +511,10 @@ void vgk_qemu_double_fault_observe(const uint64_t raw_stack[22])
         (context.rflags & UINT64_C(2)) != 0U &&
         context.rsp != 0U &&
         context.ss != 0U && (context.ss & UINT64_C(3)) == 0U) {
-        serial_write("VGK: QEMU DOUBLE FAULT IST1 PASS\\r\\n");
-        serial_write("VGK: QEMU DOUBLE FAULT CAPTURE PASS\\r\\n");
+        serial_write("VGK: QEMU DOUBLE FAULT IST1 PASS\r\n");
+        serial_write("VGK: QEMU DOUBLE FAULT CAPTURE PASS\r\n");
     } else {
-        serial_write("VGK: QEMU DOUBLE FAULT CAPTURE FAIL\\r\\n");
+        serial_write("VGK: QEMU DOUBLE FAULT CAPTURE FAIL\r\n");
     }
 
     for (;;) {
@@ -527,6 +527,7 @@ typedef struct __attribute__((packed)) {
     uint64_t base;
 } VGK_QEMU_GDTR;
 
+#ifndef VGK_QEMU_DOUBLE_FAULT_TEST
 static __attribute__((noreturn)) void vgk_qemu_trigger_page_fault(void)
 {
     const VGK_QEMU_GDTR gdtr = {
@@ -552,6 +553,44 @@ static __attribute__((noreturn)) void vgk_qemu_trigger_page_fault(void)
         __asm__ volatile ("cli; hlt");
     }
 }
+#endif /* !VGK_QEMU_DOUBLE_FAULT_TEST */
+
+#ifdef VGK_QEMU_DOUBLE_FAULT_TEST
+static __attribute__((noreturn, noinline)) void vgk_qemu_trigger_double_fault(void)
+{
+    const VGK_QEMU_GDTR gdtr = {
+        (uint16_t)(sizeof(vgk_kernel_gdt) - 1U),
+        (uint64_t)(uintptr_t)vgk_kernel_gdt
+    };
+    const uint16_t tss_selector = VGK_GDT_SELECTOR_TSS;
+
+    if (vgk_kernel_idt[8].attributes != 0x8EU ||
+        vgk_kernel_idt[8].ist != VGK_IDT_IST_DOUBLE_FAULT ||
+        vgk_kernel_idt[14].attributes != 0x0EU ||
+        vgk_kernel_idt[14].ist != VGK_IDT_IST_PAGE_FAULT) {
+        serial_write("VGK: QEMU DOUBLE FAULT PRECONDITION FAIL\r\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+
+    __asm__ volatile ("lgdt %0" : : "m"(gdtr) : "memory");
+    __asm__ volatile ("ltr %w0" : : "r"(tss_selector) : "memory");
+    __asm__ volatile ("lidt %0" : : "m"(vgk_kernel_idtr) : "memory");
+
+    serial_write("VGK: QEMU test IDT loaded; #PF gate absent; triggering #DF.\r\n");
+    {
+        volatile uint64_t value = *(volatile uint64_t *)(uintptr_t)
+            UINT64_C(0x0000400000000000);
+        (void)value;
+    }
+
+    serial_write("VGK: QEMU DOUBLE FAULT NOT RAISED\r\n");
+    for (;;) {
+        __asm__ volatile ("cli; hlt");
+    }
+}
+#endif
 #endif
 
 __attribute__((noreturn))
@@ -612,12 +651,32 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
             vgk_kernel_idt[8].ist != VGK_IDT_IST_DOUBLE_FAULT ||
             vgk_kernel_idt[8].attributes != 0x8EU ||
             vgk_kernel_idt[8].reserved != 0U) {
-            serial_write("VGK: BLAD przygotowania testowej bramy #DF.\\r\\n");
+            serial_write("VGK: BLAD przygotowania testowej bramy #DF.\r\n");
             for (;;) {
                 __asm__ volatile ("cli; hlt");
             }
         }
-        serial_write("VGK: QEMU brama #DF wskazuje osobny stub na IST1; #DF nie wywolano.\\r\\n");
+#ifdef VGK_QEMU_DOUBLE_FAULT_TEST
+        /* A not-present #PF gate makes delivery of the first #PF fault. */
+        if (vgk_kernel_idt[14].attributes != 0x8EU ||
+            vgk_kernel_idt[14].ist != VGK_IDT_IST_PAGE_FAULT ||
+            vgk_kernel_idt[14].reserved != 0U) {
+            serial_write("VGK: QEMU DOUBLE FAULT #PF GATE CHECK FAIL\r\n");
+            for (;;) {
+                __asm__ volatile ("cli; hlt");
+            }
+        }
+        vgk_kernel_idt[14].attributes &= 0x7FU;
+        if (vgk_kernel_idt[14].attributes != 0x0EU) {
+            serial_write("VGK: QEMU DOUBLE FAULT #PF GATE DISABLE FAIL\r\n");
+            for (;;) {
+                __asm__ volatile ("cli; hlt");
+            }
+        }
+        serial_write("VGK: QEMU #PF gate intentionally not present; #DF gate remains present on IST1.\r\n");
+#else
+        serial_write("VGK: QEMU brama #DF wskazuje osobny stub na IST1; #DF nie wywolano.\r\n");
+#endif
 #endif
         if (vgk_idtr_build(&vgk_kernel_idtr, vgk_kernel_idt,
                            VGK_IDT_EXCEPTION_COUNT) != VGK_IDTR_OK) {
@@ -711,7 +770,9 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
     serial_write("VGK: menedzer pamieci uruchomiony.\r\n");
     serial_write("VGK: etap diagnostyczny; sterowniki i uslugi nie sa jeszcze gotowe.\r\n");
 
-#ifdef VGK_QEMU_PAGE_FAULT_TEST
+#ifdef VGK_QEMU_DOUBLE_FAULT_TEST
+    vgk_qemu_trigger_double_fault();
+#elif defined(VGK_QEMU_PAGE_FAULT_TEST)
     vgk_qemu_trigger_page_fault();
 #endif
 

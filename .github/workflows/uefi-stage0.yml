@@ -33,6 +33,8 @@ jobs:
         run: make native-kernel-test
       - name: Build isolated QEMU controlled page-fault test kernel
         run: make native-kernel-qemu-pf-test
+      - name: Build isolated QEMU controlled double-fault test kernel
+        run: make native-kernel-qemu-df-test
       - name: Diagnose native kernel instruction addresses
         run: |
           nm -n build/vgk-kernel-native.elf
@@ -80,6 +82,10 @@ jobs:
           cp build/BOOTX64-QEMU-TEST.EFI build/esp-pf/EFI/BOOT/BOOTX64.EFI
           cp build/vgk-kernel-native-qemu-pf-test.elf build/esp-pf/boot/kernel.elf
           python3 tools/przygotuj_wydanie.py --root build/esp-pf --release VGK-QEMU-PF-CI --private-key build/test-signing-key.pem --manifest build/esp-pf/EFI/VGK/VGKM --signature build/esp-pf/EFI/VGK/VGKM.sig boot/kernel.elf
+          mkdir -p build/esp-df/EFI/BOOT build/esp-df/EFI/VGK build/esp-df/boot
+          cp build/BOOTX64-QEMU-TEST.EFI build/esp-df/EFI/BOOT/BOOTX64.EFI
+          cp build/vgk-kernel-native-qemu-df-test.elf build/esp-df/boot/kernel.elf
+          python3 tools/przygotuj_wydanie.py --root build/esp-df --release VGK-QEMU-DF-CI --private-key build/test-signing-key.pem --manifest build/esp-df/EFI/VGK/VGKM --signature build/esp-df/EFI/VGK/VGKM.sig boot/kernel.elf
       - name: Boot VGK kernel in QEMU with OVMF
         run: |
           set -eu
@@ -157,6 +163,43 @@ jobs:
           grep -aF "VGK: QEMU PAGE FAULT CONTEXT PASS" build/qemu-page-fault-serial.log
           if grep -aF "VGK: QEMU PAGE FAULT CONTEXT FAIL" build/qemu-page-fault-serial.log; then
             echo "FAIL: C normalization rejected the delivered #PF context"
+            exit 1
+          fi
+      - name: Trigger and verify a controlled double fault in QEMU
+        run: |
+          set -eu
+          if [ -f /usr/share/OVMF/OVMF_CODE.fd ]; then
+            OVMF_CODE=/usr/share/OVMF/OVMF_CODE.fd
+            OVMF_VARS=/usr/share/OVMF/OVMF_VARS.fd
+          else
+            OVMF_CODE=/usr/share/OVMF/OVMF_CODE_4M.fd
+            OVMF_VARS=/usr/share/OVMF/OVMF_VARS_4M.fd
+          fi
+          cp "$OVMF_VARS" build/OVMF_VARS_DF.fd
+          set +e
+          timeout -k 3s 12s qemu-system-x86_64 \
+            -machine q35 -m 1024 -cpu qemu64 \
+            -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
+            -drive if=pflash,format=raw,file=build/OVMF_VARS_DF.fd \
+            -device qemu-xhci,id=xhci \
+            -drive if=none,id=usbstick,format=raw,file=fat:rw:build/esp-df \
+            -device usb-storage,drive=usbstick,bootindex=1 \
+            -display none -monitor none -serial file:build/qemu-double-fault-serial.log \
+            -no-reboot
+          qemu_status=$?
+          set -e
+          if [ "$qemu_status" -ne 124 ] && [ "$qemu_status" -ne 0 ]; then
+            echo "QEMU test kontrolowanego #DF zakonczyl sie kodem $qemu_status"
+            cat build/qemu-double-fault-serial.log || true
+            exit "$qemu_status"
+          fi
+          cat build/qemu-double-fault-serial.log
+          grep -aF "VGK: QEMU #PF gate intentionally not present; #DF gate remains present on IST1." build/qemu-double-fault-serial.log
+          grep -aF "VGK: QEMU test IDT loaded; #PF gate absent; triggering #DF." build/qemu-double-fault-serial.log
+          grep -aF "VGK: QEMU DOUBLE FAULT IST1 PASS" build/qemu-double-fault-serial.log
+          grep -aF "VGK: QEMU DOUBLE FAULT CAPTURE PASS" build/qemu-double-fault-serial.log
+          if grep -aF "VGK: QEMU DOUBLE FAULT CAPTURE FAIL" build/qemu-double-fault-serial.log; then
+            echo "FAIL: C normalization rejected the delivered #DF context"
             exit 1
           fi
       - name: Package verified UEFI USB test files
