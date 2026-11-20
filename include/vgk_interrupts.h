@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #define VGK_IDT_EXCEPTION_COUNT 32U
+#define VGK_IDT_VECTOR_COUNT 256U
 
 /* Read-only address table exported by boot/exception_stubs.S. */
 extern const uint64_t vgk_exception_stub_table[VGK_IDT_EXCEPTION_COUNT];
@@ -38,6 +39,28 @@ VGK_INTERRUPT_STATUS vgk_idt_gate_build(
     uint8_t dpl,
     uint8_t gate_type,
     uint8_t present);
+
+
+/*
+ * Builds all 256 vector gates from caller-supplied handler addresses.
+ * Every address is validated before the destination table is modified.
+ * The caller must provide a real, ABI-compatible entry stub for every
+ * vector; this routine does not invent fallback or IRQ handlers.
+ */
+VGK_INTERRUPT_STATUS vgk_idt_build_table(
+    VGK_IDT_GATE table[VGK_IDT_VECTOR_COUNT],
+    const uint64_t handlers[VGK_IDT_VECTOR_COUNT],
+    uint16_t code_selector);
+
+/*
+ * Same full-table builder, with the VGK emergency IST assignments applied
+ * to vectors 2, 8, 14 and 18. Matching TSS.IST slots must already be valid
+ * before this table is ever loaded with LIDT.
+ */
+VGK_INTERRUPT_STATUS vgk_idt_build_table_with_ist(
+    VGK_IDT_GATE table[VGK_IDT_VECTOR_COUNT],
+    const uint64_t handlers[VGK_IDT_VECTOR_COUNT],
+    uint16_t code_selector);
 
 /* Builds a neutral table: all exception gates use IST=0. */
 VGK_INTERRUPT_STATUS vgk_idt_build_exception_table(
