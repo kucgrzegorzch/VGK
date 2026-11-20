@@ -441,7 +441,7 @@ int main(void)
 
             /* Both planned pages must be reserved/device memory in firmware's map. */
             {
-                VGK_MEMORY_MAP_ENTRY device_map[2] = {
+                VGK_MEMORY_MAP_ENTRY device_map[3] = {
                     {UINT64_C(0xFEE01000), VGK_BOOT_PAGE_SIZE,
                      VGK_MEMORY_MMIO, 0U},
                     {UINT64_C(0xFEC00000), VGK_BOOT_PAGE_SIZE,
@@ -470,9 +470,9 @@ int main(void)
                 device_map[1].length = VGK_BOOT_PAGE_SIZE;
 
                 /* Duplicate/overlapping descriptors are ambiguous. */
-                device_map[2 % 2U] = device_map[1];
+                device_map[2] = device_map[1];
                 assert(vgk_acpi_madt_validate_mmio_plan_memory_map(
-                           device_map, 2U, plan, plan_count) ==
+                           device_map, 3U, plan, plan_count) ==
                        VGK_ACPI_BAD_TABLE);
 
                 device_map[1].base = UINT64_MAX - UINT64_C(0xFFF);
