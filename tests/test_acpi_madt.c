@@ -369,6 +369,22 @@ int main(void)
         assert(info.local_nmis[1].processor_uid == 2U);
         assert(info.local_nmis[1].lint == 0U);
         assert(info.local_nmis[1].x2apic == 1U);
+
+        /* Firmware's APIC_BASE MSR must agree with the MADT override. */
+        assert(vgk_acpi_madt_validate_local_apic_base(
+                   &info, UINT64_C(0xFEE01000), 1U) == VGK_ACPI_OK);
+        assert(vgk_acpi_madt_validate_local_apic_base(
+                   &info, UINT64_C(0xFEE00000), 1U) ==
+               VGK_ACPI_BAD_TABLE);
+        assert(vgk_acpi_madt_validate_local_apic_base(
+                   &info, UINT64_C(0xFEE01000), 0U) ==
+               VGK_ACPI_BAD_TABLE);
+        assert(vgk_acpi_madt_validate_local_apic_base(
+                   &info, UINT64_C(0xFEE01001), 1U) ==
+               VGK_ACPI_BAD_TABLE);
+        assert(vgk_acpi_madt_validate_local_apic_base(
+                   0, UINT64_C(0xFEE01000), 1U) ==
+               VGK_ACPI_INVALID_ARGUMENT);
     }
 
     /* Firmware may classify a device aperture as generic reserved memory. */

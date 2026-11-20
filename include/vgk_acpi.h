@@ -120,6 +120,16 @@ typedef struct {
 } VGK_ACPI_MADT_INFO;
 
 /*
+ * Confirm that the processor's read-only IA32_APIC_BASE address agrees with
+ * the validated MADT Local APIC address. A disabled APIC may still have a
+ * valid matching base; this check does not enable it.
+ */
+VGK_ACPI_STATUS vgk_acpi_madt_validate_local_apic_base(
+    const VGK_ACPI_MADT_INFO *madt,
+    uint64_t hardware_base,
+    uint8_t hardware_base_valid);
+
+/*
  * Parse validated MADT records into bounded, pointer-free topology data.
  * Unsupported record types are skipped only after their length/bounds pass.
  * No MMIO access or interrupt-controller programming is performed.
