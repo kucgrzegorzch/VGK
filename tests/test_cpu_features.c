@@ -21,6 +21,8 @@
 #define OSXSAVE_BIT (UINT32_C(1) << 27)
 #define XSAVE_BIT (UINT32_C(1) << 26)
 #define AVX2_BIT (UINT32_C(1) << 5)
+#define APIC_BIT (UINT32_C(1) << 9)
+#define X2APIC_BIT (UINT32_C(1) << 21)
 
 int main(void)
 {
@@ -38,6 +40,8 @@ int main(void)
     EXPECT(features.physical_address_bits == 48U);
     EXPECT(features.nx_supported == 1U);
     EXPECT(features.reserved[0] == 0U && features.reserved[1] == 0U);
+    EXPECT(features.local_apic_supported == 0U);
+    EXPECT(features.x2apic_supported == 0U);
     EXPECT(features.vendor[0] == '\0' && features.vendor[12] == '\0');
 
     EXPECT(vgk_cpu_decode_features(
@@ -81,6 +85,24 @@ int main(void)
     EXPECT(features.pat_supported == 0U);
     EXPECT(features.mmio_uc_supported == 1U);
     vgk_cpu_decode_pat_features(0U, 0U, 1U, 0);
+
+    /* x2APIC is usable only when CPUID also advertises the local APIC. */
+    vgk_cpu_decode_apic_features(X2APIC_BIT, APIC_BIT, 1U, &features);
+    EXPECT(features.local_apic_supported == 1U);
+    EXPECT(features.x2apic_supported == 1U);
+
+    vgk_cpu_decode_apic_features(0U, APIC_BIT, 1U, &features);
+    EXPECT(features.local_apic_supported == 1U);
+    EXPECT(features.x2apic_supported == 0U);
+
+    vgk_cpu_decode_apic_features(X2APIC_BIT, 0U, 1U, &features);
+    EXPECT(features.local_apic_supported == 0U);
+    EXPECT(features.x2apic_supported == 0U);
+
+    vgk_cpu_decode_apic_features(UINT32_MAX, UINT32_MAX, 0U, &features);
+    EXPECT(features.local_apic_supported == 0U);
+    EXPECT(features.x2apic_supported == 0U);
+    vgk_cpu_decode_apic_features(0U, 0U, 1U, 0);
 
     /* An old CPU with no CPUID leaf 1 has no optional vector features. */
     vgk_cpu_decode_vector_features(0, 0, UINT32_MAX, UINT32_MAX,

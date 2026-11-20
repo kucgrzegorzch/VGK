@@ -13,6 +13,8 @@
 #define VGK_CPUID_XSAVE_BIT (UINT32_C(1) << 26)
 #define VGK_CPUID_AVX2_BIT (UINT32_C(1) << 5)
 #define VGK_CPUID_PAT_BIT (UINT32_C(1) << 16)
+#define VGK_CPUID_APIC_BIT (UINT32_C(1) << 9)
+#define VGK_CPUID_X2APIC_BIT (UINT32_C(1) << 21)
 
 static void vgk_cpuid(
     uint32_t leaf,
@@ -49,6 +51,8 @@ static void vgk_cpu_clear_optional_features(VGK_CPU_FEATURES *features)
     features->stepping = 0;
     features->pat_supported = 0;
     features->mmio_uc_supported = 0;
+    features->local_apic_supported = 0;
+    features->x2apic_supported = 0;
     features->sse2_supported = 0;
     features->sse3_supported = 0;
     features->ssse3_supported = 0;
@@ -93,6 +97,27 @@ VGK_CPU_RESULT vgk_cpu_decode_features(
     features->physical_address_bits = (uint8_t)physical_bits;
     features->nx_supported = 1;
     return VGK_CPU_OK;
+}
+
+void vgk_cpu_decode_apic_features(
+    uint32_t leaf1_ecx,
+    uint32_t leaf1_edx,
+    uint8_t has_leaf1,
+    VGK_CPU_FEATURES *features)
+{
+    if (features == 0)
+        return;
+
+    features->local_apic_supported = 0U;
+    features->x2apic_supported = 0U;
+    if (has_leaf1 == 0U)
+        return;
+
+    features->local_apic_supported =
+        (uint8_t)((leaf1_edx & VGK_CPUID_APIC_BIT) != 0U);
+    features->x2apic_supported = (uint8_t)(
+        features->local_apic_supported != 0U &&
+        (leaf1_ecx & VGK_CPUID_X2APIC_BIT) != 0U);
 }
 
 void vgk_cpu_decode_pat_features(
@@ -258,6 +283,7 @@ static void vgk_cpu_read_identity_and_optional_features(
         pat_msr = ((uint64_t)pat_high << 32) | pat_low;
     }
     vgk_cpu_decode_pat_features(edx1, pat_msr, has_leaf1, features);
+    vgk_cpu_decode_apic_features(ecx1, edx1, has_leaf1, features);
 
     vgk_cpu_decode_vector_features(
         ecx1, edx1, ebx7, xcr0_low, has_leaf1, has_leaf7, features);
