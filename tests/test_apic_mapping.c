@@ -114,11 +114,20 @@ int main(void)
            VGK_APIC_MAPPING_UNSUPPORTED);
     assert(count == 0U);
 
-    /* Ordinary RAM must never be accepted as an APIC device window. */
+    /* NX must be available in both the detected CPU and inactive tables. */
     cpu = valid_cpu(0U);
-    map[0].type = VGK_MEMORY_USABLE;
+    assert(vgk_paging_init(&tables, page_pool, 8U, 48U, 0U) ==
+           VGK_PAGING_OK);
+    assert(vgk_apic_prepare_mmio_mappings(
+               &cpu, &madt, map, 2U, &tables, ranges,
+               VGK_ACPI_MADT_MAX_MMIO_RANGES, &count) ==
+           VGK_APIC_MAPPING_INVALID_ARGUMENT);
+    assert(count == 0U);
+
+    /* Ordinary RAM must never be accepted as an APIC device window. */
     assert(vgk_paging_init(&tables, page_pool, 8U, 48U, 1U) ==
            VGK_PAGING_OK);
+    map[0].type = VGK_MEMORY_USABLE;
     assert(vgk_apic_prepare_mmio_mappings(
                &cpu, &madt, map, 2U, &tables, ranges,
                VGK_ACPI_MADT_MAX_MMIO_RANGES, &count) ==
