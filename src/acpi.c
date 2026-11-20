@@ -404,11 +404,9 @@ static int range_is_mmio_or_reserved(
         return 0;
 
     for (size_t i = 0; i < entry_count; ++i) {
-        uint64_t entry_end;
         if (entries[i].length == 0U ||
             entries[i].base > UINT64_MAX - entries[i].length)
             return 0;
-        entry_end = entries[i].base + entries[i].length;
         if (i != 0U) {
             uint64_t previous_end =
                 entries[i - 1U].base + entries[i - 1U].length;
