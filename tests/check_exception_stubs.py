@@ -30,8 +30,10 @@ for line in nm.stdout.splitlines():
 required = [f"vgk_exception_stub_{i}" for i in range(32)]
 required += [
     "vgk_exception_fatal_entry", "vgk_exception_stub_table",
-    "vgk_double_fault_test_stub", "vgk_double_fault_capture_entry",
+    "vgk_vector_stub_table", "vgk_double_fault_test_stub",
+    "vgk_double_fault_capture_entry",
 ]
+required += [f"vgk_interrupt_stub_{i}" for i in range(32, 256)]
 missing = [name for name in required if name not in symbols]
 if missing:
     raise SystemExit("FAIL: missing exception symbols: " + ", ".join(missing))
@@ -46,6 +48,17 @@ if table_size != 32 * 8 or table_type.upper() != "R":
 for i in range(32):
     if symbols[f"vgk_exception_stub_{i}"][1].upper() != "T":
         raise SystemExit(f"FAIL: vector {i} stub is not in executable text")
+
+vector_table_size, vector_table_type = symbols["vgk_vector_stub_table"]
+if vector_table_size != 256 * 8 or vector_table_type.upper() != "R":
+    raise SystemExit(
+        f"FAIL: complete vector stub table must be 2048-byte read-only data; "
+        f"size={vector_table_size}, type={vector_table_type}"
+    )
+
+for vector in range(32, 256):
+    if symbols[f"vgk_interrupt_stub_{vector}"][1].upper() != "T":
+        raise SystemExit(f"FAIL: vector {vector} stub is not in executable text")
 
 for name in ("vgk_double_fault_test_stub", "vgk_double_fault_capture_entry"):
     if symbols[name][1].upper() != "T":
@@ -114,6 +127,23 @@ for vector in range(32):
 
     if "vgk_exception_fatal_entry" not in instructions[-1][1]:
         raise SystemExit(f"FAIL: {name} does not jump to fatal entry")
+
+# Every vector 32..255 has a no-error-code fail-stop stub. It pushes
+# a synthetic zero error code and its vector before entering the common path.
+for vector in range(32, 256):
+    name = f"vgk_interrupt_stub_{vector}"
+    instructions = blocks.get(name, [])
+    expected = [("push", "$0x0"), ("push", f"$0x{vector:x}")]
+    if (
+        len(instructions) != 3
+        or instructions[:2] != expected
+        or instructions[2][0] != "jmp"
+        or "vgk_exception_fatal_entry" not in instructions[2][1]
+    ):
+        raise SystemExit(
+            f"FAIL: {name} must push synthetic error code/vector and jump "
+            f"to fatal entry; found {instructions}"
+        )
 
 # The isolated #DF stub is intentionally separate from the live IDT table.
 df_stub = blocks.get("vgk_double_fault_test_stub", [])
@@ -184,6 +214,6 @@ if (
     )
 
 print(
-    "OK: 32 exception stubs normalize vector/error code; isolated #DF stub "
+    "OK: 32 exception stubs and 224 fail-stop vector stubs normalize vector/error code; isolated #DF stub "
     "uses its own 22-qword capture entry; both fatal paths save all 15 GPRs"
 )
