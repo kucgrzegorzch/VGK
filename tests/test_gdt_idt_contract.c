@@ -81,6 +81,8 @@ int main(void)
     VGK_TSS64 tss __attribute__((aligned(16)));
     uint64_t gdt[VGK_GDT_ENTRY_COUNT] __attribute__((aligned(16)));
     VGK_IDT_GATE idt[VGK_IDT_EXCEPTION_COUNT];
+    VGK_IDT_GATE full_idt[VGK_IDT_VECTOR_COUNT] __attribute__((aligned(16)));
+    uint64_t full_handlers[VGK_IDT_VECTOR_COUNT];
     uint64_t ist_tops[7];
     uint64_t handlers[VGK_IDT_EXCEPTION_COUNT];
 
@@ -132,6 +134,35 @@ int main(void)
     assert(tss_base(gdt) == (uint64_t)(uintptr_t)&tss);
     assert(((gdt[3] >> 40) & 0xFFU) == 0x89U);
     assert((gdt[4] >> 32) == 0U);
+
+    /*
+     * The full vector table combines the 32 architectural exception stubs
+     * with 224 fail-stop entries. They are deliberately fatal until a real
+     * IRQ dispatcher and PIC/APIC EOI path are implemented.
+     */
+    for (uint32_t i = 0; i < VGK_IDT_VECTOR_COUNT; ++i) {
+        full_handlers[i] = vgk_vector_stub_table[i];
+        assert(full_handlers[i] != 0U);
+        if (i < VGK_IDT_EXCEPTION_COUNT)
+            assert(full_handlers[i] == vgk_exception_stub_table[i]);
+        for (uint32_t j = 0; j < i; ++j)
+            assert(full_handlers[i] != full_handlers[j]);
+    }
+    assert(vgk_idt_build_table_with_ist(
+               full_idt, full_handlers, VGK_GDT_SELECTOR_CODE) ==
+           VGK_INTERRUPT_OK);
+    for (uint32_t i = 0; i < VGK_IDT_VECTOR_COUNT; ++i) {
+        const uint8_t expected_ist =
+            i == 8U ? VGK_IDT_IST_DOUBLE_FAULT :
+            i == 2U ? VGK_IDT_IST_NMI :
+            i == 18U ? VGK_IDT_IST_MACHINE_CHECK :
+            i == 14U ? VGK_IDT_IST_PAGE_FAULT : 0U;
+        assert(full_idt[i].selector == VGK_GDT_SELECTOR_CODE);
+        assert(full_idt[i].ist == expected_ist);
+        assert(full_idt[i].attributes == 0x8EU);
+        assert(full_idt[i].reserved == 0U);
+        assert(idt_handler(&full_idt[i]) == full_handlers[i]);
+    }
 
     puts("VGK GDT/TSS/IST/IDT cooperation tests: OK");
     return 0;
