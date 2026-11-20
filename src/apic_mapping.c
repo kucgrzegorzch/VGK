@@ -19,12 +19,11 @@ static void apic_copy_bytes(
 }
 
 static VGK_APIC_MAPPING_RESULT validate_cpu_apic_state(
-    const VGK_CPU_FEATURES *cpu,
-    uint64_t *physical_limit_out)
+    const VGK_CPU_FEATURES *cpu)
 {
     uint64_t physical_limit;
 
-    if (cpu == 0 || physical_limit_out == 0)
+    if (cpu == 0)
         return VGK_APIC_MAPPING_INVALID_ARGUMENT;
 
     if (cpu->local_apic_supported > 1U ||
@@ -51,7 +50,6 @@ static VGK_APIC_MAPPING_RESULT validate_cpu_apic_state(
             (VGK_BOOT_PAGE_SIZE - 1U))
         return VGK_APIC_MAPPING_UNSUPPORTED;
 
-    *physical_limit_out = physical_limit;
     return VGK_APIC_MAPPING_OK;
 }
 
@@ -67,7 +65,6 @@ VGK_APIC_MAPPING_RESULT vgk_apic_build_mmio_plan(
     VGK_ACPI_MADT_MMIO_RANGE planned[VGK_ACPI_MADT_MAX_MMIO_RANGES];
     size_t planned_count = 0U;
     VGK_ACPI_STATUS acpi_status;
-    uint64_t physical_limit;
     VGK_APIC_MAPPING_RESULT cpu_status;
 
     if (range_count_out != 0)
@@ -85,7 +82,7 @@ VGK_APIC_MAPPING_RESULT vgk_apic_build_mmio_plan(
         range_count_out == 0)
         return VGK_APIC_MAPPING_INVALID_ARGUMENT;
 
-    cpu_status = validate_cpu_apic_state(cpu, &physical_limit);
+    cpu_status = validate_cpu_apic_state(cpu);
     if (cpu_status != VGK_APIC_MAPPING_OK)
         return cpu_status;
 
