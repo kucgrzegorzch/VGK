@@ -42,6 +42,10 @@ int main(void)
     EXPECT(features.reserved[0] == 0U && features.reserved[1] == 0U);
     EXPECT(features.local_apic_supported == 0U);
     EXPECT(features.x2apic_supported == 0U);
+    EXPECT(features.apic_base_valid == 0U);
+    EXPECT(features.local_apic_enabled == 0U);
+    EXPECT(features.x2apic_enabled == 0U);
+    EXPECT(features.local_apic_base == 0U);
     EXPECT(features.vendor[0] == '\0' && features.vendor[12] == '\0');
 
     EXPECT(vgk_cpu_decode_features(
@@ -103,6 +107,55 @@ int main(void)
     EXPECT(features.local_apic_supported == 0U);
     EXPECT(features.x2apic_supported == 0U);
     vgk_cpu_decode_apic_features(0U, 0U, 1U, 0);
+
+    /* Read-only IA32_APIC_BASE decoding: enabled xAPIC. */
+    vgk_cpu_decode_apic_features(0U, APIC_BIT, 1U, &features);
+    vgk_cpu_decode_apic_base(UINT64_C(0xFEE00900), 48U, &features);
+    EXPECT(features.apic_base_valid == 1U);
+    EXPECT(features.local_apic_base == UINT64_C(0xFEE00000));
+    EXPECT(features.local_apic_enabled == 1U);
+    EXPECT(features.x2apic_enabled == 0U);
+
+    /* Firmware may already have enabled x2APIC mode. */
+    vgk_cpu_decode_apic_features(X2APIC_BIT, APIC_BIT, 1U, &features);
+    vgk_cpu_decode_apic_base(UINT64_C(0xFEE00D00), 48U, &features);
+    EXPECT(features.apic_base_valid == 1U);
+    EXPECT(features.local_apic_enabled == 1U);
+    EXPECT(features.x2apic_enabled == 1U);
+
+    /* A valid base can be reported while the local APIC is disabled. */
+    vgk_cpu_decode_apic_base(UINT64_C(0xFEE00100), 48U, &features);
+    EXPECT(features.apic_base_valid == 1U);
+    EXPECT(features.local_apic_enabled == 0U);
+    EXPECT(features.x2apic_enabled == 0U);
+
+    /* Reject an APIC base above the processor's physical-address limit. */
+    vgk_cpu_decode_apic_base(UINT64_C(0x1FEE00900), 32U, &features);
+    EXPECT(features.apic_base_valid == 0U);
+    EXPECT(features.local_apic_base == 0U);
+
+    /* x2APIC mode is invalid without CPUID x2APIC support. */
+    vgk_cpu_decode_apic_features(0U, APIC_BIT, 1U, &features);
+    vgk_cpu_decode_apic_base(UINT64_C(0xFEE00D00), 48U, &features);
+    EXPECT(features.apic_base_valid == 0U);
+
+    /* x2APIC enable without the global APIC enable bit is invalid. */
+    vgk_cpu_decode_apic_features(X2APIC_BIT, APIC_BIT, 1U, &features);
+    vgk_cpu_decode_apic_base(UINT64_C(0xFEE00500), 48U, &features);
+    EXPECT(features.apic_base_valid == 0U);
+
+    /* An enabled APIC cannot use a zero physical base. */
+    vgk_cpu_decode_apic_features(0U, APIC_BIT, 1U, &features);
+    vgk_cpu_decode_apic_base(UINT64_C(0x00000900), 48U, &features);
+    EXPECT(features.apic_base_valid == 0U);
+
+    /* Reserved IA32_APIC_BASE bits and missing APIC hardware are rejected. */
+    vgk_cpu_decode_apic_features(0U, APIC_BIT, 1U, &features);
+    vgk_cpu_decode_apic_base(UINT64_C(0xFEE00B00), 48U, &features);
+    EXPECT(features.apic_base_valid == 0U);
+    vgk_cpu_decode_apic_features(0U, 0U, 1U, &features);
+    vgk_cpu_decode_apic_base(UINT64_C(0xFEE00900), 48U, &features);
+    EXPECT(features.apic_base_valid == 0U);
 
     /* An old CPU with no CPUID leaf 1 has no optional vector features. */
     vgk_cpu_decode_vector_features(0, 0, UINT32_MAX, UINT32_MAX,

@@ -20,6 +20,11 @@ typedef struct {
     uint8_t x2apic_supported;
     uint8_t reserved[2];
 
+    uint8_t apic_base_valid;
+    uint8_t local_apic_enabled;
+    uint8_t x2apic_enabled;
+    uint64_t local_apic_base;
+
     /* Identity is diagnostic only; VGK must not whitelist CPU model names. */
     char vendor[13];
     uint16_t family;
@@ -71,6 +76,16 @@ void vgk_cpu_decode_apic_features(
     uint32_t leaf1_ecx,
     uint32_t leaf1_edx,
     uint8_t has_leaf1,
+    VGK_CPU_FEATURES *features);
+
+/*
+ * Decode IA32_APIC_BASE without changing it. The result is valid only when
+ * the CPU advertises a local APIC and the base fits the reported physical
+ * address width. x2APIC enable requires both CPUID support and APIC enable.
+ */
+void vgk_cpu_decode_apic_base(
+    uint64_t apic_base_msr,
+    uint8_t physical_address_bits,
     VGK_CPU_FEATURES *features);
 
 /*
