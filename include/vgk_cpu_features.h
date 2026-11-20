@@ -14,7 +14,9 @@ typedef struct {
     uint32_t max_extended_leaf;
     uint8_t physical_address_bits;
     uint8_t nx_supported;
-    uint8_t reserved[2];
+    uint8_t pat_supported;
+    uint8_t mmio_uc_supported;
+    uint8_t reserved[1];
 
     /* Identity is diagnostic only; VGK must not whitelist CPU model names. */
     char vendor[13];
@@ -57,6 +59,16 @@ void vgk_cpu_decode_vector_features(
     uint32_t xcr0_low,
     uint8_t has_leaf1,
     uint8_t has_leaf7,
+    VGK_CPU_FEATURES *features);
+
+/*
+ * Decode PAT capability and the effective meaning of PCD=1/PWT=1.
+ * pat_msr is read only when CPUID.01H:EDX.PAT is set.
+ */
+void vgk_cpu_decode_pat_features(
+    uint32_t leaf1_edx,
+    uint64_t pat_msr,
+    uint8_t has_leaf1,
     VGK_CPU_FEATURES *features);
 
 /* Read CPUID and identify capabilities on the current x86-64 processor. */
