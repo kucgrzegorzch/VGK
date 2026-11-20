@@ -135,6 +135,13 @@ int main(void)
     set_checksum(physical_memory + ROOT_OFFSET, 44U, 9U);
     assert(find_madt(&madt, 0) == VGK_ACPI_BAD_ROOT_TABLE);
 
+    /* MADT requires its fixed 8-byte Local APIC address/flags prefix. */
+    make_valid_xsdt_madt();
+    make_sdt(physical_memory + MADT_OFFSET, "APIC", 36U, 5U);
+    set_checksum(physical_memory + MADT_OFFSET, 36U, 9U);
+    assert(find_madt(&madt, 0) == VGK_ACPI_BAD_TABLE);
+    assert(madt.physical_address == 0U);
+
     /* A structurally valid root without an APIC table reports not-found. */
     make_valid_xsdt_madt();
     make_sdt(physical_memory + OTHER_OFFSET, "FACP", 36U, 6U);
