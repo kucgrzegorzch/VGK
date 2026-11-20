@@ -189,6 +189,18 @@ static VGK_ACPI_STATUS find_madt(VGK_ACPI_TABLE_REF *out, int *fail_reads)
         48U, read_physical, fail_reads, out);
 }
 
+static VGK_ACPI_STATUS parse_current_madt(
+    VGK_ACPI_MADT_INFO *info,
+    int *fail_reads)
+{
+    VGK_ACPI_TABLE_REF madt;
+    VGK_ACPI_STATUS status = find_madt(&madt, fail_reads);
+    if (status != VGK_ACPI_OK)
+        return status;
+    return vgk_acpi_madt_parse(
+        memory_map, 1U, 48U, read_physical, fail_reads, &madt, info);
+}
+
 int main(void)
 {
     VGK_ACPI_TABLE_REF madt;
