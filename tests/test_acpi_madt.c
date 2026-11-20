@@ -486,7 +486,7 @@ int main(void)
                 UINT64_C(0xFEC00000));
             assert(walk_page(&page_tables, UINT64_C(0xFEE01000)) == 0);
 
-            /* A pre-existing cacheable alias must not be silently reused. */
+            /* A pre-existing cacheable alias must fail closed. */
             assert(vgk_paging_init(
                        &page_tables, apic_page_pool, 8U, 48U, 1U) ==
                    VGK_PAGING_OK);
@@ -497,7 +497,7 @@ int main(void)
             assert(vgk_paging_map_mmio_uc(
                        &page_tables, UINT64_C(0xFEC00000),
                        UINT64_C(0xFEC00000), VGK_BOOT_PAGE_SIZE) ==
-                   VGK_PAGING_ALREADY_MAPPED);
+                   VGK_PAGING_UNSUPPORTED);
 
             /* A short output buffer fails without publishing a partial plan. */
             plan_count = 99U;
