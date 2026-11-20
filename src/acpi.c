@@ -852,7 +852,8 @@ VGK_ACPI_STATUS vgk_acpi_madt_build_mmio_plan(
 
         for (uint32_t prior = 0; prior < i; ++prior) {
             if (madt->ioapics[prior].id == ioapic->id ||
-                madt->ioapics[prior].address == ioapic->address)
+                madt->ioapics[prior].address == ioapic->address ||
+                madt->ioapics[prior].gsi_base == ioapic->gsi_base)
                 return VGK_ACPI_BAD_TABLE;
         }
 
