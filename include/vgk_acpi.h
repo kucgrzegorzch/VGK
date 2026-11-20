@@ -119,6 +119,21 @@ typedef struct {
     VGK_ACPI_MADT_LOCAL_NMI local_nmis[VGK_ACPI_MADT_MAX_LOCAL_NMIS];
 } VGK_ACPI_MADT_INFO;
 
+#define VGK_ACPI_MADT_MAX_MMIO_RANGES \
+    (VGK_ACPI_MADT_MAX_IOAPICS + 1U)
+
+typedef enum {
+    VGK_ACPI_MADT_MMIO_LOCAL_APIC = 1,
+    VGK_ACPI_MADT_MMIO_IOAPIC = 2
+} VGK_ACPI_MADT_MMIO_KIND;
+
+typedef struct {
+    uint64_t physical_base;
+    uint64_t length;
+    uint8_t kind;
+    uint8_t reserved[7];
+} VGK_ACPI_MADT_MMIO_RANGE;
+
 /*
  * Confirm that the processor's read-only IA32_APIC_BASE address agrees with
  * the validated MADT Local APIC address. A disabled APIC may still have a
@@ -128,6 +143,31 @@ VGK_ACPI_STATUS vgk_acpi_madt_validate_local_apic_base(
     const VGK_ACPI_MADT_INFO *madt,
     uint64_t hardware_base,
     uint8_t hardware_base_valid);
+
+/*
+ * Build a bounded, pointer-free APIC MMIO mapping plan from validated MADT
+ * data. x2APIC mode omits the local-APIC MMIO window; I/O APIC pages remain.
+ * No page tables or hardware registers are touched.
+ */
+VGK_ACPI_STATUS vgk_acpi_madt_build_mmio_plan(
+    const VGK_ACPI_MADT_INFO *madt,
+    uint64_t hardware_base,
+    uint8_t hardware_base_valid,
+    uint8_t x2apic_enabled,
+    VGK_ACPI_MADT_MMIO_RANGE *ranges_out,
+    size_t range_capacity,
+    size_t *range_count_out);
+
+/*
+ * Confirm that every planned device page is covered by exactly one firmware
+ * memory-map entry classified as MMIO or reserved. Partial coverage,
+ * conflicting/overlapping entries and RAM-owned ranges are rejected.
+ */
+VGK_ACPI_STATUS vgk_acpi_madt_validate_mmio_plan_memory_map(
+    const VGK_MEMORY_MAP_ENTRY *memory_map,
+    size_t memory_map_count,
+    const VGK_ACPI_MADT_MMIO_RANGE *ranges,
+    size_t range_count);
 
 /*
  * Parse validated MADT records into bounded, pointer-free topology data.

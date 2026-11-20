@@ -786,12 +786,177 @@ VGK_ACPI_STATUS vgk_acpi_madt_validate_local_apic_base(
         return VGK_ACPI_INVALID_ARGUMENT;
 
     if (hardware_base_valid == 0U || hardware_base == 0U ||
+        hardware_base > UINT64_MAX - VGK_BOOT_PAGE_SIZE ||
         (hardware_base & (VGK_BOOT_PAGE_SIZE - 1U)) != 0U ||
         madt->local_apic_address == 0U ||
+        madt->local_apic_address > UINT64_MAX - VGK_BOOT_PAGE_SIZE ||
         (madt->local_apic_address &
          (VGK_BOOT_PAGE_SIZE - 1U)) != 0U ||
         hardware_base != madt->local_apic_address)
         return VGK_ACPI_BAD_TABLE;
+
+    return VGK_ACPI_OK;
+}
+
+VGK_ACPI_STATUS vgk_acpi_madt_build_mmio_plan(
+    const VGK_ACPI_MADT_INFO *madt,
+    uint64_t hardware_base,
+    uint8_t hardware_base_valid,
+    uint8_t x2apic_enabled,
+    VGK_ACPI_MADT_MMIO_RANGE *ranges_out,
+    size_t range_capacity,
+    size_t *range_count_out)
+{
+    VGK_ACPI_MADT_MMIO_RANGE planned[VGK_ACPI_MADT_MAX_MMIO_RANGES];
+    size_t planned_count = 0U;
+    VGK_ACPI_STATUS status;
+
+    acpi_zero_bytes(planned, sizeof(planned));
+    if (range_count_out != 0)
+        *range_count_out = 0U;
+    if (ranges_out != 0 && range_capacity != 0U) {
+        size_t clear_count = range_capacity;
+        if (clear_count > VGK_ACPI_MADT_MAX_MMIO_RANGES)
+            clear_count = VGK_ACPI_MADT_MAX_MMIO_RANGES;
+        acpi_zero_bytes(ranges_out, clear_count * sizeof(*ranges_out));
+    }
+
+    if (madt == 0 || ranges_out == 0 || range_count_out == 0 ||
+        x2apic_enabled > 1U)
+        return VGK_ACPI_INVALID_ARGUMENT;
+    if (madt->ioapic_count > VGK_ACPI_MADT_MAX_IOAPICS)
+        return VGK_ACPI_BAD_TABLE;
+
+    status = vgk_acpi_madt_validate_local_apic_base(
+        madt, hardware_base, hardware_base_valid);
+    if (status != VGK_ACPI_OK)
+        return status;
+
+    if (x2apic_enabled == 0U) {
+        planned[planned_count].physical_base = madt->local_apic_address;
+        planned[planned_count].length = VGK_BOOT_PAGE_SIZE;
+        planned[planned_count].kind = VGK_ACPI_MADT_MMIO_LOCAL_APIC;
+        ++planned_count;
+    }
+
+    for (uint32_t i = 0; i < madt->ioapic_count; ++i) {
+        const VGK_ACPI_MADT_IOAPIC *ioapic = &madt->ioapics[i];
+        uint64_t base = ioapic->address;
+
+        if (base == 0U ||
+            (base & (VGK_BOOT_PAGE_SIZE - 1U)) != 0U ||
+            ioapic->reserved[0] != 0U ||
+            ioapic->reserved[1] != 0U ||
+            ioapic->reserved[2] != 0U)
+            return VGK_ACPI_BAD_TABLE;
+
+        for (uint32_t prior = 0; prior < i; ++prior) {
+            if (madt->ioapics[prior].id == ioapic->id ||
+                madt->ioapics[prior].address == ioapic->address ||
+                madt->ioapics[prior].gsi_base == ioapic->gsi_base)
+                return VGK_ACPI_BAD_TABLE;
+        }
+
+        /* The IOAPIC page must never overlap the LAPIC page, even in x2APIC mode. */
+        if (base < madt->local_apic_address + VGK_BOOT_PAGE_SIZE &&
+            madt->local_apic_address < base + VGK_BOOT_PAGE_SIZE)
+            return VGK_ACPI_BAD_TABLE;
+
+        for (size_t prior = 0; prior < planned_count; ++prior) {
+            uint64_t prior_base = planned[prior].physical_base;
+            if (base < prior_base + VGK_BOOT_PAGE_SIZE &&
+                prior_base < base + VGK_BOOT_PAGE_SIZE)
+                return VGK_ACPI_BAD_TABLE;
+        }
+
+        planned[planned_count].physical_base = base;
+        planned[planned_count].length = VGK_BOOT_PAGE_SIZE;
+        planned[planned_count].kind = VGK_ACPI_MADT_MMIO_IOAPIC;
+        ++planned_count;
+    }
+
+    if (range_capacity < planned_count)
+        return VGK_ACPI_INVALID_ARGUMENT;
+
+    acpi_copy_bytes(
+        ranges_out, planned, planned_count * sizeof(*ranges_out));
+    *range_count_out = planned_count;
+    return VGK_ACPI_OK;
+}
+
+VGK_ACPI_STATUS vgk_acpi_madt_validate_mmio_plan_memory_map(
+    const VGK_MEMORY_MAP_ENTRY *memory_map,
+    size_t memory_map_count,
+    const VGK_ACPI_MADT_MMIO_RANGE *ranges,
+    size_t range_count)
+{
+    if (memory_map == 0 || memory_map_count == 0U ||
+        (range_count != 0U && ranges == 0) ||
+        range_count > VGK_ACPI_MADT_MAX_MMIO_RANGES)
+        return VGK_ACPI_INVALID_ARGUMENT;
+
+    for (size_t i = 0; i < memory_map_count; ++i) {
+        if (memory_map[i].length == 0U ||
+            memory_map[i].base > UINT64_MAX - memory_map[i].length)
+            return VGK_ACPI_BAD_TABLE;
+    }
+
+    {
+        size_t local_apic_ranges = 0U;
+
+        for (size_t i = 0; i < range_count; ++i) {
+            const VGK_ACPI_MADT_MMIO_RANGE *range = &ranges[i];
+            uint64_t range_end;
+            size_t covering_entries = 0U;
+
+            if (range->length != VGK_BOOT_PAGE_SIZE ||
+                (range->physical_base & (VGK_BOOT_PAGE_SIZE - 1U)) != 0U ||
+                range->physical_base > UINT64_MAX - range->length ||
+                (range->kind != VGK_ACPI_MADT_MMIO_LOCAL_APIC &&
+                 range->kind != VGK_ACPI_MADT_MMIO_IOAPIC))
+                return VGK_ACPI_BAD_TABLE;
+            for (size_t reserved = 0; reserved < sizeof(range->reserved); ++reserved) {
+                if (range->reserved[reserved] != 0U)
+                    return VGK_ACPI_BAD_TABLE;
+            }
+            if (range->kind == VGK_ACPI_MADT_MMIO_LOCAL_APIC &&
+                ++local_apic_ranges > 1U)
+                return VGK_ACPI_BAD_TABLE;
+
+            range_end = range->physical_base + range->length;
+
+            for (size_t prior = 0; prior < i; ++prior) {
+                uint64_t prior_end =
+                    ranges[prior].physical_base + ranges[prior].length;
+                if (range->physical_base < prior_end &&
+                    ranges[prior].physical_base < range_end)
+                    return VGK_ACPI_BAD_TABLE;
+            }
+
+            for (size_t entry = 0; entry < memory_map_count; ++entry) {
+                uint64_t entry_base = memory_map[entry].base;
+                uint64_t entry_end = entry_base + memory_map[entry].length;
+
+                if (range->physical_base >= entry_end ||
+                    entry_base >= range_end)
+                    continue;
+
+                /* Do not accept partial or fragmented coverage. */
+                if (entry_base > range->physical_base ||
+                    entry_end < range_end)
+                    return VGK_ACPI_BAD_TABLE;
+
+                if (memory_map[entry].type != VGK_MEMORY_MMIO &&
+                    memory_map[entry].type != VGK_MEMORY_RESERVED)
+                    return VGK_ACPI_BAD_TABLE;
+
+                ++covering_entries;
+            }
+
+            if (covering_entries != 1U)
+                return VGK_ACPI_BAD_TABLE;
+        }
+    }
 
     return VGK_ACPI_OK;
 }
