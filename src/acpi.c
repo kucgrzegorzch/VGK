@@ -394,6 +394,24 @@ static int madt_interrupt_flags_are_valid(uint16_t flags)
            polarity != 2U && trigger != 2U;
 }
 
+static void acpi_zero_bytes(void *destination, size_t length)
+{
+    volatile uint8_t *bytes = (volatile uint8_t *)destination;
+    for (size_t i = 0; i < length; ++i)
+        bytes[i] = 0U;
+}
+
+static void acpi_copy_bytes(
+    void *destination,
+    const void *source,
+    size_t length)
+{
+    volatile uint8_t *out = (volatile uint8_t *)destination;
+    const volatile uint8_t *in = (const volatile uint8_t *)source;
+    for (size_t i = 0; i < length; ++i)
+        out[i] = in[i];
+}
+
 static int madt_add_processor(
     VGK_ACPI_MADT_INFO *info,
     uint32_t uid,
@@ -538,7 +556,7 @@ VGK_ACPI_STATUS vgk_acpi_madt_parse(
     const VGK_ACPI_TABLE_REF *madt,
     VGK_ACPI_MADT_INFO *info_out)
 {
-    VGK_ACPI_MADT_INFO parsed = {0};
+    VGK_ACPI_MADT_INFO parsed;
     uint8_t header[VGK_ACPI_SDT_HEADER_SIZE];
     uint8_t fixed_fields[8];
     uint32_t table_length = 0U;
@@ -547,7 +565,8 @@ VGK_ACPI_STATUS vgk_acpi_madt_parse(
     VGK_ACPI_STATUS status;
 
     if (info_out != 0)
-        *info_out = parsed;
+        acpi_zero_bytes(info_out, sizeof(*info_out));
+    acpi_zero_bytes(&parsed, sizeof(parsed));
 
     if (memory_map == 0 || memory_map_count == 0U ||
         read_physical == 0 || madt == 0 || info_out == 0 ||
@@ -696,6 +715,6 @@ VGK_ACPI_STATUS vgk_acpi_madt_parse(
                              physical_address_bits))
         return VGK_ACPI_BAD_TABLE;
 
-    *info_out = parsed;
+    acpi_copy_bytes(info_out, &parsed, sizeof(parsed));
     return VGK_ACPI_OK;
 }
