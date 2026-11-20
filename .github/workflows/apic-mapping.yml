@@ -9,10 +9,18 @@ on:
       - "include/vgk_acpi.h"
       - "include/vgk_cpu_features.h"
       - "include/vgk_paging.h"
+      - "include/vgk_paging_preflight.h"
+      - "include/vgk_paging_ranges.h"
+      - "include/vgk_paging_requirements.h"
       - "src/apic_mapping.c"
       - "src/acpi.c"
       - "src/paging.c"
+      - "src/paging_preflight.c"
+      - "src/paging_ranges.c"
+      - "src/paging_requirements.c"
       - "tests/test_apic_mapping.c"
+      - "tests/test_paging_preflight.c"
+      - "tests/test_paging_ranges.c"
   push:
     branches:
       - test/apic-mmio-integration
@@ -42,4 +50,4 @@ jobs:
           sudo apt-get install -y gcc clang make
 
       - name: Compile native and UEFI integration module and run ACPI/APIC tests
-        run: make clean acpi-test
+        run: make clean acpi-test paging-ranges-test
