@@ -16,6 +16,8 @@ typedef struct {
     uint8_t nx_supported;
     uint8_t pat_supported;
     uint8_t mmio_uc_supported;
+    uint8_t local_apic_supported;
+    uint8_t x2apic_supported;
     uint8_t reserved[2];
 
     /* Identity is diagnostic only; VGK must not whitelist CPU model names. */
@@ -59,6 +61,16 @@ void vgk_cpu_decode_vector_features(
     uint32_t xcr0_low,
     uint8_t has_leaf1,
     uint8_t has_leaf7,
+    VGK_CPU_FEATURES *features);
+
+/*
+ * Decode local APIC and x2APIC hardware capability from CPUID leaf 1.
+ * x2APIC is reported only when the local APIC itself is present.
+ */
+void vgk_cpu_decode_apic_features(
+    uint32_t leaf1_ecx,
+    uint32_t leaf1_edx,
+    uint8_t has_leaf1,
     VGK_CPU_FEATURES *features);
 
 /*
