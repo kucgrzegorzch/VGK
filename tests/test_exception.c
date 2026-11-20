@@ -18,6 +18,31 @@ int main(void)
     for (uint8_t vector = 0U; vector < 32U; ++vector)
         assert(vgk_exception_vector_has_error_code(vector) == expected[vector]);
 
+    {
+        /* IST1 frame range validation: half-open stack and frame ranges. */
+        const uint64_t base = UINT64_C(0x10000);
+        const uint64_t end = UINT64_C(0x14000);
+        const uint64_t frame_size = 22U * sizeof(uint64_t);
+
+        assert(vgk_exception_stack_frame_is_within_bounds(
+            base, frame_size, base, end) == 1U);
+        assert(vgk_exception_stack_frame_is_within_bounds(
+            end - frame_size, frame_size, base, end) == 1U);
+        assert(vgk_exception_stack_frame_is_within_bounds(
+            base - 1U, frame_size, base, end) == 0U);
+        assert(vgk_exception_stack_frame_is_within_bounds(
+            end - frame_size + 1U, frame_size, base, end) == 0U);
+        assert(vgk_exception_stack_frame_is_within_bounds(
+            end, frame_size, base, end) == 0U);
+        assert(vgk_exception_stack_frame_is_within_bounds(
+            base, 0U, base, end) == 0U);
+        assert(vgk_exception_stack_frame_is_within_bounds(
+            base, frame_size, end, base) == 0U);
+        assert(vgk_exception_stack_frame_is_within_bounds(
+            UINT64_MAX - 7U, 22U * sizeof(uint64_t),
+            base, UINT64_MAX) == 0U);
+    }
+
     assert(sizeof(VGK_EXCEPTION_CONTEXT) == 23U * sizeof(uint64_t));
     assert(offsetof(VGK_EXCEPTION_CONTEXT, vector) == 15U * sizeof(uint64_t));
     assert(offsetof(VGK_EXCEPTION_CONTEXT, error_code) == 16U * sizeof(uint64_t));

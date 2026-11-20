@@ -62,6 +62,17 @@ uint8_t vgk_double_fault_context_from_stack(
     const uint64_t raw_stack[22],
     VGK_DOUBLE_FAULT_CONTEXT *context);
 
+/*
+ * Checks a non-empty frame range [frame_start, frame_start + frame_size)
+ * against the half-open stack range [stack_base, stack_end), without
+ * performing an overflowing addition.
+ */
+uint8_t vgk_exception_stack_frame_is_within_bounds(
+    uint64_t frame_start,
+    uint64_t frame_size,
+    uint64_t stack_base,
+    uint64_t stack_end);
+
 /* Zwraca 1, gdy procesor dostarcza kod bledu dla danego wektora. */
 uint8_t vgk_exception_vector_has_error_code(uint8_t vector);
 

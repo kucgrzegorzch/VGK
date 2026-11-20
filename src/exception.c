@@ -85,6 +85,21 @@ _Static_assert(offsetof(VGK_DOUBLE_FAULT_CONTEXT, vector) == 15U * sizeof(uint64
 _Static_assert(offsetof(VGK_DOUBLE_FAULT_CONTEXT, error_code) == 16U * sizeof(uint64_t),
                "VGK double-fault error-code offset mismatch");
 
+uint8_t vgk_exception_stack_frame_is_within_bounds(
+    uint64_t frame_start,
+    uint64_t frame_size,
+    uint64_t stack_base,
+    uint64_t stack_end)
+{
+    if (frame_size == 0U ||
+        stack_base >= stack_end ||
+        frame_start < stack_base ||
+        frame_start > stack_end)
+        return 0U;
+
+    return frame_size <= stack_end - frame_start ? 1U : 0U;
+}
+
 uint8_t vgk_exception_vector_has_error_code(uint8_t vector)
 {
     switch (vector) {
