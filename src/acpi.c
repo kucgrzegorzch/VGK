@@ -776,3 +776,22 @@ VGK_ACPI_STATUS vgk_acpi_madt_parse(
     acpi_copy_bytes(info_out, &parsed, sizeof(parsed));
     return VGK_ACPI_OK;
 }
+
+VGK_ACPI_STATUS vgk_acpi_madt_validate_local_apic_base(
+    const VGK_ACPI_MADT_INFO *madt,
+    uint64_t hardware_base,
+    uint8_t hardware_base_valid)
+{
+    if (madt == 0 || hardware_base_valid > 1U)
+        return VGK_ACPI_INVALID_ARGUMENT;
+
+    if (hardware_base_valid == 0U || hardware_base == 0U ||
+        (hardware_base & (VGK_BOOT_PAGE_SIZE - 1U)) != 0U ||
+        madt->local_apic_address == 0U ||
+        (madt->local_apic_address &
+         (VGK_BOOT_PAGE_SIZE - 1U)) != 0U ||
+        hardware_base != madt->local_apic_address)
+        return VGK_ACPI_BAD_TABLE;
+
+    return VGK_ACPI_OK;
+}
