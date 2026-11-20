@@ -190,9 +190,9 @@ static void kernel_log_madt_diagnostics(
     if (memory_map == 0 || madt_ref == 0 ||
         madt_ref->length < 44U ||
         madt_ref->physical_address >
-            UINT64_MAX - VGK_ACPI_SDT_HEADER_SIZE ||
+            UINT64_MAX - 36U ||
         !kernel_acpi_read_physical(
-            0, madt_ref->physical_address + VGK_ACPI_SDT_HEADER_SIZE,
+            0, madt_ref->physical_address + 36U,
             fixed_fields, sizeof(fixed_fields))) {
         serial_write("VGK: diagnostyka MADT: nie mozna odczytac pol stalych.\r\n");
         return;
