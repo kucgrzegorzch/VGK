@@ -76,7 +76,7 @@ VGK_APIC_MAPPING_RESULT vgk_apic_prepare_mmio_mappings(
         inactive_tables->used_pages == 0U ||
         inactive_tables->used_pages > inactive_tables->pool_pages ||
         inactive_tables->physical_bits != cpu->physical_address_bits ||
-        inactive_tables->nx_supported == 0U)
+        inactive_tables->nx_supported != 1U)
         return VGK_APIC_MAPPING_INVALID_ARGUMENT;
 
     acpi_status = vgk_acpi_madt_build_mmio_plan(
