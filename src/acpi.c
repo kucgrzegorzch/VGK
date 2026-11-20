@@ -901,20 +901,29 @@ VGK_ACPI_STATUS vgk_acpi_madt_validate_mmio_plan_memory_map(
             return VGK_ACPI_BAD_TABLE;
     }
 
-    for (size_t i = 0; i < range_count; ++i) {
-        const VGK_ACPI_MADT_MMIO_RANGE *range = &ranges[i];
-        uint64_t range_end;
-        size_t covering_entries = 0U;
+    {
+        size_t local_apic_ranges = 0U;
 
-        if (range->length == 0U ||
-            (range->physical_base & (VGK_BOOT_PAGE_SIZE - 1U)) != 0U ||
-            (range->length & (VGK_BOOT_PAGE_SIZE - 1U)) != 0U ||
-            range->physical_base > UINT64_MAX - range->length ||
-            (range->kind != VGK_ACPI_MADT_MMIO_LOCAL_APIC &&
-             range->kind != VGK_ACPI_MADT_MMIO_IOAPIC))
-            return VGK_ACPI_BAD_TABLE;
+        for (size_t i = 0; i < range_count; ++i) {
+            const VGK_ACPI_MADT_MMIO_RANGE *range = &ranges[i];
+            uint64_t range_end;
+            size_t covering_entries = 0U;
 
-        range_end = range->physical_base + range->length;
+            if (range->length != VGK_BOOT_PAGE_SIZE ||
+                (range->physical_base & (VGK_BOOT_PAGE_SIZE - 1U)) != 0U ||
+                range->physical_base > UINT64_MAX - range->length ||
+                (range->kind != VGK_ACPI_MADT_MMIO_LOCAL_APIC &&
+                 range->kind != VGK_ACPI_MADT_MMIO_IOAPIC))
+                return VGK_ACPI_BAD_TABLE;
+            for (size_t reserved = 0; reserved < sizeof(range->reserved); ++reserved) {
+                if (range->reserved[reserved] != 0U)
+                    return VGK_ACPI_BAD_TABLE;
+            }
+            if (range->kind == VGK_ACPI_MADT_MMIO_LOCAL_APIC &&
+                ++local_apic_ranges > 1U)
+                return VGK_ACPI_BAD_TABLE;
+
+            range_end = range->physical_base + range->length;
 
         for (size_t prior = 0; prior < i; ++prior) {
             uint64_t prior_end =
@@ -943,8 +952,9 @@ VGK_ACPI_STATUS vgk_acpi_madt_validate_mmio_plan_memory_map(
             ++covering_entries;
         }
 
-        if (covering_entries != 1U)
-            return VGK_ACPI_BAD_TABLE;
+            if (covering_entries != 1U)
+                return VGK_ACPI_BAD_TABLE;
+        }
     }
 
     return VGK_ACPI_OK;
