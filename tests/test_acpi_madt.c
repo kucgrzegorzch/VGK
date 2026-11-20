@@ -382,20 +382,28 @@ int main(void)
 
     /* A gap in the normalized map cannot be treated as an MMIO aperture. */
     make_rich_xsdt_madt();
-    memory_map[2].base = UINT64_C(0xFEE02000);
     {
+        VGK_ACPI_TABLE_REF ref;
         VGK_ACPI_MADT_INFO info;
-        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+        assert(find_madt(&ref, 0) == VGK_ACPI_OK);
+        memory_map[2].base = UINT64_C(0xFEE02000);
+        assert(vgk_acpi_madt_parse(
+            memory_map, 3U, 48U, read_physical, 0, &ref, &info) ==
+            VGK_ACPI_BAD_TABLE);
+        memory_map[2].base = UINT64_C(0xFEE00000);
     }
-    memory_map[2].base = UINT64_C(0xFEE00000);
 
     /* Overlapping normalized descriptors invalidate the APIC range proof. */
-    memory_map[2].base = UINT64_C(0xFEC00800);
     {
+        VGK_ACPI_TABLE_REF ref;
         VGK_ACPI_MADT_INFO info;
-        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+        assert(find_madt(&ref, 0) == VGK_ACPI_OK);
+        memory_map[2].base = UINT64_C(0xFEC00800);
+        assert(vgk_acpi_madt_parse(
+            memory_map, 3U, 48U, read_physical, 0, &ref, &info) ==
+            VGK_ACPI_BAD_TABLE);
+        memory_map[2].base = UINT64_C(0xFEE00000);
     }
-    memory_map[2].base = UINT64_C(0xFEE00000);
 
     /* An I/O APIC address inside ACPI reclaimable RAM is not MMIO. */
     make_rich_xsdt_madt();
