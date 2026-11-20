@@ -380,6 +380,23 @@ int main(void)
     }
     memory_map[2].type = VGK_MEMORY_MMIO;
 
+    /* A gap in the normalized map cannot be treated as an MMIO aperture. */
+    make_rich_xsdt_madt();
+    memory_map[2].base = UINT64_C(0xFEE02000);
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+    }
+    memory_map[2].base = UINT64_C(0xFEE00000);
+
+    /* Overlapping normalized descriptors invalidate the APIC range proof. */
+    memory_map[2].base = UINT64_C(0xFEC00800);
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+    }
+    memory_map[2].base = UINT64_C(0xFEE00000);
+
     /* An I/O APIC address inside ACPI reclaimable RAM is not MMIO. */
     make_rich_xsdt_madt();
     put_le32(physical_memory + MADT_OFFSET + 56U,
