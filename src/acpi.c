@@ -786,8 +786,10 @@ VGK_ACPI_STATUS vgk_acpi_madt_validate_local_apic_base(
         return VGK_ACPI_INVALID_ARGUMENT;
 
     if (hardware_base_valid == 0U || hardware_base == 0U ||
+        hardware_base > UINT64_MAX - VGK_BOOT_PAGE_SIZE ||
         (hardware_base & (VGK_BOOT_PAGE_SIZE - 1U)) != 0U ||
         madt->local_apic_address == 0U ||
+        madt->local_apic_address > UINT64_MAX - VGK_BOOT_PAGE_SIZE ||
         (madt->local_apic_address &
          (VGK_BOOT_PAGE_SIZE - 1U)) != 0U ||
         hardware_base != madt->local_apic_address)
@@ -809,6 +811,7 @@ VGK_ACPI_STATUS vgk_acpi_madt_build_mmio_plan(
     size_t planned_count = 0U;
     VGK_ACPI_STATUS status;
 
+    acpi_zero_bytes(planned, sizeof(planned));
     if (range_count_out != 0)
         *range_count_out = 0U;
     if (ranges_out != 0 && range_capacity != 0U) {
@@ -819,9 +822,10 @@ VGK_ACPI_STATUS vgk_acpi_madt_build_mmio_plan(
     }
 
     if (madt == 0 || ranges_out == 0 || range_count_out == 0 ||
-        x2apic_enabled > 1U ||
-        madt->ioapic_count > VGK_ACPI_MADT_MAX_IOAPICS)
+        x2apic_enabled > 1U)
         return VGK_ACPI_INVALID_ARGUMENT;
+    if (madt->ioapic_count > VGK_ACPI_MADT_MAX_IOAPICS)
+        return VGK_ACPI_BAD_TABLE;
 
     status = vgk_acpi_madt_validate_local_apic_base(
         madt, hardware_base, hardware_base_valid);
