@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "vgk_acpi.h"
+#include "vgk_paging.h"
 
 #define PHYS_BASE UINT64_C(0x100000)
 #define PHYS_SIZE UINT64_C(0x10000)
@@ -14,6 +15,39 @@
 
 static uint8_t physical_memory[PHYS_SIZE];
 static VGK_MEMORY_MAP_ENTRY memory_map[3];
+
+static uint64_t apic_page_pool[8U * 512U]
+    __attribute__((aligned(4096)));
+
+static uint64_t *walk_page(
+    VGK_PAGE_TABLES *tables,
+    uint64_t virtual_address)
+{
+    static const unsigned shifts[3] = {39U, 30U, 21U};
+    uint64_t *table = tables->pool;
+
+    for (size_t level = 0; level < 3U; ++level) {
+        uint64_t entry = table[(virtual_address >> shifts[level]) & 0x1FFU];
+        if ((entry & UINT64_C(1)) == 0U ||
+            (entry & UINT64_C(0x80)) != 0U)
+            return 0;
+        table = (uint64_t *)(uintptr_t)(entry & tables->physical_mask);
+    }
+    return &table[(virtual_address >> 12) & 0x1FFU];
+}
+
+static void assert_uc_nx_mmio_leaf(
+    VGK_PAGE_TABLES *tables,
+    uint64_t virtual_address,
+    uint64_t physical_address)
+{
+    uint64_t *leaf = walk_page(tables, virtual_address);
+    assert(leaf != 0);
+    assert((*leaf & tables->physical_mask) == physical_address);
+    assert((*leaf & UINT64_C(0x018)) == UINT64_C(0x018));
+    assert((*leaf & UINT64_C(0x2)) != 0U);
+    assert((*leaf & (UINT64_C(1) << 63)) != 0U);
+}
 
 static void set_checksum(uint8_t *bytes, size_t length, size_t offset)
 {
@@ -389,6 +423,7 @@ int main(void)
         /* xAPIC mode needs both LAPIC and IOAPIC UC pages. */
         {
             VGK_ACPI_MADT_MMIO_RANGE plan[VGK_ACPI_MADT_MAX_MMIO_RANGES];
+            VGK_PAGE_TABLES page_tables;
             size_t plan_count = 99U;
             assert(vgk_acpi_madt_build_mmio_plan(
                        &info, UINT64_C(0xFEE01000), 1U, 0U,
@@ -404,6 +439,22 @@ int main(void)
             for (size_t i = 0; i < sizeof(plan[0].reserved); ++i)
                 assert(plan[0].reserved[i] == 0U);
 
+            /* Feed the xAPIC plan into the real inactive page-table builder. */
+            assert(vgk_paging_init(
+                       &page_tables, apic_page_pool, 8U, 48U, 1U) ==
+                   VGK_PAGING_OK);
+            for (size_t i = 0; i < plan_count; ++i) {
+                assert(plan[i].length == VGK_BOOT_PAGE_SIZE);
+                assert(vgk_paging_map_mmio_uc(
+                           &page_tables,
+                           plan[i].physical_base,
+                           plan[i].physical_base,
+                           plan[i].length) == VGK_PAGING_OK);
+                assert_uc_nx_mmio_leaf(
+                    &page_tables, plan[i].physical_base,
+                    plan[i].physical_base);
+            }
+
             /* x2APIC mode uses MSRs for LAPIC and maps only IOAPIC pages. */
             assert(vgk_acpi_madt_build_mmio_plan(
                        &info, UINT64_C(0xFEE01000), 1U, 1U,
@@ -412,6 +463,19 @@ int main(void)
             assert(plan_count == 1U);
             assert(plan[0].physical_base == UINT64_C(0xFEC00000));
             assert(plan[0].kind == VGK_ACPI_MADT_MMIO_IOAPIC);
+
+            /* x2APIC maps the IOAPIC page but leaves LAPIC MMIO unmapped. */
+            assert(vgk_paging_init(
+                       &page_tables, apic_page_pool, 8U, 48U, 1U) ==
+                   VGK_PAGING_OK);
+            assert(vgk_paging_map_mmio_uc(
+                       &page_tables, plan[0].physical_base,
+                       plan[0].physical_base, plan[0].length) ==
+                   VGK_PAGING_OK);
+            assert_uc_nx_mmio_leaf(
+                &page_tables, UINT64_C(0xFEC00000),
+                UINT64_C(0xFEC00000));
+            assert(walk_page(&page_tables, UINT64_C(0xFEE01000)) == 0);
 
             /* A short output buffer fails without publishing a partial plan. */
             plan_count = 99U;
