@@ -453,6 +453,55 @@ static int madt_add_ioapic(
     return 1;
 }
 
+static int madt_add_nmi_source(
+    VGK_ACPI_MADT_INFO *info,
+    uint16_t flags,
+    uint32_t gsi)
+{
+    if (info->nmi_source_count >= 16U ||
+        !madt_interrupt_flags_are_valid(flags))
+        return 0;
+
+    for (uint32_t i = 0; i < info->nmi_source_count; ++i) {
+        if (info->nmi_sources[i].gsi == gsi)
+            return 0;
+    }
+
+    info->nmi_sources[info->nmi_source_count].flags = flags;
+    info->nmi_sources[info->nmi_source_count].gsi = gsi;
+    ++info->nmi_source_count;
+    return 1;
+}
+
+static int madt_add_local_nmi(
+    VGK_ACPI_MADT_INFO *info,
+    uint32_t processor_uid,
+    uint16_t flags,
+    uint8_t lint,
+    uint8_t x2apic)
+{
+    if (info->local_nmi_count >= 32U || lint > 1U ||
+        !madt_interrupt_flags_are_valid(flags))
+        return 0;
+
+    for (uint32_t i = 0; i < info->local_nmi_count; ++i) {
+        if (info->local_nmis[i].processor_uid == processor_uid &&
+            info->local_nmis[i].lint == lint &&
+            info->local_nmis[i].x2apic == x2apic)
+            return 0;
+    }
+
+    {
+        VGK_ACPI_MADT_LOCAL_NMI *nmi =
+            &info->local_nmis[info->local_nmi_count++];
+        nmi->processor_uid = processor_uid;
+        nmi->flags = flags;
+        nmi->lint = lint;
+        nmi->x2apic = x2apic;
+    }
+    return 1;
+}
+
 static int madt_add_override(
     VGK_ACPI_MADT_INFO *info,
     uint8_t bus,
@@ -588,14 +637,16 @@ VGK_ACPI_STATUS vgk_acpi_madt_parse(
 
         case 3U: /* NMI Source */
             if (entry_length != 8U ||
-                !madt_interrupt_flags_are_valid(read_le16(entry + 2U)))
+                !madt_add_nmi_source(&parsed,
+                                     read_le16(entry + 2U),
+                                     read_le32(entry + 4U)))
                 return VGK_ACPI_BAD_TABLE;
             break;
 
         case 4U: /* Local APIC NMI */
             if (entry_length != 6U ||
-                !madt_interrupt_flags_are_valid(read_le16(entry + 3U)) ||
-                entry[5] > 1U)
+                !madt_add_local_nmi(&parsed, entry[2],
+                                    read_le16(entry + 3U), entry[5], 0U))
                 return VGK_ACPI_BAD_TABLE;
             break;
 
@@ -623,9 +674,11 @@ VGK_ACPI_STATUS vgk_acpi_madt_parse(
 
         case 10U: /* Local x2APIC NMI */
             if (entry_length != 12U ||
-                entry[2] != 0U || entry[3] != 0U ||
-                !madt_interrupt_flags_are_valid(read_le16(entry + 4U)) ||
-                entry[10] > 1U || entry[11] != 0U)
+                entry[2] != 0U || entry[3] != 0U || entry[11] != 0U ||
+                !madt_add_local_nmi(&parsed,
+                                    read_le32(entry + 6U),
+                                    read_le16(entry + 4U),
+                                    entry[10], 1U))
                 return VGK_ACPI_BAD_TABLE;
             break;
 
