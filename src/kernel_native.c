@@ -127,6 +127,120 @@ static int kernel_acpi_read_physical(
  * A missing/unsupported APIC plan is non-fatal: VGK can still prepare its
  * other inactive mappings, but it will not prepare APIC MMIO windows.
  */
+static uint32_t kernel_read_le32(const uint8_t *bytes)
+{
+    return (uint32_t)bytes[0] |
+           ((uint32_t)bytes[1] << 8) |
+           ((uint32_t)bytes[2] << 16) |
+           ((uint32_t)bytes[3] << 24);
+}
+
+static uint64_t kernel_read_le64(const uint8_t *bytes)
+{
+    return (uint64_t)kernel_read_le32(bytes) |
+           ((uint64_t)kernel_read_le32(bytes + 4U) << 32);
+}
+
+static void kernel_log_apic_memory_coverage(
+    const VGK_MEMORY_MAP_ENTRY *memory_map,
+    size_t memory_map_count,
+    uint64_t physical_base)
+{
+    uint64_t range_end = physical_base + VGK_BOOT_PAGE_SIZE;
+    size_t overlaps = 0U;
+
+    serial_write("VGK: MADT MMIO base=");
+    serial_write_hex(physical_base);
+    serial_write(" firmware-map=");
+    for (size_t i = 0U; i < memory_map_count; ++i) {
+        uint64_t entry_end;
+        if (memory_map[i].length == 0U ||
+            memory_map[i].base >
+                UINT64_MAX - memory_map[i].length)
+            continue;
+        entry_end = memory_map[i].base + memory_map[i].length;
+        if (memory_map[i].base < range_end &&
+            physical_base < entry_end) {
+            serial_write("[base=");
+            serial_write_hex(memory_map[i].base);
+            serial_write(",len=");
+            serial_write_hex(memory_map[i].length);
+            serial_write(",type=");
+            serial_write_hex(memory_map[i].type);
+            serial_write("]");
+            ++overlaps;
+        }
+    }
+    if (overlaps == 0U)
+        serial_write("NONE");
+    serial_write("\r\n");
+}
+
+static void kernel_log_madt_diagnostics(
+    const VGK_MEMORY_MAP_ENTRY *memory_map,
+    size_t memory_map_count,
+    const VGK_ACPI_TABLE_REF *madt_ref)
+{
+    uint8_t fixed_fields[8];
+    uint8_t entry_header[2];
+    uint8_t entry[255];
+    uint64_t local_apic_base;
+    uint32_t offset = 44U;
+
+    if (memory_map == 0 || madt_ref == 0 ||
+        madt_ref->length < 44U ||
+        madt_ref->physical_address >
+            UINT64_MAX - VGK_ACPI_SDT_HEADER_SIZE ||
+        !kernel_acpi_read_physical(
+            0, madt_ref->physical_address + VGK_ACPI_SDT_HEADER_SIZE,
+            fixed_fields, sizeof(fixed_fields))) {
+        serial_write("VGK: diagnostyka MADT: nie mozna odczytac pol stalych.\r\n");
+        return;
+    }
+
+    local_apic_base = kernel_read_le32(fixed_fields);
+    serial_write("VGK: diagnostyka MADT: wpisy i zakresy MMIO.\r\n");
+    while (offset < madt_ref->length) {
+        uint64_t entry_address;
+        uint8_t entry_type;
+        uint8_t entry_length;
+
+        if (madt_ref->length - offset < sizeof(entry_header) ||
+            madt_ref->physical_address > UINT64_MAX - offset)
+            break;
+        entry_address = madt_ref->physical_address + offset;
+        if (!kernel_acpi_read_physical(
+                0, entry_address, entry_header, sizeof(entry_header)))
+            break;
+
+        entry_type = entry_header[0];
+        entry_length = entry_header[1];
+        serial_write("VGK: MADT entry type=");
+        serial_write_hex(entry_type);
+        serial_write(" len=");
+        serial_write_hex(entry_length);
+        serial_write("\r\n");
+
+        if (entry_length < 2U ||
+            entry_length > madt_ref->length - offset ||
+            !kernel_acpi_read_physical(
+                0, entry_address, entry, entry_length))
+            break;
+
+        if (entry_type == 1U && entry_length == 12U) {
+            uint64_t ioapic_base = kernel_read_le32(entry + 4U);
+            kernel_log_apic_memory_coverage(
+                memory_map, memory_map_count, ioapic_base);
+        } else if (entry_type == 5U && entry_length == 12U) {
+            local_apic_base = kernel_read_le64(entry + 4U);
+        }
+        offset += entry_length;
+    }
+
+    kernel_log_apic_memory_coverage(
+        memory_map, memory_map_count, local_apic_base);
+}
+
 static int prepare_apic_boot_context(
     const VGK_BOOT_INFO *boot_info,
     const VGK_CPU_FEATURES *cpu_features,
@@ -199,6 +313,8 @@ static int prepare_apic_boot_context(
         cpu_features->physical_address_bits,
         kernel_acpi_read_physical, 0, &madt_ref, &context->madt);
     if (acpi_status != VGK_ACPI_OK) {
+        kernel_log_madt_diagnostics(
+            memory_map, memory_map_count, &madt_ref);
         serial_write("VGK: MADT nie przeszedł walidacji; APIC MMIO pominięte, kod = ");
         serial_write_hex((uint64_t)acpi_status);
         serial_write("\r\n");
