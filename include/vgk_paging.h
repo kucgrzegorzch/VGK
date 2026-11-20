@@ -61,6 +61,16 @@ VGK_PAGING_RESULT vgk_paging_map_range(
     uint64_t length,
     uint32_t permissions);
 
+/*
+ * Maps a device MMIO range as supervisor RW, NX and uncached (PCD=1/PWT=1).
+ * The caller must establish that the physical range is genuine MMIO.
+ */
+VGK_PAGING_RESULT vgk_paging_map_mmio_uc(
+    VGK_PAGE_TABLES *tables,
+    uint64_t virtual_address,
+    uint64_t physical_address,
+    uint64_t length);
+
 uint64_t vgk_paging_root_physical(const VGK_PAGE_TABLES *tables);
 
 #endif
