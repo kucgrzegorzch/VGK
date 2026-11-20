@@ -120,8 +120,8 @@ jobs:
           grep -aF "VGK: uruchomiono wlasne jadro." build/qemu-serial.log
           grep -aF "VGK: trzy odrebne stosy IST w BSS zweryfikowane; pozostaja nieaktywne." build/qemu-serial.log
           grep -aF "VGK: TSS wypelniony adresami IST, deskryptor GDT zbudowany; LGDT/LTR nie wykonano." build/qemu-serial.log
-          grep -aF "VGK: IDT zbudowana z 32 rzeczywistych stubow; LIDT nie wykonano." build/qemu-serial.log
-          grep -aF "VGK: IDTR przygotowany (limit/adres); LIDT nie wykonano." build/qemu-serial.log
+          grep -aF "VGK: przygotowano pelna IDT 256 wektorow; 32 wyjatki i 224 stuby awaryjne; LIDT nie wykonano." build/qemu-serial.log
+          grep -aF "VGK: IDTR pelnej tablicy przygotowany (limit=4095); LIDT nie wykonano." build/qemu-serial.log
           grep -aF "VGK: protokol startowy poprawny." build/qemu-serial.log
           grep -aF "VGK: otrzymano inwentarz urzadzen PCI z UEFI." build/qemu-serial.log
           grep -aF "VGK: procesor obsluguje NX;" build/qemu-serial.log
