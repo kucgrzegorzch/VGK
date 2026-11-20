@@ -122,6 +122,8 @@ memory-test: | build
 acpi-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/acpi.c tests/test_acpi.c -o build/test_acpi
 	./build/test_acpi
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/acpi.c tests/test_acpi_madt.c -o build/test_acpi_madt
+	./build/test_acpi_madt
 
 paging-requirements-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/paging_requirements.c tests/test_paging_requirements.c -o build/test_paging_requirements
