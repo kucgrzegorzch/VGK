@@ -13,7 +13,7 @@
 #define OTHER_OFFSET 0x4000U
 
 static uint8_t physical_memory[PHYS_SIZE];
-static VGK_MEMORY_MAP_ENTRY memory_map[1];
+static VGK_MEMORY_MAP_ENTRY memory_map[3];
 
 static void set_checksum(uint8_t *bytes, size_t length, size_t offset)
 {
@@ -183,7 +183,7 @@ static int read_physical(void *context, uint64_t address,
 static VGK_ACPI_STATUS find_madt(VGK_ACPI_TABLE_REF *out, int *fail_reads)
 {
     return vgk_acpi_find_madt(
-        memory_map, 1U,
+        memory_map, 3U,
         PHYS_BASE + RSDP_OFFSET,
         physical_memory + RSDP_OFFSET,
         48U, read_physical, fail_reads, out);
@@ -198,7 +198,7 @@ static VGK_ACPI_STATUS parse_current_madt(
     if (status != VGK_ACPI_OK)
         return status;
     return vgk_acpi_madt_parse(
-        memory_map, 1U, 48U, read_physical, fail_reads, &madt, info);
+        memory_map, 3U, 48U, read_physical, fail_reads, &madt, info);
 }
 
 int main(void)
@@ -207,6 +207,10 @@ int main(void)
 
     memory_map[0] = (VGK_MEMORY_MAP_ENTRY){
         PHYS_BASE, PHYS_SIZE, VGK_MEMORY_ACPI_RECLAIM, 0U};
+    memory_map[1] = (VGK_MEMORY_MAP_ENTRY){
+        UINT64_C(0xFEC00000), UINT64_C(0x1000), VGK_MEMORY_MMIO, 0U};
+    memory_map[2] = (VGK_MEMORY_MAP_ENTRY){
+        UINT64_C(0xFEE00000), UINT64_C(0x2000), VGK_MEMORY_MMIO, 0U};
 
     make_valid_xsdt_madt();
     assert(find_madt(&madt, 0) == VGK_ACPI_OK);
@@ -365,6 +369,28 @@ int main(void)
         assert(info.local_nmis[1].processor_uid == 2U);
         assert(info.local_nmis[1].lint == 0U);
         assert(info.local_nmis[1].x2apic == 1U);
+    }
+
+    /* An I/O APIC address inside ACPI reclaimable RAM is not MMIO. */
+    make_rich_xsdt_madt();
+    put_le32(physical_memory + MADT_OFFSET + 56U,
+             (uint32_t)(PHYS_BASE + UINT64_C(0x9000)));
+    set_checksum(physical_memory + MADT_OFFSET, 130U, 9U);
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+        assert(info.ioapic_count == 0U);
+    }
+
+    /* A Local APIC override into ACPI table memory is rejected as well. */
+    make_rich_xsdt_madt();
+    put_le64(physical_memory + MADT_OFFSET + 92U,
+             PHYS_BASE + UINT64_C(0x8000));
+    set_checksum(physical_memory + MADT_OFFSET, 130U, 9U);
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+        assert(info.local_apic_address == 0U);
     }
 
     /* Duplicate processor UID/APIC ID values are rejected. */
