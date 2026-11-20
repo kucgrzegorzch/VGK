@@ -63,4 +63,74 @@ VGK_ACPI_STATUS vgk_acpi_find_madt(
     void *read_context,
     VGK_ACPI_TABLE_REF *madt_out);
 
+
+#define VGK_ACPI_MADT_MAX_PROCESSORS 64U
+#define VGK_ACPI_MADT_MAX_IOAPICS 8U
+#define VGK_ACPI_MADT_MAX_OVERRIDES 16U
+#define VGK_ACPI_MADT_MAX_NMI_SOURCES 16U
+#define VGK_ACPI_MADT_MAX_LOCAL_NMIS 32U
+
+typedef struct {
+    uint32_t processor_uid;
+    uint32_t apic_id;
+    uint32_t flags;
+    uint8_t x2apic;
+    uint8_t reserved[3];
+} VGK_ACPI_MADT_PROCESSOR;
+
+typedef struct {
+    uint8_t id;
+    uint8_t reserved[3];
+    uint32_t address;
+    uint32_t gsi_base;
+} VGK_ACPI_MADT_IOAPIC;
+
+typedef struct {
+    uint8_t bus;
+    uint8_t source;
+    uint16_t flags;
+    uint32_t gsi;
+} VGK_ACPI_MADT_OVERRIDE;
+
+typedef struct {
+    uint16_t flags;
+    uint32_t gsi;
+} VGK_ACPI_MADT_NMI_SOURCE;
+
+typedef struct {
+    uint32_t processor_uid;
+    uint16_t flags;
+    uint8_t lint;
+    uint8_t x2apic;
+} VGK_ACPI_MADT_LOCAL_NMI;
+
+typedef struct {
+    uint64_t local_apic_address;
+    uint32_t flags;
+    uint32_t processor_count;
+    VGK_ACPI_MADT_PROCESSOR processors[VGK_ACPI_MADT_MAX_PROCESSORS];
+    uint32_t ioapic_count;
+    VGK_ACPI_MADT_IOAPIC ioapics[VGK_ACPI_MADT_MAX_IOAPICS];
+    uint32_t override_count;
+    VGK_ACPI_MADT_OVERRIDE overrides[VGK_ACPI_MADT_MAX_OVERRIDES];
+    uint32_t nmi_source_count;
+    VGK_ACPI_MADT_NMI_SOURCE nmi_sources[VGK_ACPI_MADT_MAX_NMI_SOURCES];
+    uint32_t local_nmi_count;
+    VGK_ACPI_MADT_LOCAL_NMI local_nmis[VGK_ACPI_MADT_MAX_LOCAL_NMIS];
+} VGK_ACPI_MADT_INFO;
+
+/*
+ * Parse validated MADT records into bounded, pointer-free topology data.
+ * Unsupported record types are skipped only after their length/bounds pass.
+ * No MMIO access or interrupt-controller programming is performed.
+ */
+VGK_ACPI_STATUS vgk_acpi_madt_parse(
+    const VGK_MEMORY_MAP_ENTRY *memory_map,
+    size_t memory_map_count,
+    uint8_t physical_address_bits,
+    VGK_ACPI_PHYSICAL_READ read_physical,
+    void *read_context,
+    const VGK_ACPI_TABLE_REF *madt,
+    VGK_ACPI_MADT_INFO *info_out);
+
 #endif

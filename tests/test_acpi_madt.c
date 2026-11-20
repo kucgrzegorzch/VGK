@@ -75,6 +75,94 @@ static void make_valid_xsdt_madt(void)
     make_rsdp(2U, PHYS_BASE + ROOT_OFFSET, 1);
 }
 
+
+static void put_le16(uint8_t *bytes, uint16_t value)
+{
+    bytes[0] = (uint8_t)value;
+    bytes[1] = (uint8_t)(value >> 8);
+}
+
+static void put_le32(uint8_t *bytes, uint32_t value)
+{
+    for (size_t i = 0; i < 4U; ++i)
+        bytes[i] = (uint8_t)(value >> (i * 8U));
+}
+
+static void put_le64(uint8_t *bytes, uint64_t value)
+{
+    for (size_t i = 0; i < 8U; ++i)
+        bytes[i] = (uint8_t)(value >> (i * 8U));
+}
+
+static void make_rich_xsdt_madt(void)
+{
+    uint8_t *xsdt = physical_memory + ROOT_OFFSET;
+    uint8_t *madt = physical_memory + MADT_OFFSET;
+    uint32_t offset = 44U;
+
+    memset(physical_memory, 0, sizeof(physical_memory));
+    make_sdt(xsdt, "XSDT", 44U, 1U);
+    put_le64(xsdt + 36U, PHYS_BASE + MADT_OFFSET);
+    set_checksum(xsdt, 44U, 9U);
+
+    make_sdt(madt, "APIC", 130U, 5U);
+    put_le32(madt + 36U, UINT32_C(0xFEE00000));
+    put_le32(madt + 40U, 1U); /* PCAT-compatible dual 8259s */
+
+    /* Type 0: processor UID 1, local APIC ID 2, enabled. */
+    madt[offset] = 0U; madt[offset + 1U] = 8U;
+    madt[offset + 2U] = 1U; madt[offset + 3U] = 2U;
+    put_le32(madt + offset + 4U, 1U); offset += 8U;
+
+    /* Type 1: I/O APIC ID 3 at FEC00000, GSI base 0. */
+    madt[offset] = 1U; madt[offset + 1U] = 12U;
+    madt[offset + 2U] = 3U; madt[offset + 3U] = 0U;
+    put_le32(madt + offset + 4U, UINT32_C(0xFEC00000));
+    put_le32(madt + offset + 8U, 0U); offset += 12U;
+
+    /* Type 2: ISA bus IRQ1 overrides to GSI1, conforming flags. */
+    madt[offset] = 2U; madt[offset + 1U] = 10U;
+    madt[offset + 2U] = 0U; madt[offset + 3U] = 1U;
+    put_le32(madt + offset + 4U, 1U);
+    put_le16(madt + offset + 8U, 0U); offset += 10U;
+
+    /* Type 3: NMI source with GSI2. */
+    madt[offset] = 3U; madt[offset + 1U] = 8U;
+    put_le16(madt + offset + 2U, 0U);
+    put_le32(madt + offset + 4U, 2U); offset += 8U;
+
+    /* Type 4: processor UID1, NMI on LINT1. */
+    madt[offset] = 4U; madt[offset + 1U] = 6U;
+    madt[offset + 2U] = 1U; put_le16(madt + offset + 3U, 0U);
+    madt[offset + 5U] = 1U; offset += 6U;
+
+    /* Type 5: 64-bit local APIC address override. */
+    madt[offset] = 5U; madt[offset + 1U] = 12U;
+    put_le16(madt + offset + 2U, 0U);
+    put_le64(madt + offset + 4U, UINT64_C(0xFEE01000)); offset += 12U;
+
+    /* Type 9: x2APIC ID 0x123, processor UID2, enabled. */
+    madt[offset] = 9U; madt[offset + 1U] = 16U;
+    put_le16(madt + offset + 2U, 0U);
+    put_le32(madt + offset + 4U, UINT32_C(0x123));
+    put_le32(madt + offset + 8U, 1U);
+    put_le32(madt + offset + 12U, 2U); offset += 16U;
+
+    /* Type 10: x2APIC NMI for UID2 on LINT0. */
+    madt[offset] = 10U; madt[offset + 1U] = 12U;
+    put_le16(madt + offset + 2U, 0U);
+    put_le16(madt + offset + 4U, 0U);
+    put_le32(madt + offset + 6U, 2U);
+    madt[offset + 10U] = 0U; madt[offset + 11U] = 0U; offset += 12U;
+
+    /* Unknown future record types are skipped after bounds validation. */
+    madt[offset] = 0x7FU; madt[offset + 1U] = 2U; offset += 2U;
+    assert(offset == 130U);
+
+    set_checksum(madt, 130U, 9U);
+    make_rsdp(2U, PHYS_BASE + ROOT_OFFSET, 1);
+}
+
 static int read_physical(void *context, uint64_t address,
                          uint8_t *destination, size_t length)
 {
@@ -99,6 +187,18 @@ static VGK_ACPI_STATUS find_madt(VGK_ACPI_TABLE_REF *out, int *fail_reads)
         PHYS_BASE + RSDP_OFFSET,
         physical_memory + RSDP_OFFSET,
         48U, read_physical, fail_reads, out);
+}
+
+static VGK_ACPI_STATUS parse_current_madt(
+    VGK_ACPI_MADT_INFO *info,
+    int *fail_reads)
+{
+    VGK_ACPI_TABLE_REF madt;
+    VGK_ACPI_STATUS status = find_madt(&madt, fail_reads);
+    if (status != VGK_ACPI_OK)
+        return status;
+    return vgk_acpi_madt_parse(
+        memory_map, 1U, 48U, read_physical, fail_reads, &madt, info);
 }
 
 int main(void)
@@ -231,6 +331,163 @@ int main(void)
     assert(find_madt(&madt, 0) == VGK_ACPI_BAD_RSDP);
     assert(madt.physical_address == 0U);
 
-    puts("VGK ACPI RSDT/XSDT and MADT discovery tests: OK");
+    /* Parse real MADT record layouts into bounded topology data. */
+    make_rich_xsdt_madt();
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_OK);
+        assert(info.local_apic_address == UINT64_C(0xFEE01000));
+        assert(info.flags == 1U);
+        assert(info.processor_count == 2U);
+        assert(info.processors[0].processor_uid == 1U);
+        assert(info.processors[0].apic_id == 2U);
+        assert(info.processors[0].flags == 1U);
+        assert(info.processors[0].x2apic == 0U);
+        assert(info.processors[1].processor_uid == 2U);
+        assert(info.processors[1].apic_id == UINT32_C(0x123));
+        assert(info.processors[1].x2apic == 1U);
+        assert(info.ioapic_count == 1U);
+        assert(info.ioapics[0].id == 3U);
+        assert(info.ioapics[0].address == UINT32_C(0xFEC00000));
+        assert(info.ioapics[0].gsi_base == 0U);
+        assert(info.override_count == 1U);
+        assert(info.overrides[0].bus == 0U);
+        assert(info.overrides[0].source == 1U);
+        assert(info.overrides[0].gsi == 1U);
+        assert(info.overrides[0].flags == 0U);
+        assert(info.nmi_source_count == 1U);
+        assert(info.nmi_sources[0].gsi == 2U);
+        assert(info.nmi_sources[0].flags == 0U);
+        assert(info.local_nmi_count == 2U);
+        assert(info.local_nmis[0].processor_uid == 1U);
+        assert(info.local_nmis[0].lint == 1U);
+        assert(info.local_nmis[0].x2apic == 0U);
+        assert(info.local_nmis[1].processor_uid == 2U);
+        assert(info.local_nmis[1].lint == 0U);
+        assert(info.local_nmis[1].x2apic == 1U);
+    }
+
+    /* Duplicate processor UID/APIC ID values are rejected. */
+    make_rich_xsdt_madt();
+    put_le32(physical_memory + MADT_OFFSET + 112U, 1U);
+    set_checksum(physical_memory + MADT_OFFSET, 130U, 9U);
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+        assert(info.processor_count == 0U);
+    }
+
+    /* An unaligned I/O APIC MMIO base is rejected. */
+    make_rich_xsdt_madt();
+    put_le32(physical_memory + MADT_OFFSET + 56U,
+             UINT32_C(0xFEC00001));
+    set_checksum(physical_memory + MADT_OFFSET, 130U, 9U);
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+        assert(info.ioapic_count == 0U);
+    }
+
+    /* Reserved polarity encoding in an interrupt-source override is invalid. */
+    make_rich_xsdt_madt();
+    put_le16(physical_memory + MADT_OFFSET + 72U, 2U);
+    set_checksum(physical_memory + MADT_OFFSET, 130U, 9U);
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+        assert(info.override_count == 0U);
+    }
+
+    /* Duplicate NMI source GSI records are ambiguous and rejected. */
+    make_rich_xsdt_madt();
+    {
+        uint8_t *madt = physical_memory + MADT_OFFSET;
+        madt[4U] = 140U; madt[5U] = 0U;
+        madt[6U] = 0U; madt[7U] = 0U;
+        madt[128U] = 3U; madt[129U] = 8U;
+        put_le16(madt + 130U, 0U);
+        put_le32(madt + 132U, 2U);
+        madt[136U] = 0x7FU; madt[137U] = 2U;
+        set_checksum(madt, 140U, 9U);
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+        assert(info.nmi_source_count == 0U);
+    }
+
+    /* A one-byte record cannot make forward progress through the table. */
+    make_rich_xsdt_madt();
+    physical_memory[MADT_OFFSET + 45U] = 1U;
+    set_checksum(physical_memory + MADT_OFFSET, 130U, 9U);
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+    }
+
+    /* A zero local APIC base without a valid override is rejected. */
+    make_rich_xsdt_madt();
+    put_le64(physical_memory + MADT_OFFSET + 92U, 0U);
+    set_checksum(physical_memory + MADT_OFFSET, 130U, 9U);
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+    }
+
+    /* Processor records are bounded; the 65th entry is rejected. */
+    memset(physical_memory, 0, sizeof(physical_memory));
+    {
+        const uint32_t madt_length = 44U + (65U * 8U);
+        uint8_t *xsdt = physical_memory + ROOT_OFFSET;
+        uint8_t *madt = physical_memory + MADT_OFFSET;
+        make_sdt(xsdt, "XSDT", 44U, 1U);
+        put_le64(xsdt + 36U, PHYS_BASE + MADT_OFFSET);
+        set_checksum(xsdt, 44U, 9U);
+        make_sdt(madt, "APIC", madt_length, 5U);
+        put_le32(madt + 36U, UINT32_C(0xFEE00000));
+        for (uint32_t i = 0; i < 65U; ++i) {
+            uint8_t *entry = madt + 44U + (i * 8U);
+            entry[0] = 0U; entry[1] = 8U;
+            entry[2] = (uint8_t)i; entry[3] = (uint8_t)i;
+            put_le32(entry + 4U, 1U);
+        }
+        set_checksum(madt, madt_length, 9U);
+        make_rsdp(2U, PHYS_BASE + ROOT_OFFSET, 1);
+    }
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+        assert(info.processor_count == 0U);
+    }
+
+    /* The parser rejects a forged reference with a mismatched length. */
+    make_rich_xsdt_madt();
+    {
+        VGK_ACPI_TABLE_REF ref;
+        VGK_ACPI_MADT_INFO info;
+        assert(find_madt(&ref, 0) == VGK_ACPI_OK);
+        --ref.length;
+        assert(vgk_acpi_madt_parse(
+            memory_map, 1U, 48U, read_physical, 0, &ref, &info) ==
+            VGK_ACPI_BAD_TABLE);
+        assert(info.processor_count == 0U &&
+               info.ioapic_count == 0U &&
+               info.override_count == 0U);
+    }
+
+    /* A callback failure during MADT parsing is returned to the caller. */
+    make_rich_xsdt_madt();
+    {
+        VGK_ACPI_TABLE_REF ref;
+        VGK_ACPI_MADT_INFO info;
+        int fail_reads = 1;
+        assert(find_madt(&ref, 0) == VGK_ACPI_OK);
+        assert(vgk_acpi_madt_parse(
+            memory_map, 1U, 48U, read_physical, &fail_reads,
+            &ref, &info) == VGK_ACPI_READ_FAILED);
+        assert(info.processor_count == 0U &&
+               info.ioapic_count == 0U &&
+               info.override_count == 0U);
+    }
+
+    puts("VGK ACPI RSDT/XSDT and MADT discovery and record parsing tests: OK");
     return 0;
 }
