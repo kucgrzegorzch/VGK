@@ -18,37 +18,13 @@ static void apic_copy_bytes(
         out[i] = in[i];
 }
 
-VGK_APIC_MAPPING_RESULT vgk_apic_prepare_mmio_mappings(
+static VGK_APIC_MAPPING_RESULT validate_cpu_apic_state(
     const VGK_CPU_FEATURES *cpu,
-    const VGK_ACPI_MADT_INFO *madt,
-    const VGK_MEMORY_MAP_ENTRY *memory_map,
-    size_t memory_map_count,
-    VGK_PAGE_TABLES *inactive_tables,
-    VGK_ACPI_MADT_MMIO_RANGE *ranges_out,
-    size_t range_capacity,
-    size_t *range_count_out)
+    uint64_t *physical_limit_out)
 {
-    VGK_ACPI_MADT_MMIO_RANGE planned[VGK_ACPI_MADT_MAX_MMIO_RANGES];
-    size_t planned_count = 0U;
-    VGK_ACPI_STATUS acpi_status;
     uint64_t physical_limit;
-    uint64_t expected_physical_mask;
-    uint64_t pool_address;
-    size_t pool_bytes;
 
-    if (range_count_out != 0)
-        *range_count_out = 0U;
-    if (ranges_out != 0 && range_capacity != 0U) {
-        size_t clear_count = range_capacity;
-        if (clear_count > VGK_ACPI_MADT_MAX_MMIO_RANGES)
-            clear_count = VGK_ACPI_MADT_MAX_MMIO_RANGES;
-        apic_zero_bytes(ranges_out, clear_count * sizeof(*ranges_out));
-    }
-    apic_zero_bytes(planned, sizeof(planned));
-
-    if (cpu == 0 || madt == 0 || memory_map == 0 ||
-        memory_map_count == 0U || inactive_tables == 0 ||
-        ranges_out == 0 || range_count_out == 0)
+    if (cpu == 0 || physical_limit_out == 0)
         return VGK_APIC_MAPPING_INVALID_ARGUMENT;
 
     if (cpu->local_apic_supported > 1U ||
@@ -70,12 +46,114 @@ VGK_APIC_MAPPING_RESULT vgk_apic_prepare_mmio_mappings(
         return VGK_APIC_MAPPING_UNSUPPORTED;
 
     physical_limit = (UINT64_C(1) << cpu->physical_address_bits) - 1U;
-    expected_physical_mask =
-        physical_limit & ~(VGK_BOOT_PAGE_SIZE - 1U);
     if (cpu->local_apic_base == 0U ||
         cpu->local_apic_base > physical_limit -
             (VGK_BOOT_PAGE_SIZE - 1U))
         return VGK_APIC_MAPPING_UNSUPPORTED;
+
+    *physical_limit_out = physical_limit;
+    return VGK_APIC_MAPPING_OK;
+}
+
+VGK_APIC_MAPPING_RESULT vgk_apic_build_mmio_plan(
+    const VGK_CPU_FEATURES *cpu,
+    const VGK_ACPI_MADT_INFO *madt,
+    const VGK_MEMORY_MAP_ENTRY *memory_map,
+    size_t memory_map_count,
+    VGK_ACPI_MADT_MMIO_RANGE *ranges_out,
+    size_t range_capacity,
+    size_t *range_count_out)
+{
+    VGK_ACPI_MADT_MMIO_RANGE planned[VGK_ACPI_MADT_MAX_MMIO_RANGES];
+    size_t planned_count = 0U;
+    VGK_ACPI_STATUS acpi_status;
+    uint64_t physical_limit;
+    VGK_APIC_MAPPING_RESULT cpu_status;
+
+    if (range_count_out != 0)
+        *range_count_out = 0U;
+    if (ranges_out != 0 && range_capacity != 0U) {
+        size_t clear_count = range_capacity;
+        if (clear_count > VGK_ACPI_MADT_MAX_MMIO_RANGES)
+            clear_count = VGK_ACPI_MADT_MAX_MMIO_RANGES;
+        apic_zero_bytes(ranges_out, clear_count * sizeof(*ranges_out));
+    }
+    apic_zero_bytes(planned, sizeof(planned));
+
+    if (cpu == 0 || madt == 0 || memory_map == 0 ||
+        memory_map_count == 0U || ranges_out == 0 ||
+        range_count_out == 0)
+        return VGK_APIC_MAPPING_INVALID_ARGUMENT;
+
+    cpu_status = validate_cpu_apic_state(cpu, &physical_limit);
+    if (cpu_status != VGK_APIC_MAPPING_OK)
+        return cpu_status;
+
+    acpi_status = vgk_acpi_madt_build_mmio_plan(
+        madt, cpu->local_apic_base, 1U, cpu->x2apic_enabled,
+        planned, VGK_ACPI_MADT_MAX_MMIO_RANGES, &planned_count);
+    if (acpi_status != VGK_ACPI_OK)
+        return acpi_status == VGK_ACPI_INVALID_ARGUMENT
+            ? VGK_APIC_MAPPING_INVALID_ARGUMENT
+            : VGK_APIC_MAPPING_BAD_FIRMWARE_DATA;
+
+    acpi_status = vgk_acpi_madt_validate_mmio_plan_memory_map(
+        memory_map, memory_map_count, planned, planned_count);
+    if (acpi_status != VGK_ACPI_OK)
+        return acpi_status == VGK_ACPI_INVALID_ARGUMENT
+            ? VGK_APIC_MAPPING_INVALID_ARGUMENT
+            : VGK_APIC_MAPPING_BAD_FIRMWARE_DATA;
+
+    if (range_capacity < planned_count)
+        return VGK_APIC_MAPPING_INVALID_ARGUMENT;
+
+    apic_copy_bytes(ranges_out, planned, planned_count * sizeof(*ranges_out));
+    *range_count_out = planned_count;
+    return VGK_APIC_MAPPING_OK;
+}
+
+VGK_APIC_MAPPING_RESULT vgk_apic_prepare_mmio_mappings(
+    const VGK_CPU_FEATURES *cpu,
+    const VGK_ACPI_MADT_INFO *madt,
+    const VGK_MEMORY_MAP_ENTRY *memory_map,
+    size_t memory_map_count,
+    VGK_PAGE_TABLES *inactive_tables,
+    VGK_ACPI_MADT_MMIO_RANGE *ranges_out,
+    size_t range_capacity,
+    size_t *range_count_out)
+{
+    VGK_ACPI_MADT_MMIO_RANGE planned[VGK_ACPI_MADT_MAX_MMIO_RANGES];
+    size_t planned_count = 0U;
+    VGK_APIC_MAPPING_RESULT plan_status;
+    uint64_t physical_limit;
+    uint64_t expected_physical_mask;
+    uint64_t pool_address;
+    size_t pool_bytes;
+
+    if (range_count_out != 0)
+        *range_count_out = 0U;
+    if (ranges_out != 0 && range_capacity != 0U) {
+        size_t clear_count = range_capacity;
+        if (clear_count > VGK_ACPI_MADT_MAX_MMIO_RANGES)
+            clear_count = VGK_ACPI_MADT_MAX_MMIO_RANGES;
+        apic_zero_bytes(ranges_out, clear_count * sizeof(*ranges_out));
+    }
+    apic_zero_bytes(planned, sizeof(planned));
+
+    if (cpu == 0 || madt == 0 || memory_map == 0 ||
+        memory_map_count == 0U || inactive_tables == 0 ||
+        ranges_out == 0 || range_count_out == 0)
+        return VGK_APIC_MAPPING_INVALID_ARGUMENT;
+
+    plan_status = vgk_apic_build_mmio_plan(
+        cpu, madt, memory_map, memory_map_count, planned,
+        VGK_ACPI_MADT_MAX_MMIO_RANGES, &planned_count);
+    if (plan_status != VGK_APIC_MAPPING_OK)
+        return plan_status;
+
+    physical_limit = (UINT64_C(1) << cpu->physical_address_bits) - 1U;
+    expected_physical_mask =
+        physical_limit & ~(VGK_BOOT_PAGE_SIZE - 1U);
 
     if (inactive_tables->pool == 0 ||
         inactive_tables->pool_pages == 0U ||
@@ -98,21 +176,6 @@ VGK_APIC_MAPPING_RESULT vgk_apic_prepare_mmio_mappings(
         (uintptr_t)(pool_bytes - 1U) >
             UINTPTR_MAX - (uintptr_t)inactive_tables->pool)
         return VGK_APIC_MAPPING_INVALID_ARGUMENT;
-
-    acpi_status = vgk_acpi_madt_build_mmio_plan(
-        madt, cpu->local_apic_base, 1U, cpu->x2apic_enabled,
-        planned, VGK_ACPI_MADT_MAX_MMIO_RANGES, &planned_count);
-    if (acpi_status != VGK_ACPI_OK)
-        return acpi_status == VGK_ACPI_INVALID_ARGUMENT
-            ? VGK_APIC_MAPPING_INVALID_ARGUMENT
-            : VGK_APIC_MAPPING_BAD_FIRMWARE_DATA;
-
-    acpi_status = vgk_acpi_madt_validate_mmio_plan_memory_map(
-        memory_map, memory_map_count, planned, planned_count);
-    if (acpi_status != VGK_ACPI_OK)
-        return acpi_status == VGK_ACPI_INVALID_ARGUMENT
-            ? VGK_APIC_MAPPING_INVALID_ARGUMENT
-            : VGK_APIC_MAPPING_BAD_FIRMWARE_DATA;
 
     if (range_capacity < planned_count)
         return VGK_APIC_MAPPING_INVALID_ARGUMENT;
