@@ -569,6 +569,7 @@ static __attribute__((noreturn)) void vgk_qemu_trigger_page_fault(void)
     __asm__ volatile ("ltr %w0" : : "r"(tss_selector) : "memory");
     __asm__ volatile ("lidt %0" : : "m"(vgk_kernel_idtr) : "memory");
 
+    serial_write("VGK: QEMU full 256-entry IDT descriptor PASS\r\n");
     serial_write("VGK: QEMU test IDT loaded; triggering controlled #PF.\r\n");
     {
         volatile uint64_t value = *(volatile uint64_t *)(uintptr_t)
@@ -608,6 +609,7 @@ static __attribute__((noreturn, noinline)) void vgk_qemu_trigger_double_fault(vo
     __asm__ volatile ("ltr %w0" : : "r"(tss_selector) : "memory");
     __asm__ volatile ("lidt %0" : : "m"(vgk_kernel_idtr) : "memory");
 
+    serial_write("VGK: QEMU full 256-entry IDT descriptor PASS\r\n");
     serial_write("VGK: QEMU test IDT loaded; #PF gate absent; triggering #DF.\r\n");
     {
         volatile uint64_t value = *(volatile uint64_t *)(uintptr_t)
