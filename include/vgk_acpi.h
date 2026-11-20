@@ -91,6 +91,18 @@ typedef struct {
 } VGK_ACPI_MADT_OVERRIDE;
 
 typedef struct {
+    uint16_t flags;
+    uint32_t gsi;
+} VGK_ACPI_MADT_NMI_SOURCE;
+
+typedef struct {
+    uint32_t processor_uid;
+    uint16_t flags;
+    uint8_t lint;
+    uint8_t x2apic;
+} VGK_ACPI_MADT_LOCAL_NMI;
+
+typedef struct {
     uint64_t local_apic_address;
     uint32_t flags;
     uint32_t processor_count;
@@ -99,6 +111,10 @@ typedef struct {
     VGK_ACPI_MADT_IOAPIC ioapics[VGK_ACPI_MADT_MAX_IOAPICS];
     uint32_t override_count;
     VGK_ACPI_MADT_OVERRIDE overrides[VGK_ACPI_MADT_MAX_OVERRIDES];
+    uint32_t nmi_source_count;
+    VGK_ACPI_MADT_NMI_SOURCE nmi_sources[16];
+    uint32_t local_nmi_count;
+    VGK_ACPI_MADT_LOCAL_NMI local_nmis[32];
 } VGK_ACPI_MADT_INFO;
 
 /*
