@@ -363,3 +363,286 @@ VGK_ACPI_STATUS vgk_acpi_find_madt(
     madt_out->revision = madt_revision;
     return VGK_ACPI_OK;
 }
+
+static uint16_t read_le16(const uint8_t *bytes)
+{
+    return (uint16_t)bytes[0] | ((uint16_t)bytes[1] << 8);
+}
+
+static int physical_range_fits(
+    uint64_t address,
+    uint64_t length,
+    uint8_t physical_address_bits)
+{
+    uint64_t physical_limit;
+
+    if (length == 0U || physical_address_bits < 32U ||
+        physical_address_bits > 63U)
+        return 0;
+
+    physical_limit = (UINT64_C(1) << physical_address_bits) - 1U;
+    return address != 0U && address <= physical_limit &&
+           length - 1U <= physical_limit - address;
+}
+
+static int madt_interrupt_flags_are_valid(uint16_t flags)
+{
+    const uint16_t polarity = flags & 0x3U;
+    const uint16_t trigger = (flags >> 2) & 0x3U;
+
+    return (flags & UINT16_C(0xFFF0)) == 0U &&
+           polarity != 2U && trigger != 2U;
+}
+
+static int madt_add_processor(
+    VGK_ACPI_MADT_INFO *info,
+    uint32_t uid,
+    uint32_t apic_id,
+    uint32_t flags,
+    uint8_t x2apic)
+{
+    if (flags & ~UINT32_C(0x3))
+        return 0;
+    if (info->processor_count >= VGK_ACPI_MADT_MAX_PROCESSORS)
+        return 0;
+
+    for (uint32_t i = 0; i < info->processor_count; ++i) {
+        if (info->processors[i].processor_uid == uid ||
+            info->processors[i].apic_id == apic_id)
+            return 0;
+    }
+
+    {
+        VGK_ACPI_MADT_PROCESSOR *processor =
+            &info->processors[info->processor_count++];
+        processor->processor_uid = uid;
+        processor->apic_id = apic_id;
+        processor->flags = flags;
+        processor->x2apic = x2apic;
+    }
+    return 1;
+}
+
+static int madt_add_ioapic(
+    VGK_ACPI_MADT_INFO *info,
+    uint8_t id,
+    uint32_t address,
+    uint32_t gsi_base,
+    uint8_t physical_address_bits)
+{
+    if (info->ioapic_count >= VGK_ACPI_MADT_MAX_IOAPICS ||
+        (address & UINT32_C(0xFFF)) != 0U ||
+        !physical_range_fits(address, UINT64_C(0x20),
+                             physical_address_bits))
+        return 0;
+
+    for (uint32_t i = 0; i < info->ioapic_count; ++i) {
+        if (info->ioapics[i].id == id ||
+            info->ioapics[i].address == address ||
+            info->ioapics[i].gsi_base == gsi_base)
+            return 0;
+    }
+
+    {
+        VGK_ACPI_MADT_IOAPIC *ioapic =
+            &info->ioapics[info->ioapic_count++];
+        ioapic->id = id;
+        ioapic->address = address;
+        ioapic->gsi_base = gsi_base;
+    }
+    return 1;
+}
+
+static int madt_add_override(
+    VGK_ACPI_MADT_INFO *info,
+    uint8_t bus,
+    uint8_t source,
+    uint32_t gsi,
+    uint16_t flags)
+{
+    if (info->override_count >= VGK_ACPI_MADT_MAX_OVERRIDES ||
+        !madt_interrupt_flags_are_valid(flags))
+        return 0;
+
+    for (uint32_t i = 0; i < info->override_count; ++i) {
+        if (info->overrides[i].bus == bus &&
+            info->overrides[i].source == source)
+            return 0;
+    }
+
+    {
+        VGK_ACPI_MADT_OVERRIDE *override =
+            &info->overrides[info->override_count++];
+        override->bus = bus;
+        override->source = source;
+        override->gsi = gsi;
+        override->flags = flags;
+    }
+    return 1;
+}
+
+VGK_ACPI_STATUS vgk_acpi_madt_parse(
+    const VGK_MEMORY_MAP_ENTRY *memory_map,
+    size_t memory_map_count,
+    uint8_t physical_address_bits,
+    VGK_ACPI_PHYSICAL_READ read_physical,
+    void *read_context,
+    const VGK_ACPI_TABLE_REF *madt,
+    VGK_ACPI_MADT_INFO *info_out)
+{
+    VGK_ACPI_MADT_INFO parsed = {0};
+    uint8_t header[VGK_ACPI_SDT_HEADER_SIZE];
+    uint8_t fixed_fields[8];
+    uint32_t table_length = 0U;
+    uint32_t offset;
+    VGK_ACPI_STATUS status;
+
+    if (info_out != 0)
+        *info_out = parsed;
+
+    if (memory_map == 0 || memory_map_count == 0U ||
+        read_physical == 0 || madt == 0 || info_out == 0 ||
+        physical_address_bits < 32U || physical_address_bits > 63U ||
+        madt->physical_address == 0U || madt->length < 44U ||
+        madt->reserved[0] != 0U ||
+        madt->reserved[1] != 0U ||
+        madt->reserved[2] != 0U)
+        return VGK_ACPI_INVALID_ARGUMENT;
+
+    status = read_sdt_header(
+        memory_map, memory_map_count, physical_address_bits,
+        read_physical, read_context, madt->physical_address,
+        header, &table_length);
+    if (status != VGK_ACPI_OK)
+        return status;
+    if (!signature_matches(header, "APIC") ||
+        table_length != madt->length ||
+        header[8U] != madt->revision)
+        return VGK_ACPI_BAD_TABLE;
+
+    status = checksum_sdt(
+        read_physical, read_context, madt->physical_address, table_length);
+    if (status != VGK_ACPI_OK)
+        return status;
+
+    if (madt->physical_address > UINT64_MAX - VGK_ACPI_SDT_HEADER_SIZE ||
+        !read_physical(read_context,
+                       madt->physical_address + VGK_ACPI_SDT_HEADER_SIZE,
+                       fixed_fields, sizeof(fixed_fields)))
+        return VGK_ACPI_READ_FAILED;
+
+    parsed.local_apic_address = read_le32(fixed_fields);
+    parsed.flags = read_le32(fixed_fields + 4U);
+    if ((parsed.flags & ~UINT32_C(1)) != 0U)
+        return VGK_ACPI_BAD_TABLE;
+
+    offset = 44U;
+    while (offset < table_length) {
+        uint8_t entry_header[2];
+        uint8_t entry[255];
+        uint8_t entry_type;
+        uint8_t entry_length;
+        uint64_t entry_address;
+
+        if (table_length - offset < sizeof(entry_header) ||
+            madt->physical_address > UINT64_MAX - offset)
+            return VGK_ACPI_BAD_TABLE;
+
+        entry_address = madt->physical_address + offset;
+        if (!read_physical(read_context, entry_address,
+                           entry_header, sizeof(entry_header)))
+            return VGK_ACPI_READ_FAILED;
+
+        entry_type = entry_header[0];
+        entry_length = entry_header[1];
+        if (entry_length < 2U || entry_length > table_length - offset)
+            return VGK_ACPI_BAD_TABLE;
+        if (!read_physical(read_context, entry_address, entry, entry_length))
+            return VGK_ACPI_READ_FAILED;
+
+        switch (entry_type) {
+        case 0U: /* Processor Local APIC */
+            if (entry_length != 8U ||
+                !madt_add_processor(&parsed, entry[2], entry[3],
+                                    read_le32(entry + 4U), 0U))
+                return VGK_ACPI_BAD_TABLE;
+            break;
+
+        case 1U: /* I/O APIC */
+            if (entry_length != 12U || entry[3] != 0U ||
+                !madt_add_ioapic(&parsed, entry[2],
+                                 read_le32(entry + 4U),
+                                 read_le32(entry + 8U),
+                                 physical_address_bits))
+                return VGK_ACPI_BAD_TABLE;
+            break;
+
+        case 2U: /* Interrupt Source Override */
+            if (entry_length != 10U ||
+                !madt_add_override(&parsed, entry[2], entry[3],
+                                   read_le32(entry + 4U),
+                                   read_le16(entry + 8U)))
+                return VGK_ACPI_BAD_TABLE;
+            break;
+
+        case 3U: /* NMI Source */
+            if (entry_length != 8U ||
+                !madt_interrupt_flags_are_valid(read_le16(entry + 2U)))
+                return VGK_ACPI_BAD_TABLE;
+            break;
+
+        case 4U: /* Local APIC NMI */
+            if (entry_length != 6U ||
+                !madt_interrupt_flags_are_valid(read_le16(entry + 3U)) ||
+                entry[5] > 1U)
+                return VGK_ACPI_BAD_TABLE;
+            break;
+
+        case 5U: /* Local APIC Address Override */
+            if (entry_length != 12U ||
+                entry[2] != 0U || entry[3] != 0U ||
+                parsed.local_apic_address != read_le64(entry + 4U) &&
+                    parsed.local_apic_address != read_le32(fixed_fields) ||
+                !physical_range_fits(read_le64(entry + 4U),
+                                     VGK_BOOT_PAGE_SIZE,
+                                     physical_address_bits))
+                return VGK_ACPI_BAD_TABLE;
+            parsed.local_apic_address = read_le64(entry + 4U);
+            break;
+
+        case 9U: /* Processor Local x2APIC */
+            if (entry_length != 16U ||
+                entry[2] != 0U || entry[3] != 0U ||
+                !madt_add_processor(&parsed,
+                                    read_le32(entry + 12U),
+                                    read_le32(entry + 4U),
+                                    read_le32(entry + 8U), 1U))
+                return VGK_ACPI_BAD_TABLE;
+            break;
+
+        case 10U: /* Local x2APIC NMI */
+            if (entry_length != 12U ||
+                entry[2] != 0U || entry[3] != 0U ||
+                !madt_interrupt_flags_are_valid(read_le16(entry + 4U)) ||
+                entry[10] > 1U || entry[11] != 0U)
+                return VGK_ACPI_BAD_TABLE;
+            break;
+
+        default:
+            /* Unknown records are skipped after their generic bounds check. */
+            break;
+        }
+
+        offset += entry_length;
+    }
+
+    if (parsed.local_apic_address == 0U ||
+        (parsed.local_apic_address & UINT64_C(0xFFF)) != 0U ||
+        !physical_range_fits(parsed.local_apic_address,
+                             VGK_BOOT_PAGE_SIZE,
+                             physical_address_bits))
+        return VGK_ACPI_BAD_TABLE;
+
+    *info_out = parsed;
+    return VGK_ACPI_OK;
+}
