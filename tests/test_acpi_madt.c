@@ -492,7 +492,7 @@ int main(void)
         assert(find_madt(&ref, 0) == VGK_ACPI_OK);
         --ref.length;
         assert(vgk_acpi_madt_parse(
-            memory_map, 1U, 48U, read_physical, 0, &ref, &info) ==
+            memory_map, 3U, 48U, read_physical, 0, &ref, &info) ==
             VGK_ACPI_BAD_TABLE);
         assert(info.processor_count == 0U &&
                info.ioapic_count == 0U &&
@@ -507,7 +507,7 @@ int main(void)
         int fail_reads = 1;
         assert(find_madt(&ref, 0) == VGK_ACPI_OK);
         assert(vgk_acpi_madt_parse(
-            memory_map, 1U, 48U, read_physical, &fail_reads,
+            memory_map, 3U, 48U, read_physical, &fail_reads,
             &ref, &info) == VGK_ACPI_READ_FAILED);
         assert(info.processor_count == 0U &&
                info.ioapic_count == 0U &&
