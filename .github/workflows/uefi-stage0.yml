@@ -158,6 +158,7 @@ jobs:
             exit "$qemu_status"
           fi
           cat build/qemu-page-fault-serial.log
+          grep -aF "VGK: QEMU full 256-entry IDT descriptor PASS" build/qemu-page-fault-serial.log
           grep -aF "VGK: QEMU test IDT loaded; triggering controlled #PF." build/qemu-page-fault-serial.log
           grep -aF "VGK: QEMU PAGE FAULT IST4 PASS" build/qemu-page-fault-serial.log
           grep -aF "VGK: QEMU PAGE FAULT CONTEXT PASS" build/qemu-page-fault-serial.log
@@ -195,6 +196,7 @@ jobs:
           fi
           cat build/qemu-double-fault-serial.log
           grep -aF "VGK: QEMU #PF gate intentionally not present; #DF gate remains present on IST1." build/qemu-double-fault-serial.log
+          grep -aF "VGK: QEMU full 256-entry IDT descriptor PASS" build/qemu-double-fault-serial.log
           grep -aF "VGK: QEMU test IDT loaded; #PF gate absent; triggering #DF." build/qemu-double-fault-serial.log
           grep -aF "VGK: QEMU DOUBLE FAULT IST1 PASS" build/qemu-double-fault-serial.log
           grep -aF "VGK: QEMU DOUBLE FAULT CAPTURE PASS" build/qemu-double-fault-serial.log
