@@ -40,6 +40,8 @@ int main(void)
     EXPECT(features.physical_address_bits == 48U);
     EXPECT(features.nx_supported == 1U);
     EXPECT(features.reserved[0] == 0U && features.reserved[1] == 0U);
+    EXPECT(features.local_apic_supported == 0U);
+    EXPECT(features.x2apic_supported == 0U);
     EXPECT(features.vendor[0] == '\0' && features.vendor[12] == '\0');
 
     EXPECT(vgk_cpu_decode_features(
