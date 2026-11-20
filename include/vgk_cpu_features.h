@@ -14,6 +14,7 @@ typedef struct {
     uint32_t max_extended_leaf;
     uint8_t physical_address_bits;
     uint8_t nx_supported;
+    /* PAT state describes the processor queried by vgk_cpu_detect_features. */
     uint8_t pat_supported;
     uint8_t mmio_uc_supported;
     uint8_t reserved[2];
