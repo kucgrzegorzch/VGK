@@ -59,6 +59,29 @@ int main(void)
     EXPECT(vgk_cpu_decode_features(
         0x16U, 0x80000008U, NX_BIT, 48U, 0) == VGK_CPU_INVALID_ARGUMENT);
 
+    /* PAT entry 3 must be UC for the PCD+PWT MMIO mapping convention. */
+    vgk_cpu_decode_pat_features(
+        UINT32_C(1) << 16, UINT64_C(0x0007040600070406), 1U, &features);
+    EXPECT(features.pat_supported == 1U);
+    EXPECT(features.mmio_uc_supported == 1U);
+
+    /* A PAT layout with entry 3 set to write-combining is not accepted. */
+    vgk_cpu_decode_pat_features(
+        UINT32_C(1) << 16, UINT64_C(0x0000000001070406), 1U, &features);
+    EXPECT(features.pat_supported == 1U);
+    EXPECT(features.mmio_uc_supported == 0U);
+
+    /* Without PAT, legacy PCD=1/PWT=1 still means uncached. */
+    vgk_cpu_decode_pat_features(0U, UINT64_MAX, 1U, &features);
+    EXPECT(features.pat_supported == 0U);
+    EXPECT(features.mmio_uc_supported == 1U);
+
+    /* No CPUID leaf 1 likewise uses the legacy UC encoding. */
+    vgk_cpu_decode_pat_features(UINT32_MAX, UINT64_MAX, 0U, &features);
+    EXPECT(features.pat_supported == 0U);
+    EXPECT(features.mmio_uc_supported == 1U);
+    vgk_cpu_decode_pat_features(0U, 0U, 1U, 0);
+
     /* An old CPU with no CPUID leaf 1 has no optional vector features. */
     vgk_cpu_decode_vector_features(0, 0, UINT32_MAX, UINT32_MAX,
                                    0U, 0U, &features);

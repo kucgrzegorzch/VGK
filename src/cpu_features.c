@@ -12,6 +12,7 @@
 #define VGK_CPUID_OSXSAVE_BIT (UINT32_C(1) << 27)
 #define VGK_CPUID_XSAVE_BIT (UINT32_C(1) << 26)
 #define VGK_CPUID_AVX2_BIT (UINT32_C(1) << 5)
+#define VGK_CPUID_PAT_BIT (UINT32_C(1) << 16)
 
 static void vgk_cpuid(
     uint32_t leaf,
@@ -46,6 +47,8 @@ static void vgk_cpu_clear_optional_features(VGK_CPU_FEATURES *features)
     features->family = 0;
     features->model = 0;
     features->stepping = 0;
+    features->pat_supported = 0;
+    features->mmio_uc_supported = 0;
     features->sse2_supported = 0;
     features->sse3_supported = 0;
     features->ssse3_supported = 0;
@@ -90,6 +93,35 @@ VGK_CPU_RESULT vgk_cpu_decode_features(
     features->physical_address_bits = (uint8_t)physical_bits;
     features->nx_supported = 1;
     return VGK_CPU_OK;
+}
+
+void vgk_cpu_decode_pat_features(
+    uint32_t leaf1_edx,
+    uint64_t pat_msr,
+    uint8_t has_leaf1,
+    VGK_CPU_FEATURES *features)
+{
+    if (features == 0)
+        return;
+
+    features->pat_supported = 0U;
+    features->mmio_uc_supported = 0U;
+
+    if (has_leaf1 == 0U) {
+        /* Without PAT, the legacy PCD=1/PWT=1 encoding is UC. */
+        features->mmio_uc_supported = 1U;
+        return;
+    }
+
+    if ((leaf1_edx & VGK_CPUID_PAT_BIT) == 0U) {
+        features->mmio_uc_supported = 1U;
+        return;
+    }
+
+    features->pat_supported = 1U;
+    /* PCD=1/PWT=1 selects PAT entry 3; memory type 0 is UC. */
+    features->mmio_uc_supported =
+        (uint8_t)(((pat_msr >> 24) & UINT64_C(0xFF)) == 0U);
 }
 
 void vgk_cpu_decode_vector_features(
@@ -155,6 +187,8 @@ static void vgk_cpu_read_identity_and_optional_features(
     uint32_t eax1 = 0, ebx1 = 0, ecx1 = 0, edx1 = 0;
     uint32_t eax7 = 0, ebx7 = 0;
     uint32_t xcr0_low = 0;
+    uint32_t pat_low = 0, pat_high = 0;
+    uint64_t pat_msr = 0;
     uint32_t base_family, base_model, extended_family, extended_model;
     uint8_t has_leaf1;
     uint8_t has_leaf7;
@@ -214,6 +248,16 @@ static void vgk_cpu_read_identity_and_optional_features(
 
     if (has_leaf7 != 0U)
         vgk_cpuid(7, 0, &eax7, &ebx7, 0, 0);
+
+    if (has_leaf1 != 0U && (edx1 & VGK_CPUID_PAT_BIT) != 0U) {
+        __asm__ volatile (
+            "rdmsr"
+            : "=a"(pat_low), "=d"(pat_high)
+            : "c"(UINT32_C(0x277))
+        );
+        pat_msr = ((uint64_t)pat_high << 32) | pat_low;
+    }
+    vgk_cpu_decode_pat_features(edx1, pat_msr, has_leaf1, features);
 
     vgk_cpu_decode_vector_features(
         ecx1, edx1, ebx7, xcr0_low, has_leaf1, has_leaf7, features);
