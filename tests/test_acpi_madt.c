@@ -496,6 +496,24 @@ int main(void)
                     assert(vgk_acpi_madt_validate_mmio_plan_memory_map(
                                device_map, 2U, invalid_plan, 2U) ==
                            VGK_ACPI_BAD_TABLE);
+
+                    invalid_plan[1] = plan[1];
+                    invalid_plan[1].length *= 2U;
+                    assert(vgk_acpi_madt_validate_mmio_plan_memory_map(
+                               device_map, 2U, invalid_plan, 2U) ==
+                           VGK_ACPI_BAD_TABLE);
+
+                    invalid_plan[1] = plan[1];
+                    invalid_plan[1].reserved[0] = 1U;
+                    assert(vgk_acpi_madt_validate_mmio_plan_memory_map(
+                               device_map, 2U, invalid_plan, 2U) ==
+                           VGK_ACPI_BAD_TABLE);
+
+                    invalid_plan[1] = plan[0];
+                    invalid_plan[1].physical_base = UINT64_C(0xFEC00000);
+                    assert(vgk_acpi_madt_validate_mmio_plan_memory_map(
+                               device_map, 2U, invalid_plan, 2U) ==
+                           VGK_ACPI_BAD_TABLE);
                 }
 
                 assert(vgk_acpi_madt_validate_mmio_plan_memory_map(
