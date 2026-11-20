@@ -11,7 +11,7 @@ UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machin
 CRYPTO_DIR := boot/crypto
 MONOCYPHER_DIR := $(CRYPTO_DIR)/monocypher
 
-.PHONY: all clean iso check-tools test paging-requirements-test gdt-test ist-stacks-test native-kernel native-kernel-test native-kernel-qemu-pf-test native-kernel-qemu-df-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test cpu-features-test interrupts-test gdt-idt-contract-test idtr-test exception-test framebuffer-test pci-test uefi-pci-test paging-test paging-ranges-test paging-ranges-compile-test paging-preflight-test acpi-test uefi-page-table-pool-test
+.PHONY: all clean iso check-tools test paging-requirements-test gdt-test ist-stacks-test native-kernel native-kernel-test native-kernel-qemu-pf-test native-kernel-qemu-df-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test cpu-features-test interrupts-test gdt-idt-contract-test idtr-test exception-test framebuffer-test pci-test uefi-pci-test paging-test paging-ranges-test paging-ranges-compile-test paging-preflight-test acpi-test apic-mapping-test apic-mapping-compile-test uefi-page-table-pool-test
 all: build/vgk-kernel.elf
 
 test: build/vgk-kernel.elf
@@ -119,11 +119,25 @@ memory-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/memory.c tests/test_memory.c -o build/test_memory
 	./build/test_memory
 
-acpi-test: | build
+apic-mapping-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/acpi.c src/paging.c src/apic_mapping.c tests/test_apic_mapping.c -o build/test_apic_mapping
+	./build/test_apic_mapping
+
+build/apic_mapping_native.o: src/apic_mapping.c include/vgk_apic_mapping.h include/vgk_acpi.h include/vgk_cpu_features.h include/vgk_paging.h | build
+	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
+
+build/apic_mapping_uefi.obj: src/apic_mapping.c include/vgk_apic_mapping.h include/vgk_acpi.h include/vgk_cpu_features.h include/vgk_paging.h | build
+	$(CLANG) $(UEFI_CFLAGS) -Iinclude -c $< -o $@
+
+apic-mapping-compile-test: build/apic_mapping_native.o build/apic_mapping_uefi.obj
+
+acpi-test: apic-mapping-compile-test | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/acpi.c tests/test_acpi.c -o build/test_acpi
 	./build/test_acpi
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/acpi.c src/paging.c tests/test_acpi_madt.c -o build/test_acpi_madt
 	./build/test_acpi_madt
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/acpi.c src/paging.c src/apic_mapping.c tests/test_apic_mapping.c -o build/test_apic_mapping
+	./build/test_apic_mapping
 
 paging-requirements-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/paging_requirements.c tests/test_paging_requirements.c -o build/test_paging_requirements
