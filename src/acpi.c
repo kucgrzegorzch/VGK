@@ -15,7 +15,7 @@ static int acpi_memory_type_is_readable(uint64_t type)
  * Require complete coverage, including adjacent descriptors. Gaps,
  * arithmetic overflow, generic reserved memory and MMIO are rejected.
  */
-int vgk_acpi_range_is_readable(
+static int range_is_readable_acpi_memory(
     const VGK_MEMORY_MAP_ENTRY *entries,
     size_t entry_count,
     uint64_t address,
@@ -97,7 +97,7 @@ int vgk_acpi_rsdp_validate(
         *length_out = 0;
 
     if (physical_address == 0 || bytes == 0 || length_out == 0 ||
-        !vgk_acpi_range_is_readable(
+        !range_is_readable_acpi_memory(
             memory_map, memory_map_count, physical_address, length,
             physical_address_bits))
         return 0;
@@ -113,7 +113,7 @@ int vgk_acpi_rsdp_validate(
 
     /* ACPI 1.0 RSDP ends after the legacy 20-byte structure. */
     if (bytes[15] >= 2U) {
-        if (!vgk_acpi_range_is_readable(
+        if (!range_is_readable_acpi_memory(
                 memory_map, memory_map_count, physical_address,
                 VGK_ACPI_RSDP_EXTENDED_PREFIX, physical_address_bits))
             return 0;
@@ -123,7 +123,7 @@ int vgk_acpi_rsdp_validate(
                  ((uint64_t)bytes[22] << 16) |
                  ((uint64_t)bytes[23] << 24);
         if (length < 36U || length > VGK_ACPI_RSDP_MAX_LENGTH ||
-            !vgk_acpi_range_is_readable(
+            !range_is_readable_acpi_memory(
                 memory_map, memory_map_count, physical_address, length,
                 physical_address_bits))
             return 0;
@@ -156,6 +156,26 @@ static uint64_t read_le64(const uint8_t *bytes)
            ((uint64_t)read_le32(bytes + 4U) << 32);
 }
 
+
+static uint64_t read_le64_volatile(const volatile uint8_t *bytes)
+{
+    uint64_t value = 0U;
+    for (size_t i = 0; i < 8U; ++i)
+        value |= (uint64_t)bytes[i] << (i * 8U);
+    return value;
+}
+
+static int signature_matches(
+    const uint8_t signature[4],
+    const char expected[4])
+{
+    for (size_t i = 0; i < 4U; ++i) {
+        if (signature[i] != (uint8_t)expected[i])
+            return 0;
+    }
+    return 1;
+}
+
 static VGK_ACPI_STATUS read_sdt_header(
     const VGK_MEMORY_MAP_ENTRY *memory_map,
     size_t memory_map_count,
@@ -169,7 +189,7 @@ static VGK_ACPI_STATUS read_sdt_header(
     uint32_t length;
 
     if (address == 0U ||
-        !vgk_acpi_range_is_readable(
+        !range_is_readable_acpi_memory(
             memory_map, memory_map_count, address,
             VGK_ACPI_SDT_HEADER_SIZE, physical_address_bits))
         return VGK_ACPI_BAD_TABLE;
@@ -181,7 +201,7 @@ static VGK_ACPI_STATUS read_sdt_header(
     length = read_le32(header + 4U);
     if (length < VGK_ACPI_SDT_HEADER_SIZE ||
         length > VGK_ACPI_MAX_TABLE_LENGTH ||
-        !vgk_acpi_range_is_readable(
+        !range_is_readable_acpi_memory(
             memory_map, memory_map_count, address, length,
             physical_address_bits))
         return VGK_ACPI_BAD_TABLE;
@@ -231,7 +251,7 @@ VGK_ACPI_STATUS vgk_acpi_find_madt(
     uint32_t entry_size;
     uint32_t entry_count;
     uint8_t root_header[VGK_ACPI_SDT_HEADER_SIZE];
-    uint8_t root_signature[4];
+    const char *root_signature;
     uint64_t madt_address = 0U;
     uint32_t madt_length = 0U;
     uint8_t madt_revision = 0U;
@@ -257,19 +277,19 @@ VGK_ACPI_STATUS vgk_acpi_find_madt(
         return VGK_ACPI_BAD_RSDP;
 
     if (rsdp_bytes[15] >= 2U && rsdp_length >= 36U)
-        root_address = read_le64((const uint8_t *)(uintptr_t)(rsdp_bytes + 24U));
+        root_address = read_le64_volatile(rsdp_bytes + 24U);
     else
         root_address = 0U;
 
     if (root_address != 0U) {
-        memcpy(root_signature, "XSDT", 4U);
+        root_signature = "XSDT";
         entry_size = 8U;
     } else {
         root_address = (uint64_t)rsdp_bytes[16] |
                        ((uint64_t)rsdp_bytes[17] << 8) |
                        ((uint64_t)rsdp_bytes[18] << 16) |
                        ((uint64_t)rsdp_bytes[19] << 24);
-        memcpy(root_signature, "RSDT", 4U);
+        root_signature = "RSDT";
         entry_size = 4U;
     }
 
@@ -280,7 +300,7 @@ VGK_ACPI_STATUS vgk_acpi_find_madt(
     if (status != VGK_ACPI_OK)
         return status == VGK_ACPI_READ_FAILED ? status : VGK_ACPI_BAD_ROOT_TABLE;
 
-    if (memcmp(root_header, root_signature, 4U) != 0)
+    if (!signature_matches(root_header, root_signature))
         return VGK_ACPI_BAD_ROOT_TABLE;
 
     if ((root_length - VGK_ACPI_SDT_HEADER_SIZE) % entry_size != 0U)
@@ -319,7 +339,7 @@ VGK_ACPI_STATUS vgk_acpi_find_madt(
         if (status != VGK_ACPI_OK)
             return status == VGK_ACPI_READ_FAILED ? status : VGK_ACPI_BAD_ROOT_TABLE;
 
-        if (memcmp(table_header, "APIC", 4U) == 0) {
+        if (signature_matches(table_header, "APIC")) {
             if (madt_address != 0U)
                 return VGK_ACPI_BAD_ROOT_TABLE;
             status = checksum_sdt(
