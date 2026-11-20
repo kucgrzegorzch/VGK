@@ -159,6 +159,17 @@ VGK_ACPI_STATUS vgk_acpi_madt_build_mmio_plan(
     size_t *range_count_out);
 
 /*
+ * Confirm that every planned device page is covered by exactly one firmware
+ * memory-map entry classified as MMIO or reserved. Partial coverage,
+ * conflicting/overlapping entries and RAM-owned ranges are rejected.
+ */
+VGK_ACPI_STATUS vgk_acpi_madt_validate_mmio_plan_memory_map(
+    const VGK_MEMORY_MAP_ENTRY *memory_map,
+    size_t memory_map_count,
+    const VGK_ACPI_MADT_MMIO_RANGE *ranges,
+    size_t range_count);
+
+/*
  * Parse validated MADT records into bounded, pointer-free topology data.
  * Unsupported record types are skipped only after their length/bounds pass.
  * No MMIO access or interrupt-controller programming is performed.
