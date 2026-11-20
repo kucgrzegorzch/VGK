@@ -1,6 +1,22 @@
 #include "vgk_apic_mapping.h"
 
-#include <string.h>
+static void apic_zero_bytes(void *destination, size_t length)
+{
+    uint8_t *bytes = (uint8_t *)destination;
+    for (size_t i = 0; i < length; ++i)
+        bytes[i] = 0U;
+}
+
+static void apic_copy_bytes(
+    void *destination,
+    const void *source,
+    size_t length)
+{
+    uint8_t *out = (uint8_t *)destination;
+    const uint8_t *in = (const uint8_t *)source;
+    for (size_t i = 0; i < length; ++i)
+        out[i] = in[i];
+}
 
 VGK_APIC_MAPPING_RESULT vgk_apic_prepare_mmio_mappings(
     const VGK_CPU_FEATURES *cpu,
@@ -23,9 +39,9 @@ VGK_APIC_MAPPING_RESULT vgk_apic_prepare_mmio_mappings(
         size_t clear_count = range_capacity;
         if (clear_count > VGK_ACPI_MADT_MAX_MMIO_RANGES)
             clear_count = VGK_ACPI_MADT_MAX_MMIO_RANGES;
-        memset(ranges_out, 0, clear_count * sizeof(*ranges_out));
+        apic_zero_bytes(ranges_out, clear_count * sizeof(*ranges_out));
     }
-    memset(planned, 0, sizeof(planned));
+    apic_zero_bytes(planned, sizeof(planned));
 
     if (cpu == 0 || madt == 0 || memory_map == 0 ||
         memory_map_count == 0U || inactive_tables == 0 ||
@@ -91,7 +107,7 @@ VGK_APIC_MAPPING_RESULT vgk_apic_prepare_mmio_mappings(
             return VGK_APIC_MAPPING_PAGING_FAILED;
     }
 
-    memcpy(ranges_out, planned, planned_count * sizeof(*ranges_out));
+    apic_copy_bytes(ranges_out, planned, planned_count * sizeof(*ranges_out));
     *range_count_out = planned_count;
     return VGK_APIC_MAPPING_OK;
 }
