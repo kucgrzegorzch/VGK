@@ -31,6 +31,20 @@ symbols_text = subprocess.run(
     ["nm", "--defined-only", path], check=True, capture_output=True, text=True
 ).stdout
 symbols = {line.split()[-1] for line in symbols_text.splitlines() if line.split()}
+
+sized_symbols = subprocess.run(
+    ["nm", "-S", "--defined-only", path],
+    check=True, capture_output=True, text=True
+).stdout
+symbol_sizes = {}
+for line in sized_symbols.splitlines():
+    fields = line.split()
+    if len(fields) >= 4:
+        symbol_sizes[fields[3]] = (int(fields[1], 16), fields[2])
+
+if symbol_sizes.get("vgk_kernel_idt") != (4096, "b") or \
+   symbol_sizes.get("vgk_kernel_idtr", (None, None))[0] != 10:
+    raise SystemExit("FAIL: #DF image must contain a 4096-byte full IDT and 10-byte IDTR")
 required = (
     "vgk_kernel_entry", "vgk_exception_stub_14", "vgk_exception_stub_8",
     "vgk_exception_stub_table", "vgk_double_fault_test_stub",
@@ -67,6 +81,7 @@ for marker in (
     "QEMU test IDT loaded; #PF gate absent; triggering #DF.",
     "QEMU DOUBLE FAULT IST1 PASS",
     "QEMU DOUBLE FAULT CAPTURE PASS",
+    "QEMU full 256-entry IDT descriptor PASS",
 ):
     if marker not in strings:
         raise SystemExit("FAIL: missing diagnostic marker: " + marker)
