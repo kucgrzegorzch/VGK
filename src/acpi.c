@@ -856,6 +856,11 @@ VGK_ACPI_STATUS vgk_acpi_madt_build_mmio_plan(
                 return VGK_ACPI_BAD_TABLE;
         }
 
+        /* The IOAPIC page must never overlap the LAPIC page, even in x2APIC mode. */
+        if (base < madt->local_apic_address + VGK_BOOT_PAGE_SIZE &&
+            madt->local_apic_address < base + VGK_BOOT_PAGE_SIZE)
+            return VGK_ACPI_BAD_TABLE;
+
         for (size_t prior = 0; prior < planned_count; ++prior) {
             uint64_t prior_base = planned[prior].physical_base;
             if (base < prior_base + VGK_BOOT_PAGE_SIZE &&
