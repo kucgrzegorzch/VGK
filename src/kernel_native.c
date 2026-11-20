@@ -132,7 +132,7 @@ static int prepare_apic_boot_context(
     VGK_ACPI_TABLE_REF madt_ref;
     VGK_ACPI_STATUS acpi_status;
     VGK_APIC_MAPPING_RESULT apic_status;
-    uint64_t memory_map_entries;
+    size_t memory_map_count;
 
     if (boot_info == 0 || cpu_features == 0 || context == 0)
         return 0;
@@ -149,10 +149,8 @@ static int prepare_apic_boot_context(
         boot_info->memory_map_size % sizeof(VGK_MEMORY_MAP_ENTRY) != 0U)
         return 0;
 
-    memory_map_entries =
-        boot_info->memory_map_size / sizeof(VGK_MEMORY_MAP_ENTRY);
-    if (memory_map_entries > SIZE_MAX)
-        return 0;
+    memory_map_count = (size_t)(
+        boot_info->memory_map_size / sizeof(VGK_MEMORY_MAP_ENTRY));
 
     memory_map = (const VGK_MEMORY_MAP_ENTRY *)(uintptr_t)
         boot_info->memory_map_address;
@@ -160,7 +158,7 @@ static int prepare_apic_boot_context(
         boot_info->acpi_rsdp_address;
 
     if (!vgk_acpi_rsdp_validate(
-            memory_map, (size_t)memory_map_entries,
+            memory_map, memory_map_count,
             boot_info->acpi_rsdp_address,
             cpu_features->physical_address_bits,
             rsdp, &context->rsdp_length))
@@ -177,7 +175,7 @@ static int prepare_apic_boot_context(
     }
 
     acpi_status = vgk_acpi_find_madt(
-        memory_map, (size_t)memory_map_entries,
+        memory_map, memory_map_count,
         boot_info->acpi_rsdp_address, rsdp,
         cpu_features->physical_address_bits,
         kernel_acpi_read_physical, 0, &madt_ref);
@@ -913,7 +911,7 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
     if (cpu_features_valid &&
         !prepare_apic_boot_context(
             boot_info, &cpu_features, &apic_context)) {
-        serial_write("VGK: nie mozna zweryfikowac ACPI RSDP; zatrzymanie przed budowa tablic stron.\\r\\n");
+        serial_write("VGK: nie mozna zweryfikowac ACPI RSDP; zatrzymanie przed budowa tablic stron.\r\n");
         for (;;) {
             __asm__ volatile ("cli; hlt");
         }
