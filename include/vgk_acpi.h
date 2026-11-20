@@ -20,7 +20,8 @@ int vgk_acpi_rsdp_validate(
     uint64_t *length_out);
 
 
-/* Physical reader supplied by the firmware/kernel mapping layer. */
+/* Physical reader supplied by the firmware/kernel mapping layer.
+ * Return nonzero only after copying the entire requested range. */
 typedef int (*VGK_ACPI_PHYSICAL_READ)(
     void *context,
     uint64_t physical_address,
