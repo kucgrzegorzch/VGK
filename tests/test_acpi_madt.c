@@ -454,6 +454,20 @@ int main(void)
                            &plan_count) == VGK_ACPI_BAD_TABLE);
                 assert(plan_count == 0U);
             }
+
+            /* Two distinct IOAPIC pages cannot claim the same GSI base. */
+            {
+                VGK_ACPI_MADT_INFO invalid = info;
+                invalid.ioapic_count = 2U;
+                invalid.ioapics[1] = invalid.ioapics[0];
+                invalid.ioapics[1].id = 4U;
+                invalid.ioapics[1].address = UINT32_C(0xFEC01000);
+                assert(vgk_acpi_madt_build_mmio_plan(
+                           &invalid, UINT64_C(0xFEE01000), 1U, 1U,
+                           plan, VGK_ACPI_MADT_MAX_MMIO_RANGES,
+                           &plan_count) == VGK_ACPI_BAD_TABLE);
+                assert(plan_count == 0U);
+            }
         }
     }
 
