@@ -428,9 +428,19 @@ void vgk_qemu_page_fault_observe(const uint64_t raw_stack[23])
     const int frame_on_ist4 =
         vgk_ist_page_fault_stack_get_bounds(&ist4_base, &ist4_end) ==
             VGK_IST_STACKS_OK &&
-        raw_start >= (uintptr_t)ist4_base &&
-        raw_start <= (uintptr_t)ist4_end &&
-        raw_size <= (uint64_t)((uintptr_t)ist4_end - raw_start);
+        vgk_exception_stack_frame_is_within_bounds(
+            (uint64_t)raw_start, raw_size, ist4_base, ist4_end) != 0U;
+
+    /*
+     * Never dereference an exception frame until its complete extent has
+     * been proven to lie inside the dedicated IST4 stack.
+     */
+    if (!frame_on_ist4) {
+        serial_write("VGK: QEMU PAGE FAULT IST4 RANGE FAIL\r\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
 
     if (vgk_exception_context_from_page_fault_stack(raw_stack, &context) == 0U) {
         serial_write("VGK: QEMU PAGE FAULT MAPPER FAIL\r\n");
