@@ -75,6 +75,94 @@ static void make_valid_xsdt_madt(void)
     make_rsdp(2U, PHYS_BASE + ROOT_OFFSET, 1);
 }
 
+
+static void put_le16(uint8_t *bytes, uint16_t value)
+{
+    bytes[0] = (uint8_t)value;
+    bytes[1] = (uint8_t)(value >> 8);
+}
+
+static void put_le32(uint8_t *bytes, uint32_t value)
+{
+    for (size_t i = 0; i < 4U; ++i)
+        bytes[i] = (uint8_t)(value >> (i * 8U));
+}
+
+static void put_le64(uint8_t *bytes, uint64_t value)
+{
+    for (size_t i = 0; i < 8U; ++i)
+        bytes[i] = (uint8_t)(value >> (i * 8U));
+}
+
+static void make_rich_xsdt_madt(void)
+{
+    uint8_t *xsdt = physical_memory + ROOT_OFFSET;
+    uint8_t *madt = physical_memory + MADT_OFFSET;
+    uint32_t offset = 44U;
+
+    memset(physical_memory, 0, sizeof(physical_memory));
+    make_sdt(xsdt, "XSDT", 44U, 1U);
+    put_le64(xsdt + 36U, PHYS_BASE + MADT_OFFSET);
+    set_checksum(xsdt, 44U, 9U);
+
+    make_sdt(madt, "APIC", 130U, 5U);
+    put_le32(madt + 36U, UINT32_C(0xFEE00000));
+    put_le32(madt + 40U, 1U); /* PCAT-compatible dual 8259s */
+
+    /* Type 0: processor UID 1, local APIC ID 2, enabled. */
+    madt[offset] = 0U; madt[offset + 1U] = 8U;
+    madt[offset + 2U] = 1U; madt[offset + 3U] = 2U;
+    put_le32(madt + offset + 4U, 1U); offset += 8U;
+
+    /* Type 1: I/O APIC ID 3 at FEC00000, GSI base 0. */
+    madt[offset] = 1U; madt[offset + 1U] = 12U;
+    madt[offset + 2U] = 3U; madt[offset + 3U] = 0U;
+    put_le32(madt + offset + 4U, UINT32_C(0xFEC00000));
+    put_le32(madt + offset + 8U, 0U); offset += 12U;
+
+    /* Type 2: ISA bus IRQ1 overrides to GSI1, conforming flags. */
+    madt[offset] = 2U; madt[offset + 1U] = 10U;
+    madt[offset + 2U] = 0U; madt[offset + 3U] = 1U;
+    put_le32(madt + offset + 4U, 1U);
+    put_le16(madt + offset + 8U, 0U); offset += 10U;
+
+    /* Type 3: NMI source with GSI2. */
+    madt[offset] = 3U; madt[offset + 1U] = 8U;
+    put_le16(madt + offset + 2U, 0U);
+    put_le32(madt + offset + 4U, 2U); offset += 8U;
+
+    /* Type 4: processor UID1, NMI on LINT1. */
+    madt[offset] = 4U; madt[offset + 1U] = 6U;
+    madt[offset + 2U] = 1U; put_le16(madt + offset + 3U, 0U);
+    madt[offset + 5U] = 1U; offset += 6U;
+
+    /* Type 5: 64-bit local APIC address override. */
+    madt[offset] = 5U; madt[offset + 1U] = 12U;
+    put_le16(madt + offset + 2U, 0U);
+    put_le64(madt + offset + 4U, UINT64_C(0xFEE01000)); offset += 12U;
+
+    /* Type 9: x2APIC ID 0x123, processor UID2, enabled. */
+    madt[offset] = 9U; madt[offset + 1U] = 16U;
+    put_le16(madt + offset + 2U, 0U);
+    put_le32(madt + offset + 4U, UINT32_C(0x123));
+    put_le32(madt + offset + 8U, 1U);
+    put_le32(madt + offset + 12U, 2U); offset += 16U;
+
+    /* Type 10: x2APIC NMI for UID2 on LINT0. */
+    madt[offset] = 10U; madt[offset + 1U] = 12U;
+    put_le16(madt + offset + 2U, 0U);
+    put_le16(madt + offset + 4U, 0U);
+    put_le32(madt + offset + 6U, 2U);
+    madt[offset + 10U] = 0U; madt[offset + 11U] = 0U; offset += 12U;
+
+    /* Unknown future record types are skipped after bounds validation. */
+    madt[offset] = 0x7FU; madt[offset + 1U] = 2U; offset += 2U;
+    assert(offset == 130U);
+
+    set_checksum(madt, 130U, 9U);
+    make_rsdp(2U, PHYS_BASE + ROOT_OFFSET, 1);
+}
+
 static int read_physical(void *context, uint64_t address,
                          uint8_t *destination, size_t length)
 {
