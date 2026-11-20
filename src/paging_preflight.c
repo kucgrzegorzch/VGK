@@ -1,10 +1,12 @@
 #include "vgk_paging_preflight.h"
 
-VGK_PAGING_PREFLIGHT_RESULT vgk_paging_preflight_calculate(
+VGK_PAGING_PREFLIGHT_RESULT vgk_paging_preflight_calculate_with_additional_ranges(
     const VGK_BOOT_INFO *boot_info,
     uint64_t boot_info_address,
     uint64_t acpi_rsdp_length,
     int framebuffer_is_uncacheable,
+    const VGK_PAGING_VIRTUAL_RANGE *additional_ranges,
+    size_t additional_range_count,
     VGK_PAGING_REQUIREMENTS *requirements)
 {
     VGK_PAGING_VIRTUAL_RANGE ranges[VGK_PAGING_REQUIREMENTS_MAX_RANGES];
@@ -24,7 +26,8 @@ VGK_PAGING_PREFLIGHT_RESULT vgk_paging_preflight_calculate(
 
     if (boot_info == 0 || boot_info_address == 0U ||
         (framebuffer_is_uncacheable != 0 &&
-         framebuffer_is_uncacheable != 1))
+         framebuffer_is_uncacheable != 1) ||
+        (additional_range_count != 0U && additional_ranges == 0))
         return VGK_PAGING_PREFLIGHT_INVALID_ARGUMENT;
 
     ranges_result = vgk_paging_ranges_build(
@@ -44,6 +47,13 @@ VGK_PAGING_PREFLIGHT_RESULT vgk_paging_preflight_calculate(
         return VGK_PAGING_PREFLIGHT_RANGE_BAD_OBJECT;
     }
 
+    if (additional_range_count >
+        VGK_PAGING_REQUIREMENTS_MAX_RANGES - range_count)
+        return VGK_PAGING_PREFLIGHT_RANGE_TOO_MANY;
+
+    for (size_t i = 0U; i < additional_range_count; ++i)
+        ranges[range_count++] = additional_ranges[i];
+
     requirements_result = vgk_paging_requirements_calculate(
         ranges, range_count, &calculated);
     switch (requirements_result) {
@@ -59,4 +69,16 @@ VGK_PAGING_PREFLIGHT_RESULT vgk_paging_preflight_calculate(
     default:
         return VGK_PAGING_PREFLIGHT_REQUIREMENTS_BAD_RANGE;
     }
+}
+
+VGK_PAGING_PREFLIGHT_RESULT vgk_paging_preflight_calculate(
+    const VGK_BOOT_INFO *boot_info,
+    uint64_t boot_info_address,
+    uint64_t acpi_rsdp_length,
+    int framebuffer_is_uncacheable,
+    VGK_PAGING_REQUIREMENTS *requirements)
+{
+    return vgk_paging_preflight_calculate_with_additional_ranges(
+        boot_info, boot_info_address, acpi_rsdp_length,
+        framebuffer_is_uncacheable, 0, 0U, requirements);
 }
