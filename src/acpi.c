@@ -458,7 +458,7 @@ static int madt_add_nmi_source(
     uint16_t flags,
     uint32_t gsi)
 {
-    if (info->nmi_source_count >= 16U ||
+    if (info->nmi_source_count >= VGK_ACPI_MADT_MAX_NMI_SOURCES ||
         !madt_interrupt_flags_are_valid(flags))
         return 0;
 
@@ -480,7 +480,7 @@ static int madt_add_local_nmi(
     uint8_t lint,
     uint8_t x2apic)
 {
-    if (info->local_nmi_count >= 32U || lint > 1U ||
+    if (info->local_nmi_count >= VGK_ACPI_MADT_MAX_LOCAL_NMIS || lint > 1U ||
         !madt_interrupt_flags_are_valid(flags))
         return 0;
 
