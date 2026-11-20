@@ -17,7 +17,7 @@
 static VGK_TSS64 vgk_kernel_tss __attribute__((aligned(16)));
 static uint64_t vgk_kernel_gdt[VGK_GDT_ENTRY_COUNT] __attribute__((aligned(16)));
 /* Prepared in BSS but deliberately not loaded with LIDT yet. */
-static VGK_IDT_GATE vgk_kernel_idt[VGK_IDT_EXCEPTION_COUNT] __attribute__((aligned(16)));
+static VGK_IDT_GATE vgk_kernel_idt[VGK_IDT_VECTOR_COUNT] __attribute__((aligned(16)));
 /* Prepared in BSS; deliberately not loaded with LIDT. */
 static VGK_IDTR vgk_kernel_idtr __attribute__((aligned(16)));
 
@@ -556,6 +556,14 @@ static __attribute__((noreturn)) void vgk_qemu_trigger_page_fault(void)
     };
     const uint16_t tss_selector = VGK_GDT_SELECTOR_TSS;
 
+    if (vgk_kernel_idtr.limit != 4095U ||
+        vgk_kernel_idtr.base != (uint64_t)(uintptr_t)vgk_kernel_idt) {
+        serial_write("VGK: QEMU full IDT descriptor check FAIL\r\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+
     /* This activation path is compiled only into the dedicated QEMU test kernel. */
     __asm__ volatile ("lgdt %0" : : "m"(gdtr) : "memory");
     __asm__ volatile ("ltr %w0" : : "r"(tss_selector) : "memory");
@@ -584,7 +592,9 @@ static __attribute__((noreturn, noinline)) void vgk_qemu_trigger_double_fault(vo
     };
     const uint16_t tss_selector = VGK_GDT_SELECTOR_TSS;
 
-    if (vgk_kernel_idt[8].attributes != 0x8EU ||
+    if (vgk_kernel_idtr.limit != 4095U ||
+        vgk_kernel_idtr.base != (uint64_t)(uintptr_t)vgk_kernel_idt ||
+        vgk_kernel_idt[8].attributes != 0x8EU ||
         vgk_kernel_idt[8].ist != VGK_IDT_IST_DOUBLE_FAULT ||
         vgk_kernel_idt[14].attributes != 0x0EU ||
         vgk_kernel_idt[14].ist != VGK_IDT_IST_PAGE_FAULT) {
@@ -648,15 +658,15 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
             }
         }
         serial_write("VGK: TSS wypelniony adresami IST, deskryptor GDT zbudowany; LGDT/LTR nie wykonano.\r\n");
-        if (vgk_idt_build_exception_table_with_ist(
-                vgk_kernel_idt, vgk_exception_stub_table,
+        if (vgk_idt_build_table_with_ist(
+                vgk_kernel_idt, vgk_vector_stub_table,
                 VGK_GDT_SELECTOR_CODE) != VGK_INTERRUPT_OK) {
             serial_write("VGK: BLAD przygotowania IDT; LIDT nie wykonano.\r\n");
             for (;;) {
                 __asm__ volatile ("cli; hlt");
             }
         }
-        serial_write("VGK: IDT zbudowana z 32 rzeczywistych stubow; LIDT nie wykonano.\r\n");
+        serial_write("VGK: przygotowano pelna IDT 256 wektorow; 32 wyjatki i 224 stuby awaryjne; LIDT nie wykonano.\r\n");
 #ifdef VGK_QEMU_PAGE_FAULT_TEST
         /*
          * Only the isolated QEMU image routes #DF to its dedicated capture
@@ -699,13 +709,13 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
 #endif
 #endif
         if (vgk_idtr_build(&vgk_kernel_idtr, vgk_kernel_idt,
-                           VGK_IDT_EXCEPTION_COUNT) != VGK_IDTR_OK) {
+                           VGK_IDT_VECTOR_COUNT) != VGK_IDTR_OK) {
             serial_write("VGK: BLAD przygotowania IDTR; LIDT nie wykonano.\r\n");
             for (;;) {
                 __asm__ volatile ("cli; hlt");
             }
         }
-        serial_write("VGK: IDTR przygotowany (limit/adres); LIDT nie wykonano.\r\n");
+        serial_write("VGK: IDTR pelnej tablicy przygotowany (limit=4095); LIDT nie wykonano.\r\n");
         serial_write("VGK: IST1/#DF top = ");
         serial_write_hex(ist_tops[0]);
         serial_write("; IST2/NMI top = ");
