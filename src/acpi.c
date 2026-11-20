@@ -497,7 +497,7 @@ static int madt_add_ioapic(
 {
     if (info->ioapic_count >= VGK_ACPI_MADT_MAX_IOAPICS ||
         (address & UINT32_C(0xFFF)) != 0U ||
-        !physical_range_fits(address, UINT64_C(0x20),
+        !physical_range_fits(address, VGK_BOOT_PAGE_SIZE,
                              physical_address_bits))
         return 0;
 
@@ -692,7 +692,7 @@ VGK_ACPI_STATUS vgk_acpi_madt_parse(
             if (entry_length != 12U || entry[3] != 0U ||
                 !range_is_mmio_or_reserved(
                     memory_map, memory_map_count,
-                    read_le32(entry + 4U), UINT64_C(0x20)) ||
+                    read_le32(entry + 4U), VGK_BOOT_PAGE_SIZE) ||
                 !madt_add_ioapic(&parsed, entry[2],
                                  read_le32(entry + 4U),
                                  read_le32(entry + 8U),
