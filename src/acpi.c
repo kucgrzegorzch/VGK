@@ -746,12 +746,16 @@ VGK_ACPI_STATUS vgk_acpi_madt_parse(
             break;
 
         case 10U: /* Local x2APIC NMI */
+            /*
+             * ACPI layout: Flags[2] at 2, Processor UID[4] at 4,
+             * LINT at 8, and three reserved bytes at 9..11.
+             */
             if (entry_length != 12U ||
-                entry[2] != 0U || entry[3] != 0U || entry[11] != 0U ||
+                entry[9] != 0U || entry[10] != 0U || entry[11] != 0U ||
                 !madt_add_local_nmi(&parsed,
-                                    read_le32(entry + 6U),
-                                    read_le16(entry + 4U),
-                                    entry[10], 1U))
+                                    read_le32(entry + 4U),
+                                    read_le16(entry + 2U),
+                                    entry[8], 1U))
                 return VGK_ACPI_BAD_TABLE;
             break;
 
