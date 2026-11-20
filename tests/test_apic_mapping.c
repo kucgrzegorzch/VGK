@@ -78,6 +78,19 @@ int main(void)
 
     assert(vgk_paging_init(&tables, page_pool, 8U, 48U, 1U) ==
            VGK_PAGING_OK);
+    count = 99U;
+    assert(vgk_apic_build_mmio_plan(
+               &cpu, &madt, map, 2U, ranges,
+               VGK_ACPI_MADT_MAX_MMIO_RANGES, &count) ==
+           VGK_APIC_MAPPING_OK);
+    assert(count == 2U);
+    assert(ranges[0].kind == VGK_ACPI_MADT_MMIO_LOCAL_APIC);
+    assert(ranges[1].kind == VGK_ACPI_MADT_MMIO_IOAPIC);
+    /* Planning is pure: it must not allocate or alter the page tables. */
+    assert(tables.used_pages == 1U);
+    assert(walk_page(&tables, UINT64_C(0xFEE01000)) == 0);
+
+    count = 99U;
     assert(vgk_apic_prepare_mmio_mappings(
                &cpu, &madt, map, 2U, &tables, ranges,
                VGK_ACPI_MADT_MAX_MMIO_RANGES, &count) ==
@@ -92,6 +105,13 @@ int main(void)
     cpu = valid_cpu(1U);
     assert(vgk_paging_init(&tables, page_pool, 8U, 48U, 1U) ==
            VGK_PAGING_OK);
+    count = 99U;
+    assert(vgk_apic_build_mmio_plan(
+               &cpu, &madt, map, 2U, ranges,
+               VGK_ACPI_MADT_MAX_MMIO_RANGES, &count) ==
+           VGK_APIC_MAPPING_OK);
+    assert(count == 1U);
+    assert(ranges[0].kind == VGK_ACPI_MADT_MMIO_IOAPIC);
     count = 99U;
     assert(vgk_apic_prepare_mmio_mappings(
                &cpu, &madt, map, 2U, &tables, ranges,
