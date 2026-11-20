@@ -34,8 +34,6 @@ required += [
     "vgk_double_fault_capture_entry",
 ]
 required += [f"vgk_interrupt_stub_{i}" for i in range(32, 256)]
-#
-]
 missing = [name for name in required if name not in symbols]
 if missing:
     raise SystemExit("FAIL: missing exception symbols: " + ", ".join(missing))
