@@ -5,7 +5,7 @@
 #include "vgk_interrupts.h"
 
 /* x86-64 IDT has 256 vectors (0..255), each represented by a 16-byte gate. */
-#define VGK_IDT_MAX_ENTRIES 256U
+#define VGK_IDT_MAX_ENTRIES VGK_IDT_VECTOR_COUNT
 
 typedef struct __attribute__((packed)) {
     uint16_t limit;
