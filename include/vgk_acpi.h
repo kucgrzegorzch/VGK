@@ -67,6 +67,8 @@ VGK_ACPI_STATUS vgk_acpi_find_madt(
 #define VGK_ACPI_MADT_MAX_PROCESSORS 64U
 #define VGK_ACPI_MADT_MAX_IOAPICS 8U
 #define VGK_ACPI_MADT_MAX_OVERRIDES 16U
+#define VGK_ACPI_MADT_MAX_NMI_SOURCES 16U
+#define VGK_ACPI_MADT_MAX_LOCAL_NMIS 32U
 
 typedef struct {
     uint32_t processor_uid;
@@ -112,9 +114,9 @@ typedef struct {
     uint32_t override_count;
     VGK_ACPI_MADT_OVERRIDE overrides[VGK_ACPI_MADT_MAX_OVERRIDES];
     uint32_t nmi_source_count;
-    VGK_ACPI_MADT_NMI_SOURCE nmi_sources[16];
+    VGK_ACPI_MADT_NMI_SOURCE nmi_sources[VGK_ACPI_MADT_MAX_NMI_SOURCES];
     uint32_t local_nmi_count;
-    VGK_ACPI_MADT_LOCAL_NMI local_nmis[32];
+    VGK_ACPI_MADT_LOCAL_NMI local_nmis[VGK_ACPI_MADT_MAX_LOCAL_NMIS];
 } VGK_ACPI_MADT_INFO;
 
 /*
