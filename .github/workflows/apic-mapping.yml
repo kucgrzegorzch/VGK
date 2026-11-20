@@ -1,0 +1,45 @@
+name: VGK APIC MMIO integration tests
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/apic-mapping.yml"
+      - "Makefile"
+      - "include/vgk_apic_mapping.h"
+      - "include/vgk_acpi.h"
+      - "include/vgk_cpu_features.h"
+      - "include/vgk_paging.h"
+      - "src/apic_mapping.c"
+      - "src/acpi.c"
+      - "src/paging.c"
+      - "tests/test_apic_mapping.c"
+  push:
+    branches:
+      - test/apic-mmio-integration
+    paths:
+      - ".github/workflows/apic-mapping.yml"
+      - "Makefile"
+      - "include/vgk_apic_mapping.h"
+      - "include/vgk_acpi.h"
+      - "include/vgk_cpu_features.h"
+      - "include/vgk_paging.h"
+      - "src/apic_mapping.c"
+      - "src/acpi.c"
+      - "src/paging.c"
+      - "tests/test_apic_mapping.c"
+  workflow_dispatch:
+
+jobs:
+  apic-mmio-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install compilers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc clang make
+
+      - name: Compile native and UEFI integration module and run ACPI/APIC tests
+        run: make clean acpi-test
