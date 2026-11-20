@@ -16,7 +16,7 @@ VGK_INTERRUPT_STATUS vgk_idt_gate_build(
     uint8_t gate_type,
     uint8_t present)
 {
-    if (gate == 0 || handler == 0 || !is_canonical_48(handler) || selector == 0 ||
+    if (gate == 0 || handler == 0 || !is_canonical_48(handler) || (selector & 0x7U) != 0U ||
         ist > 7U || dpl > 3U ||
         (gate_type != VGK_IDT_GATE_INTERRUPT &&
          gate_type != VGK_IDT_GATE_TRAP) ||
