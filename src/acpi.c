@@ -925,32 +925,33 @@ VGK_ACPI_STATUS vgk_acpi_madt_validate_mmio_plan_memory_map(
 
             range_end = range->physical_base + range->length;
 
-        for (size_t prior = 0; prior < i; ++prior) {
-            uint64_t prior_end =
-                ranges[prior].physical_base + ranges[prior].length;
-            if (range->physical_base < prior_end &&
-                ranges[prior].physical_base < range_end)
-                return VGK_ACPI_BAD_TABLE;
-        }
+            for (size_t prior = 0; prior < i; ++prior) {
+                uint64_t prior_end =
+                    ranges[prior].physical_base + ranges[prior].length;
+                if (range->physical_base < prior_end &&
+                    ranges[prior].physical_base < range_end)
+                    return VGK_ACPI_BAD_TABLE;
+            }
 
-        for (size_t entry = 0; entry < memory_map_count; ++entry) {
-            uint64_t entry_base = memory_map[entry].base;
-            uint64_t entry_end = entry_base + memory_map[entry].length;
+            for (size_t entry = 0; entry < memory_map_count; ++entry) {
+                uint64_t entry_base = memory_map[entry].base;
+                uint64_t entry_end = entry_base + memory_map[entry].length;
 
-            if (range->physical_base >= entry_end ||
-                entry_base >= range_end)
-                continue;
+                if (range->physical_base >= entry_end ||
+                    entry_base >= range_end)
+                    continue;
 
-            /* Do not accept partial or fragmented coverage. */
-            if (entry_base > range->physical_base || entry_end < range_end)
-                return VGK_ACPI_BAD_TABLE;
+                /* Do not accept partial or fragmented coverage. */
+                if (entry_base > range->physical_base ||
+                    entry_end < range_end)
+                    return VGK_ACPI_BAD_TABLE;
 
-            if (memory_map[entry].type != VGK_MEMORY_MMIO &&
-                memory_map[entry].type != VGK_MEMORY_RESERVED)
-                return VGK_ACPI_BAD_TABLE;
+                if (memory_map[entry].type != VGK_MEMORY_MMIO &&
+                    memory_map[entry].type != VGK_MEMORY_RESERVED)
+                    return VGK_ACPI_BAD_TABLE;
 
-            ++covering_entries;
-        }
+                ++covering_entries;
+            }
 
             if (covering_entries != 1U)
                 return VGK_ACPI_BAD_TABLE;
