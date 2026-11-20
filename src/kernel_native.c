@@ -187,7 +187,7 @@ static int prepare_apic_boot_context(
     }
 
     acpi_status = vgk_acpi_madt_parse(
-        memory_map, (size_t)memory_map_entries,
+        memory_map, memory_map_count,
         cpu_features->physical_address_bits,
         kernel_acpi_read_physical, 0, &madt_ref, &context->madt);
     if (acpi_status != VGK_ACPI_OK) {
@@ -199,7 +199,7 @@ static int prepare_apic_boot_context(
 
     apic_status = vgk_apic_build_mmio_plan(
         cpu_features, &context->madt,
-        memory_map, (size_t)memory_map_entries,
+        memory_map, memory_map_count,
         context->ranges, VGK_ACPI_MADT_MAX_MMIO_RANGES,
         &context->range_count);
     if (apic_status != VGK_APIC_MAPPING_OK) {
