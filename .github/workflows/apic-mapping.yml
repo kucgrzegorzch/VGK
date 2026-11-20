@@ -13,6 +13,7 @@ on:
       - "include/vgk_paging_ranges.h"
       - "include/vgk_paging_requirements.h"
       - "src/apic_mapping.c"
+      - "src/kernel_native.c"
       - "src/acpi.c"
       - "src/paging.c"
       - "src/paging_preflight.c"
@@ -25,6 +26,7 @@ on:
     branches:
       - test/apic-mmio-integration
       - test/apic-mmio-preflight
+      - test/kernel-apic-mmio-preparation
     paths:
       - ".github/workflows/apic-mapping.yml"
       - "Makefile"
