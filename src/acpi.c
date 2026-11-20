@@ -502,6 +502,11 @@ static int madt_add_local_nmi(
         !madt_interrupt_flags_are_valid(flags))
         return 0;
 
+    /* ACPI uses 0xFF/0xFFFFFFFF to mean all processors. */
+    if ((x2apic == 0U && processor_uid == UINT32_C(0xFF)) ||
+        (x2apic != 0U && processor_uid == UINT32_MAX))
+        processor_uid = UINT32_MAX;
+
     for (uint32_t i = 0; i < info->local_nmi_count; ++i) {
         if (info->local_nmis[i].processor_uid == processor_uid &&
             info->local_nmis[i].lint == lint)
