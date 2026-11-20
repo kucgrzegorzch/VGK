@@ -67,7 +67,7 @@ int main(void)
 
     /* A PAT layout with entry 3 set to write-combining is not accepted. */
     vgk_cpu_decode_pat_features(
-        UINT32_C(1) << 16, UINT64_C(0x0100000000070406), 1U, &features);
+        UINT32_C(1) << 16, UINT64_C(0x0000000001070406), 1U, &features);
     EXPECT(features.pat_supported == 1U);
     EXPECT(features.mmio_uc_supported == 0U);
 
