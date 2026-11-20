@@ -340,6 +340,9 @@ VGK_ACPI_STATUS vgk_acpi_find_madt(
             return status == VGK_ACPI_READ_FAILED ? status : VGK_ACPI_BAD_ROOT_TABLE;
 
         if (signature_matches(table_header, "APIC")) {
+            /* MADT includes an 8-byte Local APIC address/flags prefix. */
+            if (table_length < VGK_ACPI_SDT_HEADER_SIZE + 8U)
+                return VGK_ACPI_BAD_TABLE;
             if (madt_address != 0U)
                 return VGK_ACPI_BAD_ROOT_TABLE;
             status = checksum_sdt(
