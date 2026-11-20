@@ -172,6 +172,17 @@ int main(void)
     set_checksum(physical_memory + ROOT_OFFSET, 45U, 9U);
     assert(find_madt(&madt, 0) == VGK_ACPI_BAD_ROOT_TABLE);
 
+    /* A root table with more than the bounded entry count is rejected. */
+    make_valid_xsdt_madt();
+    {
+        const uint32_t oversized_length = 36U + (257U * 8U);
+        uint8_t *xsdt = physical_memory + ROOT_OFFSET;
+        make_sdt(xsdt, "XSDT", oversized_length, 1U);
+        set_checksum(xsdt, oversized_length, 9U);
+        make_rsdp(2U, PHYS_BASE + ROOT_OFFSET, 1);
+        assert(find_madt(&madt, 0) == VGK_ACPI_BAD_ROOT_TABLE);
+    }
+
     /* Callback failures are surfaced without publishing a partial result. */
     make_valid_xsdt_madt();
     {
