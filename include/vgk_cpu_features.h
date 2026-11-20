@@ -16,7 +16,7 @@ typedef struct {
     uint8_t nx_supported;
     uint8_t pat_supported;
     uint8_t mmio_uc_supported;
-    uint8_t reserved[1];
+    uint8_t reserved[2];
 
     /* Identity is diagnostic only; VGK must not whitelist CPU model names. */
     char vendor[13];
