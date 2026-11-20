@@ -32,6 +32,7 @@ VGK_APIC_MAPPING_RESULT vgk_apic_prepare_mmio_mappings(
     size_t planned_count = 0U;
     VGK_ACPI_STATUS acpi_status;
     uint64_t physical_limit;
+    uint64_t expected_physical_mask;
 
     if (range_count_out != 0)
         *range_count_out = 0U;
@@ -67,15 +68,23 @@ VGK_APIC_MAPPING_RESULT vgk_apic_prepare_mmio_mappings(
         return VGK_APIC_MAPPING_UNSUPPORTED;
 
     physical_limit = (UINT64_C(1) << cpu->physical_address_bits) - 1U;
+    expected_physical_mask =
+        physical_limit & ~(VGK_BOOT_PAGE_SIZE - 1U);
     if (cpu->local_apic_base == 0U ||
         cpu->local_apic_base > physical_limit -
             (VGK_BOOT_PAGE_SIZE - 1U))
         return VGK_APIC_MAPPING_UNSUPPORTED;
 
     if (inactive_tables->pool == 0 ||
+        inactive_tables->pool_pages == 0U ||
+        inactive_tables->pool_pages >
+            SIZE_MAX / (size_t)VGK_BOOT_PAGE_SIZE ||
         inactive_tables->used_pages == 0U ||
         inactive_tables->used_pages > inactive_tables->pool_pages ||
+        ((uintptr_t)inactive_tables->pool &
+         (uintptr_t)(VGK_BOOT_PAGE_SIZE - 1U)) != 0U ||
         inactive_tables->physical_bits != cpu->physical_address_bits ||
+        inactive_tables->physical_mask != expected_physical_mask ||
         inactive_tables->nx_supported != 1U)
         return VGK_APIC_MAPPING_INVALID_ARGUMENT;
 
