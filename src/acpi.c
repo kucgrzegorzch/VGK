@@ -385,6 +385,55 @@ static int physical_range_fits(
            length - 1U <= physical_limit - address;
 }
 
+/*
+ * APIC register windows must not be mapped over usable RAM, firmware tables,
+ * or other ordinary memory. UEFI may classify device apertures as MMIO or
+ * generic reserved memory, so accept only those two normalized map types.
+ */
+static int range_is_mmio_or_reserved(
+    const VGK_MEMORY_MAP_ENTRY *entries,
+    size_t entry_count,
+    uint64_t address,
+    uint64_t length)
+{
+    uint64_t end;
+    uint64_t cursor = address;
+
+    if (entries == 0 || entry_count == 0U || length == 0U ||
+        address > UINT64_MAX - length)
+        return 0;
+
+    for (size_t i = 0; i < entry_count; ++i) {
+        uint64_t entry_end;
+        if (entries[i].length == 0U ||
+            entries[i].base > UINT64_MAX - entries[i].length)
+            return 0;
+        entry_end = entries[i].base + entries[i].length;
+        if (i != 0U) {
+            uint64_t previous_end =
+                entries[i - 1U].base + entries[i - 1U].length;
+            if (entries[i].base < previous_end)
+                return 0;
+        }
+    }
+
+    end = address + length;
+    for (size_t i = 0; i < entry_count; ++i) {
+        uint64_t entry_end = entries[i].base + entries[i].length;
+        if (entry_end <= cursor)
+            continue;
+        if (entries[i].base > cursor ||
+            (entries[i].type != VGK_MEMORY_MMIO &&
+             entries[i].type != VGK_MEMORY_RESERVED))
+            return 0;
+
+        cursor = entry_end < end ? entry_end : end;
+        if (cursor == end)
+            return 1;
+    }
+    return 0;
+}
+
 static int madt_interrupt_flags_are_valid(uint16_t flags)
 {
     const uint16_t polarity = flags & 0x3U;
@@ -643,6 +692,9 @@ VGK_ACPI_STATUS vgk_acpi_madt_parse(
 
         case 1U: /* I/O APIC */
             if (entry_length != 12U || entry[3] != 0U ||
+                !range_is_mmio_or_reserved(
+                    memory_map, memory_map_count,
+                    read_le32(entry + 4U), UINT64_C(0x20)) ||
                 !madt_add_ioapic(&parsed, entry[2],
                                  read_le32(entry + 4U),
                                  read_le32(entry + 8U),
@@ -717,7 +769,10 @@ VGK_ACPI_STATUS vgk_acpi_madt_parse(
         (parsed.local_apic_address & UINT64_C(0xFFF)) != 0U ||
         !physical_range_fits(parsed.local_apic_address,
                              VGK_BOOT_PAGE_SIZE,
-                             physical_address_bits))
+                             physical_address_bits) ||
+        !range_is_mmio_or_reserved(
+            memory_map, memory_map_count,
+            parsed.local_apic_address, VGK_BOOT_PAGE_SIZE))
         return VGK_ACPI_BAD_TABLE;
 
     acpi_copy_bytes(info_out, &parsed, sizeof(parsed));
