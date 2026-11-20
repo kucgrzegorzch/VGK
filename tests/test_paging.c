@@ -212,6 +212,43 @@ int main(void)
     CHECK((*walk(&t, 0x801000U) & 1U) == 0U);
     free(pool);
 
+    /* MMIO helper always creates supervisor RW, NX, UC mappings. */
+    CHECK(posix_memalign(&pool, 4096U, 8U * 4096U) == 0);
+    CHECK(vgk_paging_init(&t, pool, 8U, 48U, 1U) == VGK_PAGING_OK);
+    {
+        const uint64_t mmio_va = UINT64_C(0xFFFF900000000000);
+        const uint64_t lapic_pa = UINT64_C(0xFEE00000);
+        CHECK(vgk_paging_map_mmio_uc(&t, mmio_va, lapic_pa, 8192U) ==
+              VGK_PAGING_OK);
+        CHECK(vgk_paging_map_mmio_uc(&t, mmio_va, lapic_pa, 8192U) ==
+              VGK_PAGING_OK);
+        CHECK(((*walk(&t, mmio_va)) & UINT64_C(0x018)) == UINT64_C(0x018));
+        CHECK(((*walk(&t, mmio_va)) & UINT64_C(0x2)) != 0U);
+        CHECK(((*walk(&t, mmio_va)) & (UINT64_C(1) << 63)) != 0U);
+        CHECK(((*walk(&t, mmio_va + 4096U)) & UINT64_C(0x018)) ==
+              UINT64_C(0x018));
+        CHECK(((*walk(&t, mmio_va + 4096U)) & UINT64_C(0x2)) != 0U);
+        CHECK(((*walk(&t, mmio_va + 4096U)) & (UINT64_C(1) << 63)) != 0U);
+        /* A WB alias of a UC device page is rejected. */
+        CHECK(vgk_paging_map(&t, mmio_va + UINT64_C(0x2000),
+                             lapic_pa, VGK_PAGE_WRITE) ==
+              VGK_PAGING_UNSUPPORTED);
+        CHECK(vgk_paging_map_mmio_uc(&t, mmio_va + 1U, lapic_pa, 4096U) ==
+              VGK_PAGING_BAD_ADDRESS);
+        CHECK(vgk_paging_map_mmio_uc(&t, mmio_va, lapic_pa + 1U, 4096U) ==
+              VGK_PAGING_BAD_ADDRESS);
+        CHECK(vgk_paging_map_mmio_uc(&t, mmio_va, lapic_pa, 0U) ==
+              VGK_PAGING_INVALID_ARGUMENT);
+    }
+    free(pool);
+
+    CHECK(posix_memalign(&pool, 4096U, 4096U) == 0);
+    CHECK(vgk_paging_init(&t, pool, 1U, 48U, 0U) == VGK_PAGING_OK);
+    CHECK(vgk_paging_map_mmio_uc(
+              &t, UINT64_C(0xFFFF900000000000),
+              UINT64_C(0xFEE00000), 4096U) == VGK_PAGING_UNSUPPORTED);
+    free(pool);
+
     puts("OK: tablice stron – uprawnienia, NX, W^X, granice i brak pamięci.");
     return 0;
 }

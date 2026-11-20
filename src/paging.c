@@ -306,3 +306,15 @@ uint64_t vgk_paging_root_physical(const VGK_PAGE_TABLES *tables)
         return 0;
     return (uint64_t)(uintptr_t)tables->pool;
 }
+
+VGK_PAGING_RESULT vgk_paging_map_mmio_uc(
+    VGK_PAGE_TABLES *tables,
+    uint64_t virtual_address,
+    uint64_t physical_address,
+    uint64_t length)
+{
+    return vgk_paging_map_range(
+        tables, virtual_address, physical_address, length,
+        VGK_PAGE_WRITE | VGK_PAGE_CACHE_DISABLE |
+            VGK_PAGE_WRITE_THROUGH);
+}
