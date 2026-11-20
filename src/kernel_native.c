@@ -485,6 +485,17 @@ void vgk_qemu_double_fault_observe(const uint64_t raw_stack[22])
         raw_start <= (uintptr_t)ist1_end &&
         raw_size <= (uint64_t)((uintptr_t)ist1_end - raw_start);
 
+    /*
+     * Never dereference an exception frame until its complete extent has
+     * been proven to lie inside the dedicated IST1 stack.
+     */
+    if (!frame_on_ist1) {
+        serial_write("VGK: QEMU DOUBLE FAULT IST1 RANGE FAIL\r\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+
     if (vgk_double_fault_context_from_stack(raw_stack, &context) == 0U) {
         serial_write("VGK: QEMU DOUBLE FAULT MAPPER FAIL\r\n");
         for (;;) {
