@@ -40,6 +40,8 @@ int main(void)
         assert(end > base);
         assert(end - base == VGK_IST_STACK_SIZE);
         assert((base & (VGK_IST_STACK_ALIGNMENT - 1U)) == 0U);
+        assert(is_canonical_48(base));
+        assert(is_canonical_48(end));
         assert(tops[0] == end);
         assert(vgk_ist_double_fault_stack_get_bounds(0, &end) ==
                VGK_IST_STACKS_INVALID_ARGUMENT);
@@ -55,6 +57,8 @@ int main(void)
         assert(end > base);
         assert(end - base == VGK_IST_STACK_SIZE);
         assert((base & (VGK_IST_STACK_ALIGNMENT - 1U)) == 0U);
+        assert(is_canonical_48(base));
+        assert(is_canonical_48(end));
         assert(tops[3] == end);
         assert(vgk_ist_page_fault_stack_get_bounds(0, &end) ==
                VGK_IST_STACKS_INVALID_ARGUMENT);
