@@ -66,7 +66,7 @@ static VGK_ACPI_MADT_INFO valid_madt(void)
 
 int main(void)
 {
-    VGK_CPU_FEATURES cpu = valid_cpu(1U);
+    VGK_CPU_FEATURES cpu = valid_cpu(0U);
     VGK_ACPI_MADT_INFO madt = valid_madt();
     VGK_MEMORY_MAP_ENTRY map[2] = {
         {UINT64_C(0xFEE01000), VGK_BOOT_PAGE_SIZE, VGK_MEMORY_MMIO, 0U},
