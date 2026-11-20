@@ -495,6 +495,7 @@ VGK_ACPI_STATUS vgk_acpi_madt_parse(
     uint8_t fixed_fields[8];
     uint32_t table_length = 0U;
     uint32_t offset;
+    int local_apic_override_seen = 0;
     VGK_ACPI_STATUS status;
 
     if (info_out != 0)
@@ -601,13 +602,13 @@ VGK_ACPI_STATUS vgk_acpi_madt_parse(
         case 5U: /* Local APIC Address Override */
             if (entry_length != 12U ||
                 entry[2] != 0U || entry[3] != 0U ||
-                parsed.local_apic_address != read_le64(entry + 4U) &&
-                    parsed.local_apic_address != read_le32(fixed_fields) ||
+                local_apic_override_seen ||
                 !physical_range_fits(read_le64(entry + 4U),
                                      VGK_BOOT_PAGE_SIZE,
                                      physical_address_bits))
                 return VGK_ACPI_BAD_TABLE;
             parsed.local_apic_address = read_le64(entry + 4U);
+            local_apic_override_seen = 1;
             break;
 
         case 9U: /* Processor Local x2APIC */
