@@ -19,6 +19,7 @@ on:
       - "src/paging_preflight.c"
       - "src/paging_ranges.c"
       - "src/paging_requirements.c"
+      - "tests/test_acpi_madt.c"
       - "tests/test_apic_mapping.c"
       - "tests/test_paging_preflight.c"
       - "tests/test_paging_ranges.c"
