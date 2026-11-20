@@ -13,6 +13,8 @@
 #include "vgk_exception.h"
 
 #define COM1_PORT 0x3F8U
+#define VGK_X86_64_LOW_CANONICAL_LIMIT (UINT64_C(1) << 47)
+#define VGK_ACPI_RSDP_MAX_READ_SIZE UINT64_C(4096)
 
 /* Prepared in BSS; deliberately not loaded with LGDT or LTR yet. */
 static VGK_TSS64 vgk_kernel_tss __attribute__((aligned(16)));
@@ -105,6 +107,9 @@ static int kernel_acpi_read_physical(
 
     (void)context;
     if (physical_address == 0U || destination == 0 || length == 0U ||
+        physical_address >= VGK_X86_64_LOW_CANONICAL_LIMIT ||
+        (uint64_t)length >
+            VGK_X86_64_LOW_CANONICAL_LIMIT - physical_address ||
         physical_address > UINT64_MAX - (uint64_t)(length - 1U) ||
         physical_address > (uint64_t)UINTPTR_MAX ||
         (uintptr_t)(length - 1U) >
@@ -146,6 +151,9 @@ static int prepare_apic_boot_context(
 
     if (boot_info->memory_map_address == 0U ||
         boot_info->memory_map_size == 0U ||
+        boot_info->acpi_rsdp_address == 0U ||
+        boot_info->acpi_rsdp_address >=
+            VGK_X86_64_LOW_CANONICAL_LIMIT - VGK_ACPI_RSDP_MAX_READ_SIZE ||
         boot_info->memory_map_size % sizeof(VGK_MEMORY_MAP_ENTRY) != 0U)
         return 0;
 
@@ -359,7 +367,10 @@ static int map_acpi_root_pointer(
     if (boot_info == 0 || cpu_features == 0 || tables == 0 ||
         boot_info->memory_map_address == 0 ||
         boot_info->memory_map_size == 0 ||
-        boot_info->memory_map_size % sizeof(VGK_MEMORY_MAP_ENTRY) != 0)
+        boot_info->memory_map_size % sizeof(VGK_MEMORY_MAP_ENTRY) != 0 ||
+        boot_info->acpi_rsdp_address == 0U ||
+        boot_info->acpi_rsdp_address >=
+            VGK_X86_64_LOW_CANONICAL_LIMIT - VGK_ACPI_RSDP_MAX_READ_SIZE)
         return 0;
 
     memory_map = (const VGK_MEMORY_MAP_ENTRY *)(uintptr_t)
