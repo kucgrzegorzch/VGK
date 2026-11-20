@@ -438,6 +438,73 @@ int main(void)
             assert(plan[1].physical_base == UINT64_C(0xFEC00000));
             assert(plan[1].length == VGK_BOOT_PAGE_SIZE);
             assert(plan[1].kind == VGK_ACPI_MADT_MMIO_IOAPIC);
+
+            /* Both planned pages must be reserved/device memory in firmware's map. */
+            {
+                VGK_MEMORY_MAP_ENTRY device_map[2] = {
+                    {UINT64_C(0xFEE01000), VGK_BOOT_PAGE_SIZE,
+                     VGK_MEMORY_MMIO, 0U},
+                    {UINT64_C(0xFEC00000), VGK_BOOT_PAGE_SIZE,
+                     VGK_MEMORY_RESERVED, 0U}
+                };
+                assert(vgk_acpi_madt_validate_mmio_plan_memory_map(
+                           device_map, 2U, plan, plan_count) ==
+                       VGK_ACPI_OK);
+
+                device_map[0].type = VGK_MEMORY_USABLE;
+                assert(vgk_acpi_madt_validate_mmio_plan_memory_map(
+                           device_map, 2U, plan, plan_count) ==
+                       VGK_ACPI_BAD_TABLE);
+                device_map[0].type = VGK_MEMORY_MMIO;
+
+                device_map[1].base = UINT64_C(0xFEC01800);
+                assert(vgk_acpi_madt_validate_mmio_plan_memory_map(
+                           device_map, 2U, plan, plan_count) ==
+                       VGK_ACPI_BAD_TABLE);
+                device_map[1].base = UINT64_C(0xFEC00000);
+
+                device_map[1].length = VGK_BOOT_PAGE_SIZE / 2U;
+                assert(vgk_acpi_madt_validate_mmio_plan_memory_map(
+                           device_map, 2U, plan, plan_count) ==
+                       VGK_ACPI_BAD_TABLE);
+                device_map[1].length = VGK_BOOT_PAGE_SIZE;
+
+                /* Duplicate/overlapping descriptors are ambiguous. */
+                device_map[2 % 2U] = device_map[1];
+                assert(vgk_acpi_madt_validate_mmio_plan_memory_map(
+                           device_map, 2U, plan, plan_count) ==
+                       VGK_ACPI_BAD_TABLE);
+
+                device_map[1].base = UINT64_MAX - UINT64_C(0xFFF);
+                device_map[1].length = VGK_BOOT_PAGE_SIZE;
+                assert(vgk_acpi_madt_validate_mmio_plan_memory_map(
+                           device_map, 2U, plan, plan_count) ==
+                       VGK_ACPI_BAD_TABLE);
+
+                device_map[1].base = UINT64_C(0xFEC00000);
+                device_map[1].length = VGK_BOOT_PAGE_SIZE;
+                {
+                    VGK_ACPI_MADT_MMIO_RANGE invalid_plan[2] = {
+                        plan[0], plan[1]
+                    };
+                    invalid_plan[1].physical_base = invalid_plan[0].physical_base;
+                    assert(vgk_acpi_madt_validate_mmio_plan_memory_map(
+                               device_map, 2U, invalid_plan, 2U) ==
+                           VGK_ACPI_BAD_TABLE);
+                    invalid_plan[1] = plan[1];
+                    invalid_plan[1].kind = 0U;
+                    assert(vgk_acpi_madt_validate_mmio_plan_memory_map(
+                               device_map, 2U, invalid_plan, 2U) ==
+                           VGK_ACPI_BAD_TABLE);
+                }
+
+                assert(vgk_acpi_madt_validate_mmio_plan_memory_map(
+                           device_map, 2U, plan, 0U) == VGK_ACPI_OK);
+                assert(vgk_acpi_madt_validate_mmio_plan_memory_map(
+                           0, 2U, plan, plan_count) ==
+                       VGK_ACPI_INVALID_ARGUMENT);
+            }
+
             for (size_t range = 0; range < plan_count; ++range) {
                 for (size_t i = 0; i < sizeof(plan[range].reserved); ++i)
                     assert(plan[range].reserved[i] == 0U);
