@@ -437,8 +437,10 @@ int main(void)
             assert(plan[1].physical_base == UINT64_C(0xFEC00000));
             assert(plan[1].length == VGK_BOOT_PAGE_SIZE);
             assert(plan[1].kind == VGK_ACPI_MADT_MMIO_IOAPIC);
-            for (size_t i = 0; i < sizeof(plan[0].reserved); ++i)
-                assert(plan[0].reserved[i] == 0U);
+            for (size_t range = 0; range < plan_count; ++range) {
+                for (size_t i = 0; i < sizeof(plan[range].reserved); ++i)
+                    assert(plan[range].reserved[i] == 0U);
+            }
 
             /* Feed the xAPIC plan into the real inactive page-table builder. */
             assert(vgk_paging_init(
