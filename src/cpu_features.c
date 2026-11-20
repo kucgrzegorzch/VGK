@@ -15,6 +15,13 @@
 #define VGK_CPUID_PAT_BIT (UINT32_C(1) << 16)
 #define VGK_CPUID_APIC_BIT (UINT32_C(1) << 9)
 #define VGK_CPUID_X2APIC_BIT (UINT32_C(1) << 21)
+#define VGK_APIC_BASE_ADDRESS_MASK UINT64_C(0x0000000FFFFFF000)
+#define VGK_APIC_BASE_BSP_BIT (UINT64_C(1) << 8)
+#define VGK_APIC_BASE_X2APIC_BIT (UINT64_C(1) << 10)
+#define VGK_APIC_BASE_ENABLE_BIT (UINT64_C(1) << 11)
+#define VGK_APIC_BASE_KNOWN_BITS \
+    (VGK_APIC_BASE_ADDRESS_MASK | VGK_APIC_BASE_BSP_BIT | \
+     VGK_APIC_BASE_X2APIC_BIT | VGK_APIC_BASE_ENABLE_BIT)
 
 static void vgk_cpuid(
     uint32_t leaf,
@@ -53,6 +60,10 @@ static void vgk_cpu_clear_optional_features(VGK_CPU_FEATURES *features)
     features->mmio_uc_supported = 0;
     features->local_apic_supported = 0;
     features->x2apic_supported = 0;
+    features->apic_base_valid = 0;
+    features->local_apic_enabled = 0;
+    features->x2apic_enabled = 0;
+    features->local_apic_base = 0;
     features->sse2_supported = 0;
     features->sse3_supported = 0;
     features->ssse3_supported = 0;
@@ -118,6 +129,44 @@ void vgk_cpu_decode_apic_features(
     features->x2apic_supported = (uint8_t)(
         features->local_apic_supported != 0U &&
         (leaf1_ecx & VGK_CPUID_X2APIC_BIT) != 0U);
+}
+
+void vgk_cpu_decode_apic_base(
+    uint64_t apic_base_msr,
+    uint8_t physical_address_bits,
+    VGK_CPU_FEATURES *features)
+{
+    uint64_t base;
+    uint64_t physical_limit;
+
+    if (features == 0)
+        return;
+
+    features->apic_base_valid = 0U;
+    features->local_apic_enabled = 0U;
+    features->x2apic_enabled = 0U;
+    features->local_apic_base = 0U;
+
+    if (features->local_apic_supported == 0U ||
+        physical_address_bits < 32U || physical_address_bits > 52U ||
+        (apic_base_msr & ~VGK_APIC_BASE_KNOWN_BITS) != 0U)
+        return;
+
+    base = apic_base_msr & VGK_APIC_BASE_ADDRESS_MASK;
+    physical_limit = (UINT64_C(1) << physical_address_bits) - 1U;
+    if (base == 0U || base > physical_limit ||
+        ((apic_base_msr & VGK_APIC_BASE_X2APIC_BIT) != 0U &&
+         ((apic_base_msr & VGK_APIC_BASE_ENABLE_BIT) == 0U ||
+          features->x2apic_supported == 0U)))
+        return;
+
+    features->local_apic_base = base;
+    features->apic_base_valid = 1U;
+    features->local_apic_enabled = (uint8_t)(
+        (apic_base_msr & VGK_APIC_BASE_ENABLE_BIT) != 0U);
+    features->x2apic_enabled = (uint8_t)(
+        features->local_apic_enabled != 0U &&
+        (apic_base_msr & VGK_APIC_BASE_X2APIC_BIT) != 0U);
 }
 
 void vgk_cpu_decode_pat_features(
@@ -213,7 +262,9 @@ static void vgk_cpu_read_identity_and_optional_features(
     uint32_t eax7 = 0, ebx7 = 0;
     uint32_t xcr0_low = 0;
     uint32_t pat_low = 0, pat_high = 0;
+    uint32_t apic_low = 0, apic_high = 0;
     uint64_t pat_msr = 0;
+    uint64_t apic_base_msr = 0;
     uint32_t base_family, base_model, extended_family, extended_model;
     uint8_t has_leaf1;
     uint8_t has_leaf7;
@@ -284,6 +335,17 @@ static void vgk_cpu_read_identity_and_optional_features(
     }
     vgk_cpu_decode_pat_features(edx1, pat_msr, has_leaf1, features);
     vgk_cpu_decode_apic_features(ecx1, edx1, has_leaf1, features);
+    if (features->local_apic_supported != 0U &&
+        features->physical_address_bits >= 32U) {
+        __asm__ volatile (
+            "rdmsr"
+            : "=a"(apic_low), "=d"(apic_high)
+            : "c"(UINT32_C(0x1B))
+        );
+        apic_base_msr = ((uint64_t)apic_high << 32) | apic_low;
+    }
+    vgk_cpu_decode_apic_base(
+        apic_base_msr, features->physical_address_bits, features);
 
     vgk_cpu_decode_vector_features(
         ecx1, edx1, ebx7, xcr0_low, has_leaf1, has_leaf7, features);
