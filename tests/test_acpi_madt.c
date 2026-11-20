@@ -557,6 +557,19 @@ int main(void)
             assert(plan_count == 1U);
             assert(plan[0].physical_base == UINT64_C(0xFEC00000));
             assert(plan[0].kind == VGK_ACPI_MADT_MMIO_IOAPIC);
+            {
+                VGK_MEMORY_MAP_ENTRY x2apic_map = {
+                    UINT64_C(0xFEC00000), VGK_BOOT_PAGE_SIZE,
+                    VGK_MEMORY_MMIO, 0U
+                };
+                assert(vgk_acpi_madt_validate_mmio_plan_memory_map(
+                           &x2apic_map, 1U, plan, plan_count) ==
+                       VGK_ACPI_OK);
+                x2apic_map.type = VGK_MEMORY_USABLE;
+                assert(vgk_acpi_madt_validate_mmio_plan_memory_map(
+                           &x2apic_map, 1U, plan, plan_count) ==
+                       VGK_ACPI_BAD_TABLE);
+            }
 
             /* x2APIC maps the IOAPIC page but leaves LAPIC MMIO unmapped. */
             assert(vgk_paging_init(
