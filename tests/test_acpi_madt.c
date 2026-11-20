@@ -331,6 +331,93 @@ int main(void)
     assert(find_madt(&madt, 0) == VGK_ACPI_BAD_RSDP);
     assert(madt.physical_address == 0U);
 
-    puts("VGK ACPI RSDT/XSDT and MADT discovery tests: OK");
+    /* Parse real MADT record layouts into bounded topology data. */
+    make_rich_xsdt_madt();
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_OK);
+        assert(info.local_apic_address == UINT64_C(0xFEE01000));
+        assert(info.flags == 1U);
+        assert(info.processor_count == 2U);
+        assert(info.processors[0].processor_uid == 1U);
+        assert(info.processors[0].apic_id == 2U);
+        assert(info.processors[0].flags == 1U);
+        assert(info.processors[0].x2apic == 0U);
+        assert(info.processors[1].processor_uid == 2U);
+        assert(info.processors[1].apic_id == UINT32_C(0x123));
+        assert(info.processors[1].x2apic == 1U);
+        assert(info.ioapic_count == 1U);
+        assert(info.ioapics[0].id == 3U);
+        assert(info.ioapics[0].address == UINT32_C(0xFEC00000));
+        assert(info.ioapics[0].gsi_base == 0U);
+        assert(info.override_count == 1U);
+        assert(info.overrides[0].bus == 0U);
+        assert(info.overrides[0].source == 1U);
+        assert(info.overrides[0].gsi == 1U);
+        assert(info.overrides[0].flags == 0U);
+    }
+
+    /* Duplicate processor UID/APIC ID values are rejected. */
+    make_rich_xsdt_madt();
+    put_le32(physical_memory + MADT_OFFSET + 112U, 1U);
+    set_checksum(physical_memory + MADT_OFFSET, 130U, 9U);
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+        assert(info.processor_count == 0U);
+    }
+
+    /* An unaligned I/O APIC MMIO base is rejected. */
+    make_rich_xsdt_madt();
+    put_le32(physical_memory + MADT_OFFSET + 56U,
+             UINT32_C(0xFEC00001));
+    set_checksum(physical_memory + MADT_OFFSET, 130U, 9U);
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+        assert(info.ioapic_count == 0U);
+    }
+
+    /* Reserved polarity encoding in an interrupt-source override is invalid. */
+    make_rich_xsdt_madt();
+    put_le16(physical_memory + MADT_OFFSET + 72U, 2U);
+    set_checksum(physical_memory + MADT_OFFSET, 130U, 9U);
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+        assert(info.override_count == 0U);
+    }
+
+    /* A one-byte record cannot make forward progress through the table. */
+    make_rich_xsdt_madt();
+    physical_memory[MADT_OFFSET + 45U] = 1U;
+    set_checksum(physical_memory + MADT_OFFSET, 130U, 9U);
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+    }
+
+    /* A zero local APIC base without a valid override is rejected. */
+    make_rich_xsdt_madt();
+    put_le64(physical_memory + MADT_OFFSET + 92U, 0U);
+    set_checksum(physical_memory + MADT_OFFSET, 130U, 9U);
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+    }
+
+    /* A callback failure during table parsing is returned to the caller. */
+    make_rich_xsdt_madt();
+    {
+        VGK_ACPI_MADT_INFO info;
+        int fail_reads = 1;
+        assert(parse_current_madt(&info, &fail_reads) ==
+               VGK_ACPI_READ_FAILED);
+        assert(info.processor_count == 0U &&
+               info.ioapic_count == 0U &&
+               info.override_count == 0U);
+    }
+
+    puts("VGK ACPI RSDT/XSDT and MADT discovery and record parsing tests: OK");
     return 0;
 }
