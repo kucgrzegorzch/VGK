@@ -139,6 +139,16 @@ int main(void)
     vgk_cpu_decode_apic_base(UINT64_C(0xFEE00D00), 48U, &features);
     EXPECT(features.apic_base_valid == 0U);
 
+    /* x2APIC enable without the global APIC enable bit is invalid. */
+    vgk_cpu_decode_apic_features(X2APIC_BIT, APIC_BIT, 1U, &features);
+    vgk_cpu_decode_apic_base(UINT64_C(0xFEE00500), 48U, &features);
+    EXPECT(features.apic_base_valid == 0U);
+
+    /* An enabled APIC cannot use a zero physical base. */
+    vgk_cpu_decode_apic_features(0U, APIC_BIT, 1U, &features);
+    vgk_cpu_decode_apic_base(UINT64_C(0x00000900), 48U, &features);
+    EXPECT(features.apic_base_valid == 0U);
+
     /* Reserved IA32_APIC_BASE bits and missing APIC hardware are rejected. */
     vgk_cpu_decode_apic_features(0U, APIC_BIT, 1U, &features);
     vgk_cpu_decode_apic_base(UINT64_C(0xFEE00B00), 48U, &features);
