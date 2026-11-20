@@ -44,6 +44,7 @@ static void assert_uc_nx_mmio_leaf(
     uint64_t *leaf = walk_page(tables, virtual_address);
     assert(leaf != 0);
     assert((*leaf & tables->physical_mask) == physical_address);
+    assert((*leaf & UINT64_C(0x001)) != 0U);
     assert((*leaf & UINT64_C(0x018)) == UINT64_C(0x018));
     assert((*leaf & UINT64_C(0x2)) != 0U);
     assert((*leaf & UINT64_C(0x4)) == 0U);
@@ -456,6 +457,11 @@ int main(void)
                 assert_uc_nx_mmio_leaf(
                     &page_tables, plan[i].physical_base,
                     plan[i].physical_base);
+                /* Re-applying the same UC mapping is safe and idempotent. */
+                assert(vgk_paging_map_mmio_uc(
+                           &page_tables, plan[i].physical_base,
+                           plan[i].physical_base, plan[i].length) ==
+                       VGK_PAGING_OK);
             }
 
             /* x2APIC mode uses MSRs for LAPIC and maps only IOAPIC pages. */
@@ -479,6 +485,19 @@ int main(void)
                 &page_tables, UINT64_C(0xFEC00000),
                 UINT64_C(0xFEC00000));
             assert(walk_page(&page_tables, UINT64_C(0xFEE01000)) == 0);
+
+            /* A pre-existing cacheable alias must not be silently reused. */
+            assert(vgk_paging_init(
+                       &page_tables, apic_page_pool, 8U, 48U, 1U) ==
+                   VGK_PAGING_OK);
+            assert(vgk_paging_map(
+                       &page_tables, UINT64_C(0xFEC00000),
+                       UINT64_C(0xFEC00000), VGK_PAGE_WRITE) ==
+                   VGK_PAGING_OK);
+            assert(vgk_paging_map_mmio_uc(
+                       &page_tables, UINT64_C(0xFEC00000),
+                       UINT64_C(0xFEC00000), VGK_BOOT_PAGE_SIZE) ==
+                   VGK_PAGING_ALREADY_MAPPED);
 
             /* A short output buffer fails without publishing a partial plan. */
             plan_count = 99U;
