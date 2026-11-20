@@ -290,12 +290,10 @@ static VGK_PAGING_RESULT map_identity_mmio_uc(
 
 
 /*
- * Count every identity-mapped object before allocating a single page-table
- * page. The stack is already contained in a writable, NX ELF segment.
- *
- * ACPI is validated here because that check depends on CPU physical-address
- * width and the normalized memory map. The shared builder receives only the
- * resulting validated RSDP length; all other range construction is shared.
+ * Count every standard object and validated APIC MMIO window before
+ * allocating a single page-table page. The stack is already contained in
+ * a writable, NX ELF segment. RSDP/MADT validation and APIC planning have
+ * already completed without modifying page tables.
  */
 static int page_table_pool_has_capacity(
     const VGK_BOOT_INFO *boot_info,
