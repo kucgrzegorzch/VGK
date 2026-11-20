@@ -5,6 +5,7 @@
 #include "vgk_cpu_features.h"
 #include "vgk_paging.h"
 #include "vgk_paging_preflight.h"
+#include "vgk_apic_mapping.h"
 #include "vgk_ist_stacks.h"
 #include "vgk_gdt.h"
 #include "vgk_interrupts.h"
@@ -79,6 +80,143 @@ static void serial_write_hex(uint64_t value)
     serial_write("0x");
     while (count != 0U)
         serial_write_char(buffer[--count]);
+}
+
+typedef struct {
+    uint64_t rsdp_length;
+    VGK_ACPI_MADT_INFO madt;
+    VGK_ACPI_MADT_MMIO_RANGE ranges[VGK_ACPI_MADT_MAX_MMIO_RANGES];
+    size_t range_count;
+    uint8_t plan_valid;
+} VGK_APIC_BOOT_CONTEXT;
+
+/*
+ * ACPI routines validate each physical range against the normalized firmware
+ * map before calling this reader. At this early boot stage the firmware's
+ * physical-address view is still available; this callback only copies bytes.
+ */
+static int kernel_acpi_read_physical(
+    void *context,
+    uint64_t physical_address,
+    uint8_t *destination,
+    size_t length)
+{
+    const volatile uint8_t *source;
+
+    (void)context;
+    if (physical_address == 0U || destination == 0 || length == 0U ||
+        physical_address > UINT64_MAX - (uint64_t)(length - 1U) ||
+        physical_address > (uint64_t)UINTPTR_MAX ||
+        (uintptr_t)(length - 1U) >
+            UINTPTR_MAX - (uintptr_t)physical_address)
+        return 0;
+
+    source = (const volatile uint8_t *)(uintptr_t)physical_address;
+    for (size_t i = 0U; i < length; ++i)
+        destination[i] = source[i];
+    return 1;
+}
+
+/*
+ * Validate RSDP/MADT and construct the APIC plan before page-table allocation.
+ * A missing/unsupported APIC plan is non-fatal: VGK can still prepare its
+ * other inactive mappings, but it will not prepare APIC MMIO windows.
+ */
+static int prepare_apic_boot_context(
+    const VGK_BOOT_INFO *boot_info,
+    const VGK_CPU_FEATURES *cpu_features,
+    VGK_APIC_BOOT_CONTEXT *context)
+{
+    const VGK_MEMORY_MAP_ENTRY *memory_map;
+    const volatile uint8_t *rsdp;
+    VGK_ACPI_TABLE_REF madt_ref;
+    VGK_ACPI_STATUS acpi_status;
+    VGK_APIC_MAPPING_RESULT apic_status;
+    uint64_t memory_map_entries;
+
+    if (boot_info == 0 || cpu_features == 0 || context == 0)
+        return 0;
+
+    context->rsdp_length = 0U;
+    context->range_count = 0U;
+    context->plan_valid = 0U;
+
+    if ((boot_info->flags & VGK_BOOT_FLAG_ACPI) == 0U)
+        return 1;
+
+    if (boot_info->memory_map_address == 0U ||
+        boot_info->memory_map_size == 0U ||
+        boot_info->memory_map_size % sizeof(VGK_MEMORY_MAP_ENTRY) != 0U)
+        return 0;
+
+    memory_map_entries =
+        boot_info->memory_map_size / sizeof(VGK_MEMORY_MAP_ENTRY);
+    if (memory_map_entries > SIZE_MAX)
+        return 0;
+
+    memory_map = (const VGK_MEMORY_MAP_ENTRY *)(uintptr_t)
+        boot_info->memory_map_address;
+    rsdp = (const volatile uint8_t *)(uintptr_t)
+        boot_info->acpi_rsdp_address;
+
+    if (!vgk_acpi_rsdp_validate(
+            memory_map, (size_t)memory_map_entries,
+            boot_info->acpi_rsdp_address,
+            cpu_features->physical_address_bits,
+            rsdp, &context->rsdp_length))
+        return 0;
+
+    serial_write("VGK: RSDP ACPI zweryfikowany.\r\n");
+
+    if (cpu_features->local_apic_supported == 0U ||
+        cpu_features->apic_base_valid == 0U ||
+        cpu_features->mmio_uc_supported == 0U ||
+        cpu_features->nx_supported == 0U) {
+        serial_write("VGK: APIC MMIO pominięte; brak wymaganych możliwości CPU/PAT.\r\n");
+        return 1;
+    }
+
+    acpi_status = vgk_acpi_find_madt(
+        memory_map, (size_t)memory_map_entries,
+        boot_info->acpi_rsdp_address, rsdp,
+        cpu_features->physical_address_bits,
+        kernel_acpi_read_physical, 0, &madt_ref);
+    if (acpi_status != VGK_ACPI_OK) {
+        serial_write("VGK: MADT niedostępny lub niepoprawny; APIC MMIO pominięte, kod = ");
+        serial_write_hex((uint64_t)acpi_status);
+        serial_write("\r\n");
+        return 1;
+    }
+
+    acpi_status = vgk_acpi_madt_parse(
+        memory_map, (size_t)memory_map_entries,
+        cpu_features->physical_address_bits,
+        kernel_acpi_read_physical, 0, &madt_ref, &context->madt);
+    if (acpi_status != VGK_ACPI_OK) {
+        serial_write("VGK: MADT nie przeszedł walidacji; APIC MMIO pominięte, kod = ");
+        serial_write_hex((uint64_t)acpi_status);
+        serial_write("\r\n");
+        return 1;
+    }
+
+    apic_status = vgk_apic_build_mmio_plan(
+        cpu_features, &context->madt,
+        memory_map, (size_t)memory_map_entries,
+        context->ranges, VGK_ACPI_MADT_MAX_MMIO_RANGES,
+        &context->range_count);
+    if (apic_status != VGK_APIC_MAPPING_OK) {
+        context->range_count = 0U;
+        serial_write("VGK: plan APIC MMIO nie został zaakceptowany; mapowania pominięte, kod = ");
+        serial_write_hex((uint64_t)apic_status);
+        serial_write("\r\n");
+        return 1;
+    }
+
+    context->plan_valid = 1U;
+    serial_write("VGK: zweryfikowany plan APIC MMIO; zakresy = ");
+    serial_write_hex((uint64_t)context->range_count);
+    serial_write("\r\n");
+    return 1;
 }
 
 static int page_table_pool_is_zeroed(const VGK_BOOT_INFO *boot_info)
@@ -164,42 +302,38 @@ static VGK_PAGING_RESULT map_identity_mmio_uc(
 static int page_table_pool_has_capacity(
     const VGK_BOOT_INFO *boot_info,
     const VGK_CPU_FEATURES *cpu_features,
+    const VGK_APIC_BOOT_CONTEXT *apic_context,
     int framebuffer_is_uncacheable)
 {
     VGK_PAGING_REQUIREMENTS requirements;
-    uint64_t rsdp_length = 0U;
+    VGK_PAGING_VIRTUAL_RANGE additional_ranges[
+        VGK_ACPI_MADT_MAX_MMIO_RANGES];
+    size_t additional_count = 0U;
     VGK_PAGING_PREFLIGHT_RESULT preflight_result;
 
-    if (boot_info == 0 || cpu_features == 0)
+    if (boot_info == 0 || cpu_features == 0 || apic_context == 0 ||
+        apic_context->plan_valid > 1U ||
+        apic_context->range_count > VGK_ACPI_MADT_MAX_MMIO_RANGES)
         return 0;
 
-    if ((boot_info->flags & VGK_BOOT_FLAG_ACPI) != 0U) {
-        size_t memory_map_count;
-        const VGK_MEMORY_MAP_ENTRY *memory_map;
-        const volatile uint8_t *rsdp;
-
-        if (boot_info->memory_map_size % sizeof(VGK_MEMORY_MAP_ENTRY) != 0U)
-            return 0;
-        memory_map = (const VGK_MEMORY_MAP_ENTRY *)(uintptr_t)
-            boot_info->memory_map_address;
-        memory_map_count = (size_t)(
-            boot_info->memory_map_size / sizeof(VGK_MEMORY_MAP_ENTRY));
-        rsdp = (const volatile uint8_t *)(uintptr_t)
-            boot_info->acpi_rsdp_address;
-        if (!vgk_acpi_rsdp_validate(
-                memory_map, memory_map_count,
-                boot_info->acpi_rsdp_address,
-                cpu_features->physical_address_bits,
-                rsdp, &rsdp_length))
-            return 0;
+    if (apic_context->plan_valid != 0U) {
+        additional_count = apic_context->range_count;
+        for (size_t i = 0U; i < additional_count; ++i) {
+            additional_ranges[i].virtual_address =
+                apic_context->ranges[i].physical_base;
+            additional_ranges[i].length = apic_context->ranges[i].length;
+        }
     }
 
-    preflight_result = vgk_paging_preflight_calculate(
-        boot_info,
-        (uint64_t)(uintptr_t)boot_info,
-        rsdp_length,
-        framebuffer_is_uncacheable,
-        &requirements);
+    preflight_result =
+        vgk_paging_preflight_calculate_with_additional_ranges(
+            boot_info,
+            (uint64_t)(uintptr_t)boot_info,
+            apic_context->rsdp_length,
+            framebuffer_is_uncacheable,
+            additional_count != 0U ? additional_ranges : 0,
+            additional_count,
+            &requirements);
     if (preflight_result != VGK_PAGING_PREFLIGHT_OK) {
         serial_write("VGK: wspolny preflight tablic stron odrzucil dane, kod = ");
         serial_write_hex((uint64_t)preflight_result);
@@ -253,6 +387,7 @@ static int map_acpi_root_pointer(
 static int build_inactive_page_tables(
     const VGK_BOOT_INFO *boot_info,
     const VGK_CPU_FEATURES *cpu_features,
+    const VGK_APIC_BOOT_CONTEXT *apic_context,
     VGK_PAGE_TABLES *tables)
 {
     VGK_PAGING_RESULT result;
@@ -261,7 +396,8 @@ static int build_inactive_page_tables(
     int stack_is_writable = 0;
     int framebuffer_is_uncacheable = 0;
 
-    if (boot_info == 0 || cpu_features == 0 || tables == 0 ||
+    if (boot_info == 0 || cpu_features == 0 ||
+        apic_context == 0 || tables == 0 ||
         cpu_features->nx_supported == 0U ||
         cpu_features->physical_address_bits < 32U ||
         stack_start == 0U || stack_end <= stack_start)
@@ -285,7 +421,8 @@ static int build_inactive_page_tables(
         framebuffer_is_uncacheable = cpu_features->mmio_uc_supported != 0U;
 
     if (!page_table_pool_has_capacity(
-            boot_info, cpu_features, framebuffer_is_uncacheable)) {
+            boot_info, cpu_features, apic_context,
+            framebuffer_is_uncacheable)) {
         serial_write("VGK: pula tablic stron za mala lub nie mozna zweryfikowac mapowan.\r\n");
         return 0;
     }
@@ -398,6 +535,43 @@ static int build_inactive_page_tables(
             }
             serial_write("VGK: framebuffer GOP zmapowany RW+NX; PCD+PWT zweryfikowane jako UC.\r\n");
         }
+    }
+
+    if (apic_context->plan_valid != 0U) {
+        const VGK_MEMORY_MAP_ENTRY *memory_map =
+            (const VGK_MEMORY_MAP_ENTRY *)(uintptr_t)
+                boot_info->memory_map_address;
+        size_t memory_map_count = (size_t)(
+            boot_info->memory_map_size / sizeof(VGK_MEMORY_MAP_ENTRY));
+        VGK_ACPI_MADT_MMIO_RANGE applied_ranges[
+            VGK_ACPI_MADT_MAX_MMIO_RANGES];
+        size_t applied_count = 0U;
+        VGK_APIC_MAPPING_RESULT apic_result =
+            vgk_apic_prepare_mmio_mappings(
+                cpu_features, &apic_context->madt,
+                memory_map, memory_map_count,
+                tables, applied_ranges,
+                VGK_ACPI_MADT_MAX_MMIO_RANGES, &applied_count);
+
+        if (apic_result != VGK_APIC_MAPPING_OK ||
+            applied_count != apic_context->range_count) {
+            serial_write("VGK: nie udalo sie zastosowac kompletnego planu APIC MMIO; odrzucam nieaktywne tablice, kod = ");
+            serial_write_hex((uint64_t)apic_result);
+            serial_write("\r\n");
+            return 0;
+        }
+
+        for (size_t i = 0U; i < applied_count; ++i) {
+            if (applied_ranges[i].physical_base !=
+                    apic_context->ranges[i].physical_base ||
+                applied_ranges[i].length != apic_context->ranges[i].length ||
+                applied_ranges[i].kind != apic_context->ranges[i].kind)
+                return 0;
+        }
+
+        serial_write("VGK: APIC MMIO przygotowane w nieaktywnych tablicach; zakresy = ");
+        serial_write_hex((uint64_t)applied_count);
+        serial_write("\r\n");
     }
 
     return vgk_paging_root_physical(tables) ==
@@ -617,7 +791,12 @@ __attribute__((noreturn))
 void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
 {
     VGK_CPU_FEATURES cpu_features;
+    VGK_APIC_BOOT_CONTEXT apic_context;
     int cpu_features_valid;
+
+    apic_context.rsdp_length = 0U;
+    apic_context.range_count = 0U;
+    apic_context.plan_valid = 0U;
 
     serial_init();
     serial_write("\r\nVGK: uruchomiono wlasne jadro.\r\n");
@@ -731,6 +910,14 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
 
     cpu_features_valid =
         vgk_cpu_detect_features(&cpu_features) == VGK_CPU_OK;
+    if (cpu_features_valid &&
+        !prepare_apic_boot_context(
+            boot_info, &cpu_features, &apic_context)) {
+        serial_write("VGK: nie mozna zweryfikowac ACPI RSDP; zatrzymanie przed budowa tablic stron.\\r\\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
     {
         if (cpu_features_valid) {
             serial_write("VGK: procesor obsluguje NX; wykryto szerokosc adresu fizycznego.\r\n");
@@ -776,7 +963,8 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
     if (cpu_features_valid) {
         VGK_PAGE_TABLES inactive_tables;
         if (!build_inactive_page_tables(
-                boot_info, &cpu_features, &inactive_tables)) {
+                boot_info, &cpu_features, &apic_context,
+                &inactive_tables)) {
             serial_write("VGK: BLAD budowania nieaktywnych mapowan stron.\r\n");
             for (;;) {
                 __asm__ volatile ("cli; hlt");
