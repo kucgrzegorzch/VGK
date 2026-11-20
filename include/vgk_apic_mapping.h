@@ -17,9 +17,28 @@ typedef enum {
 } VGK_APIC_MAPPING_RESULT;
 
 /*
- * Validate the current CPU/APIC/PAT state, build the MADT-derived device
- * page plan, validate it against the firmware memory map, and apply it to
- * caller-owned inactive page tables as identity-mapped RW+NX+UC pages.
+ * Validate CPU/APIC/PAT state and construct a MADT-derived MMIO plan.
+ * Every planned device page must be covered by a single MMIO or RESERVED
+ * firmware descriptor. The returned ranges are physical, page-aligned,
+ * pointer-free records; no page tables or hardware registers are touched.
+ *
+ * This is the planning half of the two-stage process. Callers can convert
+ * these identity-mapped ranges to VGK_PAGING_VIRTUAL_RANGE entries and
+ * include them in the page-table capacity preflight before allocating or
+ * modifying page tables.
+ */
+VGK_APIC_MAPPING_RESULT vgk_apic_build_mmio_plan(
+    const VGK_CPU_FEATURES *cpu,
+    const VGK_ACPI_MADT_INFO *madt,
+    const VGK_MEMORY_MAP_ENTRY *memory_map,
+    size_t memory_map_count,
+    VGK_ACPI_MADT_MMIO_RANGE *ranges_out,
+    size_t range_capacity,
+    size_t *range_count_out);
+
+/*
+ * Apply a previously validated CPU/MADT/memory-map plan to caller-owned
+ * inactive page tables as identity-mapped RW+NX+UC pages.
  *
  * This function does not read or write MSRs, touch MMIO, activate CR3,
  * program either APIC, or enable interrupts. If paging fails after one or

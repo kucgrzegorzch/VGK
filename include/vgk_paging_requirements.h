@@ -4,8 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-/* The current boot protocol can contribute at most 16 ELF segments plus
- * boot info, memory map, page-table pool, framebuffer and ACPI RSDP. */
+/* Up to 16 ELF segments, five standard objects, and nine APIC MMIO pages
+ * fit within this bounded list (30 entries); two slots remain reserved. */
 #define VGK_PAGING_REQUIREMENTS_MAX_RANGES 32U
 
 typedef struct {
