@@ -134,6 +134,16 @@ int main(void)
            VGK_APIC_MAPPING_INVALID_ARGUMENT);
     assert(count == 0U);
 
+    /* The complete inactive table pool must fit the CPU physical range. */
+    assert(vgk_paging_init(&tables, page_pool, 8U, 48U, 1U) ==
+           VGK_PAGING_OK);
+    tables.pool_pages = SIZE_MAX / (size_t)VGK_BOOT_PAGE_SIZE + 1U;
+    assert(vgk_apic_prepare_mmio_mappings(
+               &cpu, &madt, map, 2U, &tables, ranges,
+               VGK_ACPI_MADT_MAX_MMIO_RANGES, &count) ==
+           VGK_APIC_MAPPING_INVALID_ARGUMENT);
+    assert(count == 0U);
+
     /* Ordinary RAM must never be accepted as an APIC device window. */
     assert(vgk_paging_init(&tables, page_pool, 8U, 48U, 1U) ==
            VGK_PAGING_OK);
