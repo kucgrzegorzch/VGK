@@ -125,6 +125,27 @@ static VGK_PAGING_RESULT map_identity_object(
         tables, page_base, page_base, length + offset, permissions);
 }
 
+static VGK_PAGING_RESULT map_identity_mmio_uc(
+    VGK_PAGE_TABLES *tables,
+    uint64_t address,
+    uint64_t length)
+{
+    const uint64_t page_mask = VGK_PAGING_PAGE_SIZE - 1U;
+    uint64_t page_base;
+    uint64_t offset;
+
+    if (address == 0U || length == 0U)
+        return VGK_PAGING_INVALID_ARGUMENT;
+
+    page_base = address & ~page_mask;
+    offset = address - page_base;
+    if (length > UINT64_MAX - offset)
+        return VGK_PAGING_BAD_ADDRESS;
+
+    return vgk_paging_map_mmio_uc(
+        tables, page_base, page_base, length + offset);
+}
+
 /*
  * PCD+PWT selects PAT entry 3 on PAT-capable CPUs. Verify that this
  * entry is UC before preparing a framebuffer mapping with those bits.
@@ -397,11 +418,8 @@ static int build_inactive_page_tables(
                 framebuffer_length > boot_info->framebuffer_size)
                 return 0;
 
-            result = map_identity_object(
-                tables, boot_info->framebuffer_base,
-                framebuffer_length,
-                VGK_PAGE_WRITE | VGK_PAGE_CACHE_DISABLE |
-                    VGK_PAGE_WRITE_THROUGH);
+            result = map_identity_mmio_uc(
+                tables, boot_info->framebuffer_base, framebuffer_length);
             if (result != VGK_PAGING_OK) {
                 serial_write("VGK: blad mapowania framebufferu GOP, kod = ");
                 serial_write_hex((uint64_t)result);
