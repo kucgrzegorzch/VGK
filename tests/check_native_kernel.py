@@ -80,6 +80,30 @@ if set(symbols) != required_ist_stacks:
     missing = sorted(required_ist_stacks - set(symbols))
     raise SystemExit("FAIL: missing IST stack symbols: " + ", ".join(missing))
 
+# The normal kernel prepares a complete 256-entry IDT and its 10-byte IDTR,
+# but must not execute LIDT yet.
+descriptor_symbols = {}
+for line in nm_output.splitlines():
+    fields = line.split()
+    if len(fields) >= 4 and fields[3] in {"vgk_kernel_idt", "vgk_kernel_idtr"}:
+        try:
+            descriptor_symbols[fields[3]] = (
+                int(fields[0], 16), int(fields[1], 16), fields[2]
+            )
+        except ValueError:
+            raise SystemExit("FAIL: malformed IDT/IDTR symbol from nm")
+
+if set(descriptor_symbols) != {"vgk_kernel_idt", "vgk_kernel_idtr"}:
+    raise SystemExit("FAIL: missing prepared full IDT or IDTR object")
+
+idt_address, idt_size, idt_type = descriptor_symbols["vgk_kernel_idt"]
+if idt_type.lower() != "b" or idt_size != 256 * 16 or idt_address % 16 != 0:
+    raise SystemExit("FAIL: prepared IDT must be a 4096-byte, 16-byte-aligned BSS object")
+
+idtr_address, idtr_size, idtr_type = descriptor_symbols["vgk_kernel_idtr"]
+if idtr_type.lower() != "b" or idtr_size != 10 or idtr_address % 16 != 0:
+    raise SystemExit("FAIL: prepared IDTR must be a 10-byte, 16-byte-aligned BSS object")
+
 for name, (address, size, symbol_type) in symbols.items():
     if symbol_type.lower() != "b" or size != 16 * 1024:
         raise SystemExit(f"FAIL: {name} must be a 16 KiB BSS object")
