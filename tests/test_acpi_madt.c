@@ -206,6 +206,25 @@ int main(void)
         assert(madt.length == 44U);
     }
 
+    /* ACPI 2+ with a zero XSDT pointer falls back to the 32-bit RSDT. */
+    make_valid_xsdt_madt();
+    {
+        uint8_t *rsdt = physical_memory + ROOT_OFFSET;
+        make_sdt(rsdt, "RSDT", 40U, 1U);
+        for (size_t i = 0; i < 4U; ++i)
+            rsdt[36U + i] = (uint8_t)(
+                (PHYS_BASE + MADT_OFFSET) >> (i * 8U));
+        set_checksum(rsdt, 40U, 9U);
+        make_rsdp(2U, PHYS_BASE + ROOT_OFFSET, 0);
+        assert(find_madt(&madt, 0) == VGK_ACPI_OK);
+        assert(madt.physical_address == PHYS_BASE + MADT_OFFSET);
+    }
+
+    assert(vgk_acpi_find_madt(
+        memory_map, 1U, PHYS_BASE + RSDP_OFFSET,
+        physical_memory + RSDP_OFFSET, 48U, 0, 0, &madt) ==
+        VGK_ACPI_INVALID_ARGUMENT);
+
     /* Invalid RSDP is rejected before the physical reader is called. */
     make_valid_xsdt_madt();
     physical_memory[RSDP_OFFSET] = 'X';
