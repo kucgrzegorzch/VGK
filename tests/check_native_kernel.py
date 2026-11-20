@@ -122,6 +122,13 @@ for name, (address, size, symbol_type) in symbols.items():
 if not any((flags & 7) == 4 for _, _, flags in loads):
     raise SystemExit("FAIL: expected a dedicated read-only, non-executable PT_LOAD segment")
 
+defined_names = {
+    line.split()[-1] for line in nm_output.splitlines() if line.split()
+}
+for symbol in ("vgk_apic_build_mmio_plan", "vgk_apic_prepare_mmio_mappings"):
+    if symbol not in defined_names:
+        raise SystemExit(f"FAIL: native kernel is missing APIC preparation symbol: {symbol}")
+
 disassembly = subprocess.run(
     ["objdump", "-d", path],
     check=True, capture_output=True, text=True
@@ -138,4 +145,4 @@ for line in disassembly.splitlines():
         )
 
 
-print(f"OK: native VGK ELF64 x86-64; entry=0x{entry:x}; PT_LOAD={len(loads)}; RX/R/RW separated; LGDT/LTR/LIDT/CR3 writes absent")
+print(f"OK: native VGK ELF64 x86-64; entry=0x{entry:x}; PT_LOAD={len(loads)}; RX/R/RW separated; APIC planning linked; LGDT/LTR/LIDT/WRMSR/STI/CR3 activation absent")
