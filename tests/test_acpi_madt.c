@@ -355,6 +355,16 @@ int main(void)
         assert(info.overrides[0].source == 1U);
         assert(info.overrides[0].gsi == 1U);
         assert(info.overrides[0].flags == 0U);
+        assert(info.nmi_source_count == 1U);
+        assert(info.nmi_sources[0].gsi == 2U);
+        assert(info.nmi_sources[0].flags == 0U);
+        assert(info.local_nmi_count == 2U);
+        assert(info.local_nmis[0].processor_uid == 1U);
+        assert(info.local_nmis[0].lint == 1U);
+        assert(info.local_nmis[0].x2apic == 0U);
+        assert(info.local_nmis[1].processor_uid == 2U);
+        assert(info.local_nmis[1].lint == 0U);
+        assert(info.local_nmis[1].x2apic == 1U);
     }
 
     /* Duplicate processor UID/APIC ID values are rejected. */
@@ -386,6 +396,20 @@ int main(void)
         VGK_ACPI_MADT_INFO info;
         assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
         assert(info.override_count == 0U);
+    }
+
+    /* Duplicate NMI source GSI records are ambiguous and rejected. */
+    make_rich_xsdt_madt();
+    {
+        uint8_t *madt = physical_memory + MADT_OFFSET;
+        /* Turn the type-4 NMI record at offset 82 into a second type-3 source. */
+        madt[82U] = 3U; madt[83U] = 8U;
+        put_le16(madt + 84U, 0U);
+        put_le32(madt + 86U, 2U);
+        set_checksum(madt, 130U, 9U);
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+        assert(info.nmi_source_count == 0U);
     }
 
     /* A one-byte record cannot make forward progress through the table. */
