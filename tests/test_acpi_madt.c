@@ -406,13 +406,31 @@ int main(void)
         assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
     }
 
-    /* A callback failure during table parsing is returned to the caller. */
+    /* The parser rejects a forged reference with a mismatched length. */
     make_rich_xsdt_madt();
     {
+        VGK_ACPI_TABLE_REF ref;
+        VGK_ACPI_MADT_INFO info;
+        assert(find_madt(&ref, 0) == VGK_ACPI_OK);
+        --ref.length;
+        assert(vgk_acpi_madt_parse(
+            memory_map, 1U, 48U, read_physical, 0, &ref, &info) ==
+            VGK_ACPI_BAD_TABLE);
+        assert(info.processor_count == 0U &&
+               info.ioapic_count == 0U &&
+               info.override_count == 0U);
+    }
+
+    /* A callback failure during MADT parsing is returned to the caller. */
+    make_rich_xsdt_madt();
+    {
+        VGK_ACPI_TABLE_REF ref;
         VGK_ACPI_MADT_INFO info;
         int fail_reads = 1;
-        assert(parse_current_madt(&info, &fail_reads) ==
-               VGK_ACPI_READ_FAILED);
+        assert(find_madt(&ref, 0) == VGK_ACPI_OK);
+        assert(vgk_acpi_madt_parse(
+            memory_map, 1U, 48U, read_physical, &fail_reads,
+            &ref, &info) == VGK_ACPI_READ_FAILED);
         assert(info.processor_count == 0U &&
                info.ioapic_count == 0U &&
                info.override_count == 0U);
