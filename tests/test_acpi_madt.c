@@ -13,7 +13,7 @@
 #define OTHER_OFFSET 0x4000U
 
 static uint8_t physical_memory[PHYS_SIZE];
-static VGK_MEMORY_MAP_ENTRY memory_map[1];
+static VGK_MEMORY_MAP_ENTRY memory_map[3];
 
 static void set_checksum(uint8_t *bytes, size_t length, size_t offset)
 {
@@ -183,7 +183,7 @@ static int read_physical(void *context, uint64_t address,
 static VGK_ACPI_STATUS find_madt(VGK_ACPI_TABLE_REF *out, int *fail_reads)
 {
     return vgk_acpi_find_madt(
-        memory_map, 1U,
+        memory_map, 3U,
         PHYS_BASE + RSDP_OFFSET,
         physical_memory + RSDP_OFFSET,
         48U, read_physical, fail_reads, out);
@@ -198,7 +198,7 @@ static VGK_ACPI_STATUS parse_current_madt(
     if (status != VGK_ACPI_OK)
         return status;
     return vgk_acpi_madt_parse(
-        memory_map, 1U, 48U, read_physical, fail_reads, &madt, info);
+        memory_map, 3U, 48U, read_physical, fail_reads, &madt, info);
 }
 
 int main(void)
@@ -207,6 +207,10 @@ int main(void)
 
     memory_map[0] = (VGK_MEMORY_MAP_ENTRY){
         PHYS_BASE, PHYS_SIZE, VGK_MEMORY_ACPI_RECLAIM, 0U};
+    memory_map[1] = (VGK_MEMORY_MAP_ENTRY){
+        UINT64_C(0xFEC00000), UINT64_C(0x1000), VGK_MEMORY_MMIO, 0U};
+    memory_map[2] = (VGK_MEMORY_MAP_ENTRY){
+        UINT64_C(0xFEE00000), UINT64_C(0x2000), VGK_MEMORY_MMIO, 0U};
 
     make_valid_xsdt_madt();
     assert(find_madt(&madt, 0) == VGK_ACPI_OK);
@@ -367,6 +371,62 @@ int main(void)
         assert(info.local_nmis[1].x2apic == 1U);
     }
 
+    /* Firmware may classify a device aperture as generic reserved memory. */
+    make_rich_xsdt_madt();
+    memory_map[2].type = VGK_MEMORY_RESERVED;
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_OK);
+    }
+    memory_map[2].type = VGK_MEMORY_MMIO;
+
+    /* A gap in the normalized map cannot be treated as an MMIO aperture. */
+    make_rich_xsdt_madt();
+    {
+        VGK_ACPI_TABLE_REF ref;
+        VGK_ACPI_MADT_INFO info;
+        assert(find_madt(&ref, 0) == VGK_ACPI_OK);
+        memory_map[2].base = UINT64_C(0xFEE02000);
+        assert(vgk_acpi_madt_parse(
+            memory_map, 3U, 48U, read_physical, 0, &ref, &info) ==
+            VGK_ACPI_BAD_TABLE);
+        memory_map[2].base = UINT64_C(0xFEE00000);
+    }
+
+    /* Overlapping normalized descriptors invalidate the APIC range proof. */
+    {
+        VGK_ACPI_TABLE_REF ref;
+        VGK_ACPI_MADT_INFO info;
+        assert(find_madt(&ref, 0) == VGK_ACPI_OK);
+        memory_map[2].base = UINT64_C(0xFEC00800);
+        assert(vgk_acpi_madt_parse(
+            memory_map, 3U, 48U, read_physical, 0, &ref, &info) ==
+            VGK_ACPI_BAD_TABLE);
+        memory_map[2].base = UINT64_C(0xFEE00000);
+    }
+
+    /* An I/O APIC address inside ACPI reclaimable RAM is not MMIO. */
+    make_rich_xsdt_madt();
+    put_le32(physical_memory + MADT_OFFSET + 56U,
+             (uint32_t)(PHYS_BASE + UINT64_C(0x9000)));
+    set_checksum(physical_memory + MADT_OFFSET, 130U, 9U);
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+        assert(info.ioapic_count == 0U);
+    }
+
+    /* A Local APIC override into ACPI table memory is rejected as well. */
+    make_rich_xsdt_madt();
+    put_le64(physical_memory + MADT_OFFSET + 92U,
+             PHYS_BASE + UINT64_C(0x8000));
+    set_checksum(physical_memory + MADT_OFFSET, 130U, 9U);
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+        assert(info.local_apic_address == 0U);
+    }
+
     /* Duplicate processor UID/APIC ID values are rejected. */
     make_rich_xsdt_madt();
     put_le32(physical_memory + MADT_OFFSET + 112U, 1U);
@@ -466,7 +526,7 @@ int main(void)
         assert(find_madt(&ref, 0) == VGK_ACPI_OK);
         --ref.length;
         assert(vgk_acpi_madt_parse(
-            memory_map, 1U, 48U, read_physical, 0, &ref, &info) ==
+            memory_map, 3U, 48U, read_physical, 0, &ref, &info) ==
             VGK_ACPI_BAD_TABLE);
         assert(info.processor_count == 0U &&
                info.ioapic_count == 0U &&
@@ -481,7 +541,7 @@ int main(void)
         int fail_reads = 1;
         assert(find_madt(&ref, 0) == VGK_ACPI_OK);
         assert(vgk_acpi_madt_parse(
-            memory_map, 1U, 48U, read_physical, &fail_reads,
+            memory_map, 3U, 48U, read_physical, &fail_reads,
             &ref, &info) == VGK_ACPI_READ_FAILED);
         assert(info.processor_count == 0U &&
                info.ioapic_count == 0U &&
