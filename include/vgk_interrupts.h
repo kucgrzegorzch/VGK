@@ -33,6 +33,7 @@ typedef enum {
 #define VGK_IDT_GATE_INTERRUPT 0x0EU
 #define VGK_IDT_GATE_TRAP      0x0FU
 
+/* code_selector must be a nonzero ring-0 selector in the GDT (RPL=0, TI=0). */
 VGK_INTERRUPT_STATUS vgk_idt_gate_build(
     VGK_IDT_GATE *gate,
     uint64_t handler,
