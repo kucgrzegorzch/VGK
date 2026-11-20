@@ -46,6 +46,7 @@ static void assert_uc_nx_mmio_leaf(
     assert((*leaf & tables->physical_mask) == physical_address);
     assert((*leaf & UINT64_C(0x018)) == UINT64_C(0x018));
     assert((*leaf & UINT64_C(0x2)) != 0U);
+    assert((*leaf & UINT64_C(0x4)) == 0U);
     assert((*leaf & (UINT64_C(1) << 63)) != 0U);
 }
 
