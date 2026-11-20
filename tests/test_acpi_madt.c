@@ -402,11 +402,12 @@ int main(void)
     make_rich_xsdt_madt();
     {
         uint8_t *madt = physical_memory + MADT_OFFSET;
-        /* Turn the type-4 NMI record at offset 82 into a second type-3 source. */
-        madt[82U] = 3U; madt[83U] = 8U;
-        put_le16(madt + 84U, 0U);
-        put_le32(madt + 86U, 2U);
-        set_checksum(madt, 130U, 9U);
+        madt[4U] = 138U; madt[5U] = 0U;
+        madt[6U] = 0U; madt[7U] = 0U;
+        madt[128U] = 3U; madt[129U] = 8U;
+        put_le16(madt + 130U, 0U);
+        put_le32(madt + 132U, 2U);
+        set_checksum(madt, 138U, 9U);
         VGK_ACPI_MADT_INFO info;
         assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
         assert(info.nmi_source_count == 0U);
