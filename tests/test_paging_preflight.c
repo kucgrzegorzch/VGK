@@ -100,5 +100,87 @@ int main(void)
     CHECK(vgk_paging_preflight_calculate(
               &info, UINT64_C(0x600000), 0U, 0, 0) ==
           VGK_PAGING_PREFLIGHT_INVALID_ARGUMENT);
+
+    /*
+     * Validated device windows are included before page-table allocation.
+     * The combined result must equal the direct calculation over the
+     * standard object list plus the two additional identity ranges.
+     */
+    {
+        VGK_PAGING_VIRTUAL_RANGE extra[2] = {
+            {UINT64_C(0xFEE01000), VGK_BOOT_PAGE_SIZE},
+            {UINT64_C(0xFEC00000), VGK_BOOT_PAGE_SIZE}
+        };
+        VGK_PAGING_VIRTUAL_RANGE all[VGK_PAGING_REQUIREMENTS_MAX_RANGES];
+        size_t all_count = 0U;
+        VGK_PAGING_REQUIREMENTS base;
+        VGK_PAGING_REQUIREMENTS combined;
+        VGK_PAGING_REQUIREMENTS direct;
+
+        info = sample_info();
+        CHECK(vgk_paging_preflight_calculate(
+                  &info, UINT64_C(0x600000), 0U, 0, &base) ==
+              VGK_PAGING_PREFLIGHT_OK);
+        CHECK(vgk_paging_preflight_calculate_with_additional_ranges(
+                  &info, UINT64_C(0x600000), 0U, 0,
+                  extra, 2U, &combined) == VGK_PAGING_PREFLIGHT_OK);
+        CHECK(combined.total_pages > base.total_pages);
+
+        CHECK(vgk_paging_ranges_build(
+                  &info, UINT64_C(0x600000), 0U, 0, all,
+                  VGK_PAGING_REQUIREMENTS_MAX_RANGES, &all_count) ==
+              VGK_PAGING_RANGES_OK);
+        CHECK(all_count + 2U <= VGK_PAGING_REQUIREMENTS_MAX_RANGES);
+        all[all_count++] = extra[0];
+        all[all_count++] = extra[1];
+        CHECK(vgk_paging_requirements_calculate(
+                  all, all_count, &direct) == VGK_PAGING_REQUIREMENTS_OK);
+        CHECK(combined.pml4_pages == direct.pml4_pages);
+        CHECK(combined.pdpt_pages == direct.pdpt_pages);
+        CHECK(combined.pd_pages == direct.pd_pages);
+        CHECK(combined.pt_pages == direct.pt_pages);
+        CHECK(combined.total_pages == direct.total_pages);
+
+        /* An extra range already covered by a kernel segment adds no pages. */
+        extra[0].virtual_address = UINT64_C(0x200000);
+        extra[0].length = VGK_BOOT_PAGE_SIZE;
+        CHECK(vgk_paging_preflight_calculate_with_additional_ranges(
+                  &info, UINT64_C(0x600000), 0U, 0,
+                  extra, 1U, &combined) == VGK_PAGING_PREFLIGHT_OK);
+        CHECK(combined.total_pages == base.total_pages);
+
+        /* Null, malformed, noncanonical and over-capacity extras fail closed. */
+        CHECK(vgk_paging_preflight_calculate_with_additional_ranges(
+                  &info, UINT64_C(0x600000), 0U, 0,
+                  0, 1U, &requirements) ==
+              VGK_PAGING_PREFLIGHT_INVALID_ARGUMENT);
+        CHECK(requirements_are_zero(&requirements));
+
+        extra[0].length = 0U;
+        CHECK(vgk_paging_preflight_calculate_with_additional_ranges(
+                  &info, UINT64_C(0x600000), 0U, 0,
+                  extra, 1U, &requirements) ==
+              VGK_PAGING_PREFLIGHT_REQUIREMENTS_BAD_RANGE);
+        CHECK(requirements_are_zero(&requirements));
+
+        extra[0].virtual_address = UINT64_C(0x0000800000000000);
+        extra[0].length = VGK_BOOT_PAGE_SIZE;
+        CHECK(vgk_paging_preflight_calculate_with_additional_ranges(
+                  &info, UINT64_C(0x600000), 0U, 0,
+                  extra, 1U, &requirements) ==
+              VGK_PAGING_PREFLIGHT_REQUIREMENTS_BAD_RANGE);
+        CHECK(requirements_are_zero(&requirements));
+
+        for (size_t i = 0U; i < VGK_PAGING_REQUIREMENTS_MAX_RANGES; ++i) {
+            extra[i % 2U].virtual_address =
+                UINT64_C(0x100000000) + (uint64_t)i * VGK_BOOT_PAGE_SIZE;
+            extra[i % 2U].length = VGK_BOOT_PAGE_SIZE;
+        }
+        CHECK(vgk_paging_preflight_calculate_with_additional_ranges(
+                  &info, UINT64_C(0x600000), 0U, 0,
+                  extra, VGK_PAGING_REQUIREMENTS_MAX_RANGES,
+                  &requirements) == VGK_PAGING_PREFLIGHT_RANGE_TOO_MANY);
+        CHECK(requirements_are_zero(&requirements));
+    }
     return 0;
 }
