@@ -486,8 +486,7 @@ static int madt_add_local_nmi(
 
     for (uint32_t i = 0; i < info->local_nmi_count; ++i) {
         if (info->local_nmis[i].processor_uid == processor_uid &&
-            info->local_nmis[i].lint == lint &&
-            info->local_nmis[i].x2apic == x2apic)
+            info->local_nmis[i].lint == lint)
             return 0;
     }
 
