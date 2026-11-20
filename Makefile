@@ -131,7 +131,7 @@ build/apic_mapping_uefi.obj: src/apic_mapping.c include/vgk_apic_mapping.h inclu
 
 apic-mapping-compile-test: build/apic_mapping_native.o build/apic_mapping_uefi.obj
 
-acpi-test: | build
+acpi-test: apic-mapping-compile-test | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/acpi.c tests/test_acpi.c -o build/test_acpi
 	./build/test_acpi
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/acpi.c src/paging.c tests/test_acpi_madt.c -o build/test_acpi_madt
