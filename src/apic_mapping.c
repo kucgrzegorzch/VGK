@@ -33,6 +33,8 @@ VGK_APIC_MAPPING_RESULT vgk_apic_prepare_mmio_mappings(
     VGK_ACPI_STATUS acpi_status;
     uint64_t physical_limit;
     uint64_t expected_physical_mask;
+    uint64_t pool_address;
+    size_t pool_bytes;
 
     if (range_count_out != 0)
         *range_count_out = 0U;
@@ -86,6 +88,15 @@ VGK_APIC_MAPPING_RESULT vgk_apic_prepare_mmio_mappings(
         inactive_tables->physical_bits != cpu->physical_address_bits ||
         inactive_tables->physical_mask != expected_physical_mask ||
         inactive_tables->nx_supported != 1U)
+        return VGK_APIC_MAPPING_INVALID_ARGUMENT;
+
+    pool_address = (uint64_t)(uintptr_t)inactive_tables->pool;
+    pool_bytes = inactive_tables->pool_pages *
+        (size_t)VGK_BOOT_PAGE_SIZE;
+    if (pool_address > physical_limit ||
+        (uint64_t)(pool_bytes - 1U) > physical_limit - pool_address ||
+        (uintptr_t)(pool_bytes - 1U) >
+            UINTPTR_MAX - (uintptr_t)inactive_tables->pool)
         return VGK_APIC_MAPPING_INVALID_ARGUMENT;
 
     acpi_status = vgk_acpi_madt_build_mmio_plan(
