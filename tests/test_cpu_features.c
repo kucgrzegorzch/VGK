@@ -42,6 +42,10 @@ int main(void)
     EXPECT(features.reserved[0] == 0U && features.reserved[1] == 0U);
     EXPECT(features.local_apic_supported == 0U);
     EXPECT(features.x2apic_supported == 0U);
+    EXPECT(features.apic_base_valid == 0U);
+    EXPECT(features.local_apic_enabled == 0U);
+    EXPECT(features.x2apic_enabled == 0U);
+    EXPECT(features.local_apic_base == 0U);
     EXPECT(features.vendor[0] == '\0' && features.vendor[12] == '\0');
 
     EXPECT(vgk_cpu_decode_features(
