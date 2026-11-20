@@ -9,7 +9,7 @@
 
 #define VGK_PAGE_WRITE          UINT32_C(0x1)
 #define VGK_PAGE_EXEC           UINT32_C(0x2)
-/* Leaf-entry cache attributes. PCD=1/PWT=1 selects PAT index 3 (UC in the architectural default PAT). */
+/* Leaf-entry cache attributes. PCD=1/PWT=1 selects PAT index 3 (which must be UC when PAT is present; legacy PCD/PWT semantics are UC without PAT). */
 #define VGK_PAGE_CACHE_DISABLE  UINT32_C(0x4)
 #define VGK_PAGE_WRITE_THROUGH  UINT32_C(0x8)
 
@@ -64,7 +64,8 @@ VGK_PAGING_RESULT vgk_paging_map_range(
 /*
  * Maps a device MMIO range as supervisor RW, NX and uncached (PCD=1/PWT=1).
  * The caller must establish that the physical range is genuine MMIO and
- * that PAT index 3 is configured as UC; this builder does not change PAT/MTRRs.
+ * that PAT index 3 is configured as UC when PAT is present (legacy PCD/PWT
+ * semantics are UC without PAT); this builder does not change PAT/MTRRs.
  */
 VGK_PAGING_RESULT vgk_paging_map_mmio_uc(
     VGK_PAGE_TABLES *tables,
