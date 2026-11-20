@@ -151,36 +151,6 @@ static VGK_PAGING_RESULT map_identity_mmio_uc(
  * entry is UC before preparing a framebuffer mapping with those bits.
  * On CPUs without PAT, the legacy PCD=1/PWT=1 encoding is UC.
  */
-static int framebuffer_pcd_pwt_is_uncacheable(void)
-{
-    uint32_t max_basic;
-    uint32_t feature_edx;
-    uint32_t pat_low;
-    uint32_t pat_high;
-    uint64_t pat_value;
-
-    __asm__ volatile ("cpuid"
-        : "=a"(max_basic)
-        : "a"(0U), "c"(0U)
-        : "rbx", "rdx");
-    if (max_basic < 1U)
-        return 1;
-
-    __asm__ volatile ("cpuid"
-        : "=a"(max_basic), "=d"(feature_edx)
-        : "a"(1U), "c"(0U)
-        : "rbx");
-    if ((feature_edx & (UINT32_C(1) << 16)) == 0U)
-        return 1;
-
-    __asm__ volatile ("rdmsr"
-        : "=a"(pat_low), "=d"(pat_high)
-        : "c"(UINT32_C(0x277)));
-    pat_value = ((uint64_t)pat_high << 32) | pat_low;
-
-    /* PAT entry 3 occupies bits 24..31; memory type 0 is UC. */
-    return ((pat_value >> 24) & UINT64_C(0xFF)) == 0U;
-}
 
 
 /*
@@ -312,7 +282,7 @@ static int build_inactive_page_tables(
     serial_write("VGK: zakres stosu potwierdzony jako RW+NX.\r\n");
 
     if ((boot_info->flags & VGK_BOOT_FLAG_FRAMEBUFFER) != 0U)
-        framebuffer_is_uncacheable = framebuffer_pcd_pwt_is_uncacheable();
+        framebuffer_is_uncacheable = cpu_features->mmio_uc_supported != 0U;
 
     if (!page_table_pool_has_capacity(
             boot_info, cpu_features, framebuffer_is_uncacheable)) {
