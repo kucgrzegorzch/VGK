@@ -44,6 +44,11 @@ int main(void)
                               VGK_IDT_GATE_INTERRUPT, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
     assert(vgk_idt_gate_build(&gate, address, 0U, 0U, 0U,
                               VGK_IDT_GATE_INTERRUPT, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
+    /* IDT targets must use a ring-0 selector from the GDT, not LDT/RPL!=0. */
+    assert(vgk_idt_gate_build(&gate, address, 0x09U, 0U, 0U,
+                              VGK_IDT_GATE_INTERRUPT, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
+    assert(vgk_idt_gate_build(&gate, address, 0x0CU, 0U, 0U,
+                              VGK_IDT_GATE_INTERRUPT, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
     assert(vgk_idt_gate_build(&gate, address, 0x08U, 8U, 0U,
                               VGK_IDT_GATE_INTERRUPT, 1U) == VGK_INTERRUPT_INVALID_ARGUMENT);
     assert(vgk_idt_gate_build(&gate, address, 0x08U, 0U, 4U,
