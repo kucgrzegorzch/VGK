@@ -371,6 +371,15 @@ int main(void)
         assert(info.local_nmis[1].x2apic == 1U);
     }
 
+    /* Firmware may classify a device aperture as generic reserved memory. */
+    make_rich_xsdt_madt();
+    memory_map[2].type = VGK_MEMORY_RESERVED;
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_OK);
+    }
+    memory_map[2].type = VGK_MEMORY_MMIO;
+
     /* An I/O APIC address inside ACPI reclaimable RAM is not MMIO. */
     make_rich_xsdt_madt();
     put_le32(physical_memory + MADT_OFFSET + 56U,
