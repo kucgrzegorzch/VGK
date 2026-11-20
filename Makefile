@@ -50,7 +50,7 @@ build/kernel_native_qemu_pf_test.o: src/kernel_native.c include/vgk_exception.h 
 	$(CC) $(CFLAGS) -mcmodel=small -DVGK_QEMU_PAGE_FAULT_TEST -c $< -o $@
 
 build/vgk-kernel-native-qemu-pf-test.elf: build/entry_native.o build/exception_stubs_qemu_pf_test.o build/exception_native_qemu_pf_test.o build/kernel_native_qemu_pf_test.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/interrupts_native.o build/idtr_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o build/apic_mapping_native.o linker-native.ld
-	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/exception_stubs_qemu_pf_test.o build/exception_native_qemu_pf_test.o build/kernel_native_qemu_pf_test.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/interrupts_native.o build/idtr_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o
+	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/exception_stubs_qemu_pf_test.o build/exception_native_qemu_pf_test.o build/kernel_native_qemu_pf_test.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/interrupts_native.o build/idtr_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o build/apic_mapping_native.o
 
 native-kernel-qemu-pf-test: build/vgk-kernel-native-qemu-pf-test.elf
 	python3 tests/check_qemu_pf_test_kernel.py build/vgk-kernel-native-qemu-pf-test.elf
@@ -66,7 +66,7 @@ build/kernel_native_qemu_df_test.o: src/kernel_native.c include/vgk_exception.h 
 	$(CC) $(CFLAGS) -mcmodel=small -DVGK_QEMU_PAGE_FAULT_TEST -DVGK_QEMU_DOUBLE_FAULT_TEST -c $< -o $@
 
 build/vgk-kernel-native-qemu-df-test.elf: build/entry_native.o build/exception_stubs_qemu_df_test.o build/exception_native_qemu_df_test.o build/kernel_native_qemu_df_test.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/interrupts_native.o build/idtr_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o build/apic_mapping_native.o linker-native.ld
-	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/exception_stubs_qemu_df_test.o build/exception_native_qemu_df_test.o build/kernel_native_qemu_df_test.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/interrupts_native.o build/idtr_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o
+	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/exception_stubs_qemu_df_test.o build/exception_native_qemu_df_test.o build/kernel_native_qemu_df_test.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/interrupts_native.o build/idtr_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o build/apic_mapping_native.o
 
 native-kernel-qemu-df-test: build/vgk-kernel-native-qemu-df-test.elf
 	python3 tests/check_qemu_df_test_kernel.py build/vgk-kernel-native-qemu-df-test.elf
@@ -107,7 +107,7 @@ gdt-test: | build
 	./build/test_gdt
 
 build/vgk-kernel-native.elf: build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/interrupts_native.o build/idtr_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o build/apic_mapping_native.o linker-native.ld
-	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/interrupts_native.o build/idtr_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o
+	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/interrupts_native.o build/idtr_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o build/apic_mapping_native.o
 
 native-kernel: build/vgk-kernel-native.elf
 
