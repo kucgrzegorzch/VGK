@@ -385,6 +385,76 @@ int main(void)
         assert(vgk_acpi_madt_validate_local_apic_base(
                    0, UINT64_C(0xFEE01000), 1U) ==
                VGK_ACPI_INVALID_ARGUMENT);
+
+        /* xAPIC mode needs both LAPIC and IOAPIC UC pages. */
+        {
+            VGK_ACPI_MADT_MMIO_RANGE plan[VGK_ACPI_MADT_MAX_MMIO_RANGES];
+            size_t plan_count = 99U;
+            assert(vgk_acpi_madt_build_mmio_plan(
+                       &info, UINT64_C(0xFEE01000), 1U, 0U,
+                       plan, VGK_ACPI_MADT_MAX_MMIO_RANGES,
+                       &plan_count) == VGK_ACPI_OK);
+            assert(plan_count == 2U);
+            assert(plan[0].physical_base == UINT64_C(0xFEE01000));
+            assert(plan[0].length == VGK_BOOT_PAGE_SIZE);
+            assert(plan[0].kind == VGK_ACPI_MADT_MMIO_LOCAL_APIC);
+            assert(plan[1].physical_base == UINT64_C(0xFEC00000));
+            assert(plan[1].length == VGK_BOOT_PAGE_SIZE);
+            assert(plan[1].kind == VGK_ACPI_MADT_MMIO_IOAPIC);
+            for (size_t i = 0; i < sizeof(plan[0].reserved); ++i)
+                assert(plan[0].reserved[i] == 0U);
+
+            /* x2APIC mode uses MSRs for LAPIC and maps only IOAPIC pages. */
+            assert(vgk_acpi_madt_build_mmio_plan(
+                       &info, UINT64_C(0xFEE01000), 1U, 1U,
+                       plan, VGK_ACPI_MADT_MAX_MMIO_RANGES,
+                       &plan_count) == VGK_ACPI_OK);
+            assert(plan_count == 1U);
+            assert(plan[0].physical_base == UINT64_C(0xFEC00000));
+            assert(plan[0].kind == VGK_ACPI_MADT_MMIO_IOAPIC);
+
+            /* A short output buffer fails without publishing a partial plan. */
+            plan_count = 99U;
+            assert(vgk_acpi_madt_build_mmio_plan(
+                       &info, UINT64_C(0xFEE01000), 1U, 0U,
+                       plan, 1U, &plan_count) ==
+                   VGK_ACPI_INVALID_ARGUMENT);
+            assert(plan_count == 0U && plan[0].physical_base == 0U);
+
+            assert(vgk_acpi_madt_build_mmio_plan(
+                       &info, UINT64_C(0xFEE00000), 1U, 0U,
+                       plan, VGK_ACPI_MADT_MAX_MMIO_RANGES,
+                       &plan_count) == VGK_ACPI_BAD_TABLE);
+            assert(plan_count == 0U);
+
+            assert(vgk_acpi_madt_build_mmio_plan(
+                       &info, UINT64_C(0xFEE01000), 1U, 2U,
+                       plan, VGK_ACPI_MADT_MAX_MMIO_RANGES,
+                       &plan_count) == VGK_ACPI_INVALID_ARGUMENT);
+
+            /* IOAPIC may not overlap the LAPIC page, even in x2APIC mode. */
+            {
+                VGK_ACPI_MADT_INFO invalid = info;
+                invalid.ioapics[0].address = UINT32_C(0xFEE01000);
+                assert(vgk_acpi_madt_build_mmio_plan(
+                           &invalid, UINT64_C(0xFEE01000), 1U, 1U,
+                           plan, VGK_ACPI_MADT_MAX_MMIO_RANGES,
+                           &plan_count) == VGK_ACPI_BAD_TABLE);
+                assert(plan_count == 0U);
+            }
+
+            /* Duplicate I/O APIC entries cannot produce duplicate mappings. */
+            {
+                VGK_ACPI_MADT_INFO invalid = info;
+                invalid.ioapic_count = 2U;
+                invalid.ioapics[1] = invalid.ioapics[0];
+                assert(vgk_acpi_madt_build_mmio_plan(
+                           &invalid, UINT64_C(0xFEE01000), 1U, 1U,
+                           plan, VGK_ACPI_MADT_MAX_MMIO_RANGES,
+                           &plan_count) == VGK_ACPI_BAD_TABLE);
+                assert(plan_count == 0U);
+            }
+        }
     }
 
     /* Firmware may classify a device aperture as generic reserved memory. */
