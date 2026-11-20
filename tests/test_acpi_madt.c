@@ -406,6 +406,32 @@ int main(void)
         assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
     }
 
+    /* Processor records are bounded; the 65th entry is rejected. */
+    memset(physical_memory, 0, sizeof(physical_memory));
+    {
+        const uint32_t madt_length = 44U + (65U * 8U);
+        uint8_t *xsdt = physical_memory + ROOT_OFFSET;
+        uint8_t *madt = physical_memory + MADT_OFFSET;
+        make_sdt(xsdt, "XSDT", 44U, 1U);
+        put_le64(xsdt + 36U, PHYS_BASE + MADT_OFFSET);
+        set_checksum(xsdt, 44U, 9U);
+        make_sdt(madt, "APIC", madt_length, 5U);
+        put_le32(madt + 36U, UINT32_C(0xFEE00000));
+        for (uint32_t i = 0; i < 65U; ++i) {
+            uint8_t *entry = madt + 44U + (i * 8U);
+            entry[0] = 0U; entry[1] = 8U;
+            entry[2] = (uint8_t)i; entry[3] = (uint8_t)i;
+            put_le32(entry + 4U, 1U);
+        }
+        set_checksum(madt, madt_length, 9U);
+        make_rsdp(2U, PHYS_BASE + ROOT_OFFSET, 1);
+    }
+    {
+        VGK_ACPI_MADT_INFO info;
+        assert(parse_current_madt(&info, 0) == VGK_ACPI_BAD_TABLE);
+        assert(info.processor_count == 0U);
+    }
+
     /* The parser rejects a forged reference with a mismatched length. */
     make_rich_xsdt_madt();
     {
