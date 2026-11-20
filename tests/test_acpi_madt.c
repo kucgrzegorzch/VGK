@@ -184,12 +184,15 @@ static void make_rich_xsdt_madt(void)
     put_le32(madt + offset + 8U, 1U);
     put_le32(madt + offset + 12U, 2U); offset += 16U;
 
-    /* Type 10: x2APIC NMI for UID2 on LINT0. */
+    /* Type 10: x2APIC NMI for UID2 on LINT0; nonzero valid flags. */
     madt[offset] = 10U; madt[offset + 1U] = 12U;
-    put_le16(madt + offset + 2U, 0U);
-    put_le16(madt + offset + 4U, 0U);
-    put_le32(madt + offset + 6U, 2U);
-    madt[offset + 10U] = 0U; madt[offset + 11U] = 0U; offset += 12U;
+    put_le16(madt + offset + 2U, UINT16_C(0x000F));
+    put_le32(madt + offset + 4U, 2U);
+    madt[offset + 8U] = 0U; /* LINT0 */
+    madt[offset + 9U] = 0U;
+    madt[offset + 10U] = 0U;
+    madt[offset + 11U] = 0U;
+    offset += 12U;
 
     /* Unknown future record types are skipped after bounds validation. */
     madt[offset] = 0x7FU; madt[offset + 1U] = 2U; offset += 2U;
@@ -360,6 +363,15 @@ int main(void)
         assert(madt.physical_address == PHYS_BASE + MADT_OFFSET);
     }
 
+    /* Type 10 reserved bytes must be zero; Flags are not reserved. */
+    make_rich_xsdt_madt();
+    physical_memory[MADT_OFFSET + 125U] = 1U;
+    set_checksum(physical_memory + MADT_OFFSET, 130U, 9U);
+    {
+        VGK_ACPI_MADT_INFO invalid_info;
+        assert(parse_current_madt(&invalid_info, 0) == VGK_ACPI_BAD_TABLE);
+    }
+
     assert(vgk_acpi_find_madt(
         memory_map, 1U, PHYS_BASE + RSDP_OFFSET,
         physical_memory + RSDP_OFFSET, 48U, 0, 0, &madt) ==
@@ -403,6 +415,7 @@ int main(void)
         assert(info.local_nmis[0].lint == 1U);
         assert(info.local_nmis[0].x2apic == 0U);
         assert(info.local_nmis[1].processor_uid == 2U);
+        assert(info.local_nmis[1].flags == UINT16_C(0x000F));
         assert(info.local_nmis[1].lint == 0U);
         assert(info.local_nmis[1].x2apic == 1U);
 
