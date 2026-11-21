@@ -14,10 +14,12 @@ on:
       - "include/vgk_paging_requirements.h"
       - "src/apic_mapping.c"
       - "src/acpi.c"
+      - "src/kernel_native.c"
       - "src/paging.c"
       - "src/paging_preflight.c"
       - "src/paging_ranges.c"
       - "src/paging_requirements.c"
+      - "tests/test_acpi_madt.c"
       - "tests/test_apic_mapping.c"
       - "tests/test_paging_preflight.c"
       - "tests/test_paging_ranges.c"
@@ -25,6 +27,7 @@ on:
     branches:
       - test/apic-mmio-integration
       - test/apic-mmio-preflight
+      - test/kernel-apic-mmio-preparation
     paths:
       - ".github/workflows/apic-mapping.yml"
       - "Makefile"
@@ -37,10 +40,12 @@ on:
       - "include/vgk_paging_requirements.h"
       - "src/apic_mapping.c"
       - "src/acpi.c"
+      - "src/kernel_native.c"
       - "src/paging.c"
       - "src/paging_preflight.c"
       - "src/paging_ranges.c"
       - "src/paging_requirements.c"
+      - "tests/test_acpi_madt.c"
       - "tests/test_apic_mapping.c"
       - "tests/test_paging_preflight.c"
       - "tests/test_paging_ranges.c"

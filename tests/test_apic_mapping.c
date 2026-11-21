@@ -122,6 +122,41 @@ int main(void)
     assert_uc_leaf(&tables, UINT64_C(0xFEC00000), UINT64_C(0xFEC00000));
     assert(walk_page(&tables, UINT64_C(0xFEE01000)) == 0);
 
+    /* The firmware MADT LAPIC base must match the CPU APIC-base register. */
+    {
+        VGK_ACPI_MADT_INFO mismatched = madt;
+        mismatched.local_apic_address = UINT64_C(0xFEE00000);
+        assert(vgk_apic_build_mmio_plan(
+                   &cpu, &mismatched, map, 2U, ranges,
+                   VGK_ACPI_MADT_MAX_MMIO_RANGES, &count) ==
+               VGK_APIC_MAPPING_BAD_FIRMWARE_DATA);
+        assert(count == 0U);
+        assert(ranges[0].physical_base == 0U);
+    }
+
+    /*
+     * The highest page-aligned 32-bit IOAPIC address still describes a
+     * complete page ending at 0xFFFFFFFF and must remain valid.
+     */
+    {
+        VGK_CPU_FEATURES narrow_cpu = valid_cpu(0U);
+        VGK_ACPI_MADT_INFO boundary_madt = valid_madt();
+        VGK_MEMORY_MAP_ENTRY boundary_map[2] = {
+            {UINT64_C(0xFEE01000), VGK_BOOT_PAGE_SIZE,
+             VGK_MEMORY_MMIO, 0U},
+            {UINT64_C(0xFFFFF000), VGK_BOOT_PAGE_SIZE,
+             VGK_MEMORY_RESERVED, 0U}
+        };
+        narrow_cpu.physical_address_bits = 32U;
+        boundary_madt.ioapics[0].address = UINT32_C(0xFFFFF000);
+        count = 99U;
+        assert(vgk_apic_build_mmio_plan(
+                   &narrow_cpu, &boundary_madt, boundary_map, 2U,
+                   ranges, VGK_ACPI_MADT_MAX_MMIO_RANGES, &count) ==
+               VGK_APIC_MAPPING_OK);
+        assert(count == 2U);
+    }
+
     /* PAT layouts that do not make PCD+PWT uncached must fail closed. */
     cpu = valid_cpu(0U);
     cpu.mmio_uc_supported = 0U;
@@ -175,6 +210,48 @@ int main(void)
     assert(count == 0U);
     map[0].type = VGK_MEMORY_MMIO;
 
+    /*
+     * Two firmware descriptors must not claim the same APIC page, even
+     * when both descriptors individually cover the complete window.
+     */
+    {
+        VGK_MEMORY_MAP_ENTRY overlapping_map[3] = {
+            {UINT64_C(0xFEE01000), VGK_BOOT_PAGE_SIZE,
+             VGK_MEMORY_MMIO, 0U},
+            {UINT64_C(0xFEE01000), VGK_BOOT_PAGE_SIZE,
+             VGK_MEMORY_RESERVED, 0U},
+            {UINT64_C(0xFEC00000), VGK_BOOT_PAGE_SIZE,
+             VGK_MEMORY_RESERVED, 0U}
+        };
+        count = 99U;
+        assert(vgk_apic_build_mmio_plan(
+                   &cpu, &madt, overlapping_map, 3U, ranges,
+                   VGK_ACPI_MADT_MAX_MMIO_RANGES, &count) ==
+               VGK_APIC_MAPPING_BAD_FIRMWARE_DATA);
+        assert(count == 0U && ranges[0].physical_base == 0U);
+    }
+
+    /*
+     * Adjacent partial descriptors are not accepted as a substitute for
+     * one complete firmware descriptor covering an APIC device page.
+     */
+    {
+        VGK_MEMORY_MAP_ENTRY fragmented_map[3] = {
+            {UINT64_C(0xFEE01000), VGK_BOOT_PAGE_SIZE / 2U,
+             VGK_MEMORY_MMIO, 0U},
+            {UINT64_C(0xFEE01800), VGK_BOOT_PAGE_SIZE / 2U,
+             VGK_MEMORY_MMIO, 0U},
+            {UINT64_C(0xFEC00000), VGK_BOOT_PAGE_SIZE,
+             VGK_MEMORY_RESERVED, 0U}
+        };
+        count = 99U;
+        assert(vgk_apic_build_mmio_plan(
+                   &cpu, &madt, fragmented_map, 3U, ranges,
+                   VGK_ACPI_MADT_MAX_MMIO_RANGES, &count) ==
+               VGK_APIC_MAPPING_BAD_FIRMWARE_DATA);
+        assert(count == 0U && ranges[0].physical_base == 0U);
+    }
+
     /* An undersized output buffer cannot publish a partial plan. */
     assert(vgk_paging_init(&tables, page_pool, 8U, 48U, 1U) ==
            VGK_PAGING_OK);
@@ -196,6 +273,18 @@ int main(void)
                VGK_ACPI_MADT_MAX_MMIO_RANGES, &count) ==
            VGK_APIC_MAPPING_PAGING_FAILED);
     assert(count == 0U);
+
+    /*
+     * The LAPIC mapping succeeds before the conflicting IOAPIC alias is
+     * encountered. Failure must not publish a partial output plan, and the
+     * caller must discard the now-partially-modified inactive table set.
+     */
+    assert(walk_page(&tables, UINT64_C(0xFEE01000)) != 0);
+    assert_uc_leaf(&tables, UINT64_C(0xFEE01000), UINT64_C(0xFEE01000));
+    assert(walk_page(&tables, UINT64_C(0xFEC00000)) != 0);
+    assert((*walk_page(&tables, UINT64_C(0xFEC00000)) &
+            UINT64_C(0x018)) == 0U);
+    assert(ranges[0].physical_base == 0U);
 
     puts("OK: CPU/PAT + MADT + firmware map + inactive APIC MMIO paging.");
     return 0;
