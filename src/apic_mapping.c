@@ -96,10 +96,10 @@ VGK_APIC_MAPPING_RESULT vgk_apic_build_mmio_plan(
             : VGK_APIC_MAPPING_BAD_FIRMWARE_DATA;
 
     /*
-     * MADT IOAPIC addresses are 32-bit fields, but a page beginning near
-     * the top of that range may extend beyond this CPU's physical limit.
-     * Reject such plans before validating firmware coverage or touching
-     * inactive page tables.
+     * Recheck every planned window against the detected CPU physical limit.
+     * The MADT parser already performs this validation for firmware input;
+     * keeping the mapping boundary defensive also protects callers that
+     * provide a pre-parsed MADT structure.
      */
     physical_limit =
         (UINT64_C(1) << cpu->physical_address_bits) - 1U;
