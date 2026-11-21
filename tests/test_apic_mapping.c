@@ -135,8 +135,8 @@ int main(void)
     }
 
     /*
-     * An IOAPIC page must fit the CPU's physical-address width, not merely
-     * the 32-bit MADT field and the firmware memory-map descriptor.
+     * The highest page-aligned 32-bit IOAPIC address still describes a
+     * complete page ending at 0xFFFFFFFF and must remain valid.
      */
     {
         VGK_CPU_FEATURES narrow_cpu = valid_cpu(0U);
@@ -144,26 +144,17 @@ int main(void)
         VGK_MEMORY_MAP_ENTRY boundary_map[2] = {
             {UINT64_C(0xFEE01000), VGK_BOOT_PAGE_SIZE,
              VGK_MEMORY_MMIO, 0U},
-            {UINT64_C(0xFFFFE000), VGK_BOOT_PAGE_SIZE,
+            {UINT64_C(0xFFFFF000), VGK_BOOT_PAGE_SIZE,
              VGK_MEMORY_RESERVED, 0U}
         };
         narrow_cpu.physical_address_bits = 32U;
-        boundary_madt.ioapics[0].address = UINT32_C(0xFFFFE000);
+        boundary_madt.ioapics[0].address = UINT32_C(0xFFFFF000);
         count = 99U;
         assert(vgk_apic_build_mmio_plan(
                    &narrow_cpu, &boundary_madt, boundary_map, 2U,
                    ranges, VGK_ACPI_MADT_MAX_MMIO_RANGES, &count) ==
                VGK_APIC_MAPPING_OK);
         assert(count == 2U);
-
-        boundary_madt.ioapics[0].address = UINT32_C(0xFFFFF000);
-        boundary_map[1].base = UINT64_C(0xFFFFF000);
-        count = 99U;
-        assert(vgk_apic_build_mmio_plan(
-                   &narrow_cpu, &boundary_madt, boundary_map, 2U,
-                   ranges, VGK_ACPI_MADT_MAX_MMIO_RANGES, &count) ==
-               VGK_APIC_MAPPING_BAD_FIRMWARE_DATA);
-        assert(count == 0U && ranges[0].physical_base == 0U);
     }
 
     /* PAT layouts that do not make PCD+PWT uncached must fail closed. */
