@@ -66,6 +66,7 @@ VGK_APIC_MAPPING_RESULT vgk_apic_build_mmio_plan(
     size_t planned_count = 0U;
     VGK_ACPI_STATUS acpi_status;
     VGK_APIC_MAPPING_RESULT cpu_status;
+    uint64_t physical_limit;
 
     if (range_count_out != 0)
         *range_count_out = 0U;
@@ -93,6 +94,22 @@ VGK_APIC_MAPPING_RESULT vgk_apic_build_mmio_plan(
         return acpi_status == VGK_ACPI_INVALID_ARGUMENT
             ? VGK_APIC_MAPPING_INVALID_ARGUMENT
             : VGK_APIC_MAPPING_BAD_FIRMWARE_DATA;
+
+    /*
+     * MADT IOAPIC addresses are 32-bit fields, but a page beginning near
+     * the top of that range may extend beyond this CPU's physical limit.
+     * Reject such plans before validating firmware coverage or touching
+     * inactive page tables.
+     */
+    physical_limit =
+        (UINT64_C(1) << cpu->physical_address_bits) - 1U;
+    for (size_t i = 0U; i < planned_count; ++i) {
+        if (planned[i].length == 0U ||
+            planned[i].physical_base > physical_limit ||
+            planned[i].length - 1U >
+                physical_limit - planned[i].physical_base)
+            return VGK_APIC_MAPPING_BAD_FIRMWARE_DATA;
+    }
 
     acpi_status = vgk_acpi_madt_validate_mmio_plan_memory_map(
         memory_map, memory_map_count, planned, planned_count);
