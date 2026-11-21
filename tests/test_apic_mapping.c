@@ -187,6 +187,48 @@ int main(void)
     assert(count == 0U);
     map[0].type = VGK_MEMORY_MMIO;
 
+    /*
+     * Two firmware descriptors must not claim the same APIC page, even
+     * when both descriptors individually cover the complete window.
+     */
+    {
+        VGK_MEMORY_MAP_ENTRY overlapping_map[3] = {
+            {UINT64_C(0xFEE01000), VGK_BOOT_PAGE_SIZE,
+             VGK_MEMORY_MMIO, 0U},
+            {UINT64_C(0xFEE01000), VGK_BOOT_PAGE_SIZE,
+             VGK_MEMORY_RESERVED, 0U},
+            {UINT64_C(0xFEC00000), VGK_BOOT_PAGE_SIZE,
+             VGK_MEMORY_RESERVED, 0U}
+        };
+        count = 99U;
+        assert(vgk_apic_build_mmio_plan(
+                   &cpu, &madt, overlapping_map, 3U, ranges,
+                   VGK_ACPI_MADT_MAX_MMIO_RANGES, &count) ==
+               VGK_APIC_MAPPING_BAD_FIRMWARE_DATA);
+        assert(count == 0U && ranges[0].physical_base == 0U);
+    }
+
+    /*
+     * Adjacent partial descriptors are not accepted as a substitute for
+     * one complete firmware descriptor covering an APIC device page.
+     */
+    {
+        VGK_MEMORY_MAP_ENTRY fragmented_map[3] = {
+            {UINT64_C(0xFEE01000), VGK_BOOT_PAGE_SIZE / 2U,
+             VGK_MEMORY_MMIO, 0U},
+            {UINT64_C(0xFEE01800), VGK_BOOT_PAGE_SIZE / 2U,
+             VGK_MEMORY_MMIO, 0U},
+            {UINT64_C(0xFEC00000), VGK_BOOT_PAGE_SIZE,
+             VGK_MEMORY_RESERVED, 0U}
+        };
+        count = 99U;
+        assert(vgk_apic_build_mmio_plan(
+                   &cpu, &madt, fragmented_map, 3U, ranges,
+                   VGK_ACPI_MADT_MAX_MMIO_RANGES, &count) ==
+               VGK_APIC_MAPPING_BAD_FIRMWARE_DATA);
+        assert(count == 0U && ranges[0].physical_base == 0U);
+    }
+
     /* An undersized output buffer cannot publish a partial plan. */
     assert(vgk_paging_init(&tables, page_pool, 8U, 48U, 1U) ==
            VGK_PAGING_OK);
