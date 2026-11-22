@@ -105,7 +105,9 @@ static void vgk_paging_state_cpuid(
 VGK_PAGING_STATE_RESULT vgk_paging_state_capture(VGK_PAGING_STATE *state)
 {
     uint64_t cr0, cr3, cr4, efer;
-    uint32_t max_basic, leaf1_ecx = 0U, leaf7_ebx = 0U, leaf7_ecx = 0U;
+    uint32_t max_basic, max_extended, address_size = 0U;
+    uint32_t leaf1_ecx = 0U, leaf7_ebx = 0U, leaf7_ecx = 0U;
+    uint8_t physical_bits;
     uint32_t low, high;
 
     if (state == 0)
@@ -118,13 +120,18 @@ VGK_PAGING_STATE_RESULT vgk_paging_state_capture(VGK_PAGING_STATE *state)
     efer = ((uint64_t)high << 32) | low;
 
     vgk_paging_state_cpuid(0U, 0U, &max_basic, 0, 0, 0);
+    vgk_paging_state_cpuid(UINT32_C(0x80000000), 0U, &max_extended, 0, 0, 0);
+    if (max_extended < UINT32_C(0x80000008))
+        return VGK_PAGING_STATE_UNSUPPORTED;
+    vgk_paging_state_cpuid(UINT32_C(0x80000008), 0U, &address_size, 0, 0, 0);
+    physical_bits = (uint8_t)(address_size & UINT32_C(0xFF));
     if (max_basic >= 1U)
         vgk_paging_state_cpuid(1U, 0U, 0, 0, &leaf1_ecx, 0);
     if (max_basic >= 7U)
         vgk_paging_state_cpuid(7U, 0U, 0, &leaf7_ebx, &leaf7_ecx, 0);
 
     return vgk_paging_state_decode(
-        cr0, cr3, cr4, efer, 52U,
+        cr0, cr3, cr4, efer, physical_bits,
         (uint8_t)((leaf1_ecx & CPUID_PCID) != 0U),
         (uint8_t)((leaf7_ebx & CPUID_INVPCID) != 0U),
         (uint8_t)((leaf7_ecx & CPUID_LA57) != 0U),
