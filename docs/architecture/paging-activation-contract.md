@@ -35,6 +35,7 @@ The activation routine must receive an immutable, validated activation descripto
    - Writable and executable permissions must never be combined for a page.
    - Page rounding must not cause adjacent segments with different permissions to share a page.
    - The entry point and the complete transition stub are executable.
+   - Kernel code, stacks, descriptors, and kernel-owned data are supervisor-only; user-accessible mappings are not introduced by this transition.
    - Read-only data and code are not made writable merely to simplify the transition.
 
 4. **CPU feature and control-register compatibility**
@@ -48,7 +49,7 @@ The activation routine must receive an immutable, validated activation descripto
    - The current VGK page-table builder creates four-level paging structures and validates 48-bit canonical virtual addresses. Its root must not be loaded while CR4.LA57 indicates five-level paging is active.
    - The activation preflight must explicitly verify the active paging mode. If the current environment uses five-level paging, activation must be rejected until VGK has a separately designed, implemented, and tested five-level builder and transition path.
    - LA57 must not be toggled as part of this transition while paging is enabled. Changing paging depth requires a separate architecture-level transition design; it is not an ordinary CR3 update.
-   - Required long-mode state, including CR0.PG, EFER.LME, and CR4.PAE, must remain valid throughout the transition. The routine must not attempt to leave or re-enter long mode implicitly.
+   - Required long-mode state, including CR0.PE, CR0.PG, EFER.LMA, EFER.LME, and CR4.PAE, must remain valid throughout the transition. The routine must not attempt to leave or re-enter long mode implicitly.
 
 6. **CR3 encoding and TLB policy**
    - The CR3 value must be constructed from the validated physical root and the explicitly detected current CR4.PCIDE state; it must not be formed by blindly OR-ing arbitrary low bits into the root address.
@@ -58,7 +59,8 @@ The activation routine must receive an immutable, validated activation descripto
    - The implementation must use a documented, CPU-supported invalidation strategy or reject activation when it cannot guarantee that translations from the old environment cannot affect execution under the new root. INVPCID and any PGE changes must be feature-checked and reviewed rather than assumed.
 
 7. **Memory ownership and cache policy**
-   - The page-table pool is reserved and must not overlap the kernel, boot information, memory map, framebuffer, or any other live object.
+   - The page-table pool is reserved, normally write-back cacheable, and must not overlap the kernel, boot information, memory map, framebuffer, or any other live object.
+   - Page-table pages must not have conflicting cache-type aliases.
    - Every MMIO mapping has passed the existing firmware-range and CPU physical-width checks.
    - MMIO mappings use the approved uncached memory type and NX permissions. No APIC register is accessed merely because its virtual mapping was prepared.
    - No page-table page may be returned to the allocator while it is reachable from the active root.
