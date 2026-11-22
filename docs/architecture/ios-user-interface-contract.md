@@ -235,3 +235,38 @@ Każdy etap powinien być oceniany oddzielnie. Makieta ani prototyp nie są dowo
 - Model zagrożeń: `docs/architecture/threat-model.md`.
 
 Projekt interfejsu podlega tym samym granicom zaufania co IOS. Przy konflikcie wygoda interfejsu nie może osłabić polityki ani ochrony jądra.
+
+
+## 16. Kierunek produktu: interfejs odczytowy i autonomiczny Opiekun
+
+**Decyzja kierunkowa z 2026-11-22:** VGK nie ma kopiować modelu Windows, w którym użytkownik jest stale angażowany w techniczne zarządzanie systemem. IOS ma samodzielnie prowadzić codzienny nadzór i wykonywać działania objęte zatwierdzoną polityką. Interfejs użytkownika jest przede wszystkim **odczytowy**.
+
+W konsekwencji:
+- Ekran główny pokazuje tylko ogólny stan VGK, najważniejszy komunikat i ostatnie zakończone działania IOS.
+- Historia jest przeznaczona do odczytu. Użytkownik widzi wynik, np. „Potwierdzony szkodliwy plik został unieszkodliwiony i usunięty z aktywnego systemu”.
+- Użytkownik nie dostaje narzędzi do ręcznego sterowania modułami ochrony, sterownikami, procesami, aktualizacjami ani polityką bezpieczeństwa.
+- Nie pokazujemy rozbudowanych ekranów administracyjnych, list technicznych ani przycisków „napraw” dla rutynowych zadań. IOS sam wykonuje bezpieczne, wcześniej zatwierdzone czynności.
+- Powiadomienia są krótkie i informacyjne. Szczegóły techniczne pozostają w tle i mogą być udostępnione w raporcie serwisowym, gdy rzeczywiście będą potrzebne.
+- Pytanie do użytkownika pojawia się wyjątkowo, gdy czynność istotnie przerwie jego pracę lub wymaga jego osobistej decyzji. Przykład: „Komputer wymaga ponownego uruchomienia, aby dokończyć aktualizację. Czy uruchomić go ponownie teraz?”. Użytkownik może wybrać późniejszy termin; IOS nie powinien wymuszać restartu w środku pracy, z wyjątkiem osobno zdefiniowanej sytuacji krytycznej.
+
+### 16.1. Zasada komunikatów
+
+Interfejs informuje o **rezultacie**, a nie przerzuca na użytkownika techniczne kroki. Przykłady:
+- „Kontrola systemu zakończona. Nie wykryto zagrożeń.”
+- „Szkodliwy plik został unieszkodliwiony. System jest chroniony.”
+- „Naprawiono uszkodzony składnik systemu.”
+- „Aktualizacja jest gotowa. Wymaga ponownego uruchomienia komputera.”
+- „Nie udało się zakończyć naprawy. VGK działa w trybie ograniczonej ochrony.”
+
+Komunikat o usunięciu wolno pokazać dopiero po potwierdzeniu wykonania i weryfikacji rezultatu. Plik jedynie nieznany lub podejrzany nie może być nazywany szkodliwym. W takim przypadku IOS stosuje bezpieczne ograniczenie, np. blokadę uruchomienia lub kwarantannę, zgodnie z polityką.
+
+### 16.2. Zakres interfejsu
+
+Docelowy interfejs powinien być uproszczony do:
+1. **Przegląd** – jeden czytelny stan systemu i najważniejsza informacja.
+2. **Historia** – automatycznie zapisane działania i ich potwierdzone wyniki.
+3. **Informacje o VGK** – wersja systemu i podstawowe informacje.
+
+Diagnostyka, polityka, konfiguracja modułów i naprawy są odpowiedzialnością IOS, a nie codziennymi narzędziami użytkownika. Nie oznacza to usunięcia wewnętrznych mechanizmów diagnostycznych ani kontrolowanego trybu serwisowego.
+
+Ten kierunek ma pierwszeństwo przed wcześniejszymi propozycjami rozbudowanej nawigacji, ekranów zgody dla rutynowych działań i ręcznego uruchamiania napraw. Nadal obowiązują wymagania prawdziwości statusu, audytowalności, prywatności i bezpiecznej obsługi błędów.
