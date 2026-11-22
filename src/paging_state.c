@@ -7,6 +7,8 @@
 #define CR4_PGE (UINT64_C(1) << 7)
 #define CR4_LA57 (UINT64_C(1) << 12)
 #define CR4_PCIDE (UINT64_C(1) << 17)
+#define CR4_SMEP (UINT64_C(1) << 20)
+#define CR4_SMAP (UINT64_C(1) << 21)
 #define EFER_LME (UINT64_C(1) << 8)
 #define EFER_LMA (UINT64_C(1) << 10)
 #define EFER_NXE (UINT64_C(1) << 11)
@@ -53,7 +55,10 @@ VGK_PAGING_STATE_RESULT vgk_paging_state_decode(
         return VGK_PAGING_STATE_INCONSISTENT;
 
     if ((pcide != 0U && pcid_supported == 0U) ||
-        (la57 != 0U && la57_supported == 0U))
+        (la57 != 0U && la57_supported == 0U) ||
+        (invpcid_supported != 0U && pcid_supported == 0U) ||
+        ((cr4 & CR4_SMEP) != 0U && smep_supported == 0U) ||
+        ((cr4 & CR4_SMAP) != 0U && smap_supported == 0U))
         return VGK_PAGING_STATE_UNSUPPORTED;
 
     physical_mask = ((UINT64_C(1) << physical_address_bits) - 1U) &
@@ -73,6 +78,8 @@ VGK_PAGING_STATE_RESULT vgk_paging_state_decode(
     state->la57_supported = la57_supported;
     state->smep_supported = smep_supported;
     state->smap_supported = smap_supported;
+    state->smep_enabled = (uint8_t)((cr4 & CR4_SMEP) != 0U);
+    state->smap_enabled = (uint8_t)((cr4 & CR4_SMAP) != 0U);
     state->paging_active = 1U;
     state->write_protect_enabled = (uint8_t)((cr0 & CR0_WP) != 0U);
     state->nx_enabled = (uint8_t)((efer & EFER_NXE) != 0U);
