@@ -22,6 +22,7 @@ int main(void)
         1U, 1U, 1U, 1U, 1U, &state);
     EXPECT(result == VGK_PAGING_STATE_OK);
     EXPECT(state.paging_active == 1U);
+    EXPECT(state.nx_supported == 1U);
     EXPECT(state.write_protect_enabled == 1U);
     EXPECT(state.nx_enabled == 1U);
     EXPECT(state.global_pages_enabled == 1U);
@@ -35,7 +36,7 @@ int main(void)
 
     result = vgk_paging_state_decode(
         CR0_BASE, UINT64_C(0xABCDF123), CR4_BASE | (UINT64_C(1) << 17),
-        EFER_BASE, 48U, 1U, 1U, 1U, 0U, 0U, &state);
+        EFER_BASE, 48U, 1U, 1U, 1U, 1U, 0U, 0U, &state);
     EXPECT(result == VGK_PAGING_STATE_OK);
     EXPECT(state.pcid_enabled == 1U);
     EXPECT(state.current_pcid == 0x123U);
@@ -43,24 +44,24 @@ int main(void)
 
     result = vgk_paging_state_decode(
         CR0_BASE, UINT64_C(0x12345000), CR4_BASE | (UINT64_C(1) << 12),
-        EFER_BASE, 48U, 0U, 0U, 0U, 0U, 0U, &state);
+        EFER_BASE, 48U, 1U, 0U, 0U, 0U, 0U, 0U, &state);
     EXPECT(result == VGK_PAGING_STATE_UNSUPPORTED);
 
     result = vgk_paging_state_decode(
         CR0_BASE, UINT64_C(0x12345000), CR4_BASE | (UINT64_C(1) << 17),
-        EFER_BASE, 48U, 0U, 0U, 1U, 0U, 0U, &state);
+        EFER_BASE, 48U, 1U, 0U, 0U, 1U, 0U, 0U, &state);
     EXPECT(result == VGK_PAGING_STATE_UNSUPPORTED);
 
     EXPECT(vgk_paging_state_decode(
         CR0_BASE & ~(UINT64_C(1) << 31), 0x1000U, CR4_BASE,
-        EFER_BASE, 48U, 0U, 0U, 0U, 0U, 0U, &state) ==
+        EFER_BASE, 48U, 1U, 0U, 0U, 0U, 0U, 0U, &state) ==
         VGK_PAGING_STATE_INCONSISTENT);
     EXPECT(vgk_paging_state_decode(
         CR0_BASE, 0x1000U, 0U, EFER_BASE, 48U,
-        0U, 0U, 0U, 0U, 0U, &state) == VGK_PAGING_STATE_INCONSISTENT);
+        1U, 0U, 0U, 0U, 0U, 0U, &state) == VGK_PAGING_STATE_INCONSISTENT);
     EXPECT(vgk_paging_state_decode(
         CR0_BASE, 0x1000U, CR4_BASE, EFER_BASE & ~(UINT64_C(1) << 10),
-        48U, 0U, 0U, 0U, 0U, 0U, &state) == VGK_PAGING_STATE_INCONSISTENT);
+        48U, 1U, 0U, 0U, 0U, 0U, 0U, &state) == VGK_PAGING_STATE_INCONSISTENT);
 
     /* With PCIDE clear, CR3 low bits other than PWT/PCD are reserved. */
     EXPECT(vgk_paging_state_decode(
@@ -69,10 +70,15 @@ int main(void)
     /* Enabling SMEP/SMAP without the corresponding CPUID bit is rejected. */
     EXPECT(vgk_paging_state_decode(
         CR0_BASE, 0x1000U, CR4_BASE | (UINT64_C(1) << 20), EFER_BASE,
-        48U, 0U, 0U, 0U, 0U, 0U, &state) == VGK_PAGING_STATE_UNSUPPORTED);
+        48U, 1U, 0U, 0U, 0U, 0U, 0U, &state) == VGK_PAGING_STATE_UNSUPPORTED);
     EXPECT(vgk_paging_state_decode(
         CR0_BASE, 0x1000U, CR4_BASE | (UINT64_C(1) << 21), EFER_BASE,
         48U, 0U, 0U, 0U, 1U, 0U, &state) == VGK_PAGING_STATE_UNSUPPORTED);
+    /* NXE cannot be active when CPUID does not advertise NX. */
+    EXPECT(vgk_paging_state_decode(
+        CR0_BASE, 0x1000U, CR4_BASE,
+        EFER_BASE | (UINT64_C(1) << 11), 48U,
+        0U, 0U, 0U, 0U, 0U, 0U, &state) == VGK_PAGING_STATE_UNSUPPORTED);
     /* A CR3 address outside the reported physical width is rejected. */
     EXPECT(vgk_paging_state_decode(
         CR0_BASE, UINT64_C(0x0001000000000000), CR4_BASE,
