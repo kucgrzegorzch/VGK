@@ -65,6 +65,10 @@ Repozytorium zawiera workflow GitHub Actions, który buduje historyczny prototyp
 - Po poprawce wykonano ponownie czystą kompilację i test `make test` przy użyciu GCC oraz Clang; oba zestawy zakończyły się powodzeniem.
 - Nadal wymagany jest test uruchomienia pod GRUB/QEMU; nie został wykonany w tym środowisku.
 
+## Główne założenia systemowe
+
+Nadrzędne zasady projektowe VGK opisuje dokument [Główne założenia systemowe](docs/GLÓWNE_ZAŁOŻENIA_SYSTEMOWE.md). W przyszłym interfejsie systemu lista ma być dostępna tylko do odczytu; propozycje zmian będą wymagały kontrolowanego przeglądu i zatwierdzenia właściciela projektu. Dokument opisuje założenia, a nie funkcje już wdrożone.
+
 ## Mechanizm Bezpieczeństwa i Zaufania
 
 Opisano go w [dokumentacji bezpieczeństwa](docs/BEZPIECZENSTWO.md). Repozytorium zawiera pomocnicze narzędzia do przygotowania i sprawdzania podpisanego wykazu plików (`tools/przygotuj_wydanie.py`, `tools/sprawdz_wydanie.py`); testy uruchamia `make security-test`. Zawiera też własną implementację obliczania SHA-256 (`boot/crypto/sha256.c`), sprawdzaną w ramach tych testów. Program nie jest jeszcze włączony do mechanizmu uruchamiania VGK i nie zapewnia ochrony podczas startu.
