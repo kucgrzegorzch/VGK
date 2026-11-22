@@ -39,6 +39,7 @@ Dziennik powinien przechowywać zdarzenia, a nie jeden nadpisywany rekord stanu.
 | `decision` | Silnik Polityki wydał decyzję |
 | `consent_requested` | poproszono administratora o zgodę |
 | `consent_granted` / `consent_denied` | zapisano odpowiedź administratora |
+| `message_acknowledged` | użytkownik potwierdził zapoznanie się z komunikatem; nie jest to zgoda ani autoryzacja |
 | `execution_started` | wykonawca rozpoczął autoryzowaną operację |
 | `execution_result` | wykonanie zakończyło się określonym wynikiem |
 | `verification_result` | niezależnie sprawdzono rezultat |
@@ -62,6 +63,8 @@ Każdy wpis powinien zawierać następujące pola lub ich odpowiedniki:
 | `timestamp` | czas ścienny, jeśli jest wiarygodny |
 | `monotonic_time` | czas monotoniczny do porządkowania zdarzeń w sesji |
 | `event_type` | typ zdarzenia z zamkniętego katalogu |
+| `message_id` | identyfikator komunikatu, jeśli wpis dotyczy potwierdzenia zapoznania się |
+| `acknowledgement_label` | wybrany tekst przycisku potwierdzenia, jeśli dotyczy; nie jest zgodą |
 | `correlation_id` | identyfikator łączący wpisy jednego przypadku |
 | `source` | moduł i wersja zgłaszająca zdarzenie |
 | `subject` | typ i identyfikator zasobu, którego dotyczy sprawa |
