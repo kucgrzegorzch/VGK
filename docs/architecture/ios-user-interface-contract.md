@@ -260,17 +260,19 @@ Interfejs informuje o **rezultacie**, a nie przerzuca na użytkownika techniczne
 
 Komunikat o usunięciu wolno pokazać dopiero po potwierdzeniu wykonania i weryfikacji rezultatu. Plik jedynie nieznany lub podejrzany nie może być nazywany szkodliwym. W takim przypadku IOS stosuje bezpieczne ograniczenie, np. blokadę uruchomienia lub kwarantannę, zgodnie z polityką.
 
-### 16.2. Zakres interfejsu
+### 16.2. Zakres codziennego interfejsu — wersja obowiązująca
 
-Docelowy interfejs powinien być uproszczony do:
-1. **Przegląd** – jeden czytelny stan systemu i najważniejsza informacja.
-2. **Historia** – automatycznie zapisane działania i ich potwierdzone wyniki.
-3. **Informacje o VGK** – wersja systemu i podstawowe informacje.
+Po doprecyzowaniu decyzji produktowej z 2026-11-23 codzienny interfejs IOS ma jeden główny widok:
+- górny pasek z nazwą VGK / Inteligentny Opiekun Systemu;
+- chronologiczną historię istotnych zdarzeń, diagnostyki, awarii i działań IOS.
+
+Historia jest główną treścią widoku i pozostaje tylko do odczytu. Wpisy otrzymują oznaczenia tekstowe i kolorystyczne: żółte dla zwykłych awarii i ostrzeżeń, czerwone dla awarii krytycznych oraz wiarygodnie potwierdzonych zagrożeń. Zdarzenia informacyjne mogą mieć oznaczenie neutralne.
+
+Nie ma osobnych codziennych ekranów „Ochrona”, „Diagnostyka”, „Odzyskiwanie” ani „Ustawienia Opiekuna”. Nie ma też osobnego ekranu „Przegląd” ani „Informacje o VGK” jako elementów obowiązkowej nawigacji. Informacje o wersji i szczegóły techniczne nie powinny rozbudowywać głównego widoku; mogą być udostępnione w kontrolowanym trybie serwisowym.
+
+Okna komunikatów są odrębną, krótką formą informowania o ważnych zdarzeniach. Zawierają jeden przycisk potwierdzenia zapoznania się z komunikatem. Preferowane brzmienie przycisku wybiera się spośród trzech ustalonych tekstów za pomocą małej zębatki w oknie komunikatu. Potwierdzenie nie jest zgodą na operację i nie wpływa na działanie ochronne IOS.
 
 Diagnostyka, polityka, konfiguracja modułów i naprawy są odpowiedzialnością IOS, a nie codziennymi narzędziami użytkownika. Nie oznacza to usunięcia wewnętrznych mechanizmów diagnostycznych ani kontrolowanego trybu serwisowego.
-
-Ten kierunek ma pierwszeństwo przed wcześniejszymi propozycjami rozbudowanej nawigacji, ekranów zgody dla rutynowych działań i ręcznego uruchamiania napraw. Nadal obowiązują wymagania prawdziwości statusu, audytowalności, prywatności i bezpiecznej obsługi błędów.
-
 
 ### 16.3. Rozstrzygnięcie wcześniejszych propozycji nawigacji i zgód
 
