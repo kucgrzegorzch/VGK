@@ -173,3 +173,25 @@ Zalecana kolejność:
 7. dopiero później rozważać ograniczone naprawy i operacje wymagające zgody.
 
 Nie należy implementować szerokich uprawnień IOS przed istnieniem testowalnego interfejsu, dziennika i polityki egzekwowanej przez jądro.
+
+
+## 13. Potwierdzenie komunikatu a zgoda na operację
+
+Potwierdzenie zapoznania się z komunikatem użytkownika jest odrębnym zdarzeniem informacyjnym. Nie stanowi zgody administratora, nie przyznaje uprawnień i nie może być interpretowane jako autoryzacja działania.
+
+- Przycisk komunikatu może mieć jedną z etykiet: „Zrozumiałem”, „Przyjąłem do wiadomości” albo „Dobrze”.
+- Zmiana etykiety przyciskiem ustawień komunikatu jest wyłącznie preferencją językową.
+- Naciśnięcie przycisku potwierdza jedynie zapoznanie się z konkretnym komunikatem.
+- Brak potwierdzenia nie jest odmową, zgodą ani poleceniem wstrzymania działania.
+- Działania ochronne wymagane przez zatwierdzoną politykę, w tym reakcja na awarię krytyczną, przebiegają niezależnie od okna komunikatu.
+- Operacja wymagająca zgody administratora nadal musi przejść odrębną, uwierzytelnioną procedurę opisaną w niniejszym kontrakcie. Zwykły przycisk potwierdzenia komunikatu nie może jej zastąpić.
+
+### 13.1. Potwierdzone zagrożenia i niepewne pliki
+
+IOS może bez pytania unieszkodliwić i usunąć z aktywnego systemu plik, jeżeli zagrożenie zostało wiarygodnie potwierdzone, plik i zakres działania są jednoznacznie zidentyfikowane, a operacja mieści się w zatwierdzonych uprawnieniach. Nie oznacza to prawa do trwałego usuwania prywatnych danych użytkownika ani do dowolnego czyszczenia nośników.
+
+Jeżeli plik jest jedynie nieznany, podejrzany lub wynik analizy jest niejednoznaczny, domyślną reakcją jest ograniczenie ryzyka przez odwracalną blokadę lub kwarantannę z zachowaniem możliwości przywrócenia. Nie wolno nazywać takiego pliku potwierdzonym malware ani przedstawiać go jako usuniętego.
+
+### 13.2. Bezpieczeństwo termiczne
+
+W razie wiarygodnie wykrytej awarii chłodzenia IOS może zainicjować kontrolowane wyłączenie zgodnie z limitami termicznymi i zatwierdzoną polityką. Wyłączenie nie wymaga potwierdzenia komunikatu przez użytkownika. Prognozowany czas do osiągnięcia progu krytycznego nie jest sztywnym opóźnieniem; rzeczywisty pomiar i bezpieczny próg mają pierwszeństwo. Niezależne zabezpieczenia procesora, płyty głównej i firmware muszą pozostać aktywne.
