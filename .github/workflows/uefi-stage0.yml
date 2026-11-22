@@ -53,6 +53,8 @@ jobs:
         run: make paging-ranges-test
       - name: Test x86 CPU feature detection
         run: make cpu-features-test
+      - name: Test read-only paging state snapshot decoder
+        run: make paging-state-test
       - name: Test x86 interrupt descriptor encoding
         run: make interrupts-test
       - name: Test cooperation of GDT, TSS, IST, IDT and real exception stubs
