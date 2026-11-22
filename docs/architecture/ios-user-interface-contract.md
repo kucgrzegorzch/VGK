@@ -276,7 +276,7 @@ Diagnostyka, polityka, konfiguracja modułów i naprawy są odpowiedzialnością
 
 ### 16.3. Rozstrzygnięcie wcześniejszych propozycji nawigacji i zgód
 
-Sekcje 3, 6 i 7 opisują wcześniejszy, bardziej rozbudowany wariant projektu. Po decyzji z 2026-11-22 nie stanowią one domyślnego interfejsu codziennego użytkownika i należy je interpretować z następującymi ograniczeniami:
+Sekcje 3–14 zawierają wcześniejszy, bardziej rozbudowany wariant projektu. Po decyzjach produktowych z 2026-11-22 i 2026-11-23 nie opisują obowiązującego interfejsu codziennego użytkownika. Ich propozycje nawigacji, ekranów, kart stanu, szczegółów, zgód, filtrowania i makiet nie są wymaganiami dla codziennego widoku. Zachowują znaczenie wyłącznie te ogólne wymagania techniczne, bezpieczeństwa, dostępności i wydajności, które nie są sprzeczne z uproszczonym modelem:
 
 - Codzienny interfejs nie ma osobnej nawigacji do ekranów „Przegląd”, „Historia” ani „Informacje o VGK”. Użytkownik widzi jeden główny widok: górny pasek VGK / Inteligentny Opiekun Systemu oraz chronologiczną historię zdarzeń. Sekcje Ochrona, Diagnostyka, Odzyskiwanie i Ustawienia Opiekuna również nie są osobnymi ekranami codziennego użytkownika.
 - Szczegółowe dane diagnostyczne, konfiguracja polityki, narzędzia naprawcze i administracyjne należą do kontrolowanego trybu serwisowego, a nie do codziennego panelu.
