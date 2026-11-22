@@ -1,0 +1,181 @@
+# Inteligentny Opiekun Systemu (IOS)
+
+**Status:** propozycja architektury. IOS nie jest obecnie gotowym ani działającym podsystemem VGK. Dokument określa jego przyszłą rolę, granice uprawnień i sposób współpracy z jądrem.
+
+## 1. Nazwa i rola
+
+**Inteligentny Opiekun Systemu (IOS)** jest docelową, nadrzędną usługą systemową VGK, która nadzoruje stan systemu, koordynuje diagnostykę, egzekwowanie zatwierdzonych zasad bezpieczeństwa, aktualizacje i odzyskiwanie sprawności.
+
+„Bezpieczeństwo systemu” jest jednym z obszarów odpowiedzialności IOS, a nie nazwą całego Opiekuna. IOS nie jest zwykłym antywirusem, aplikacją użytkownika ani zewnętrzną usługą chmurową.
+
+Nazwa „inteligentny” oznacza zdolność łączenia informacji diagnostycznych, wykrywania anomalii i przedstawiania zaleceń. Nie oznacza, że decyzje o krytycznych uprawnieniach mogą być podejmowane przez niekontrolowany model AI.
+
+## 2. Nadrzędne zasady
+
+1. **Ochrona przed wygodą:** IOS nie może obniżyć krytycznej ochrony tylko po to, aby operacja zakończyła się powodzeniem.
+2. **Minimalne uprawnienia:** każdy składnik IOS otrzymuje wyłącznie uprawnienia potrzebne do swojej funkcji.
+3. **Rozdzielenie wykrywania od wykonania:** skaner lub moduł diagnostyczny może zgłosić problem; nie otrzymuje przez to prawa do dowolnej naprawy.
+4. **Bezpieczna odmowa:** gdy nie ma wystarczających danych do bezpiecznej decyzji, IOS zatrzymuje ryzykowną operację i wyjaśnia przyczynę.
+5. **Ochrona danych:** automatyczne reakcje preferują działania odwracalne. Trwałe kasowanie i nadpisywanie danych wymagają osobnej procedury.
+6. **Jawność:** ważne decyzje, ich podstawa i wynik są zapisywane w chronionym dzienniku.
+7. **Działanie lokalne:** podstawowe kontrole muszą działać bez Internetu i bez płatnej usługi.
+8. **Kontrolowana zmiana:** reguły, klucze zaufania i uprawnienia krytyczne zmienia się wyłącznie przez uwierzytelnioną procedurę.
+
+## 3. Podział architektury
+
+IOS powinien być logicznie podzielony na następujące części. Nie przesądza to jeszcze, czy każda część będzie osobnym procesem, biblioteką czy usługą jądra; taki wybór wymaga osobnego projektu technicznego.
+
+| Część | Odpowiedzialność | Granica uprawnień |
+|---|---|---|
+| Koordynator Opiekuna | zbiera wyniki modułów, ustala kolejność działań i prezentuje stan | nie może sam omijać polityki ani uzyskiwać bezpośredniego dostępu do pamięci jądra |
+| Silnik Polityki Bezpieczeństwa | ocenia żądania według jawnych, wersjonowanych reguł | jedyne miejsce podejmowania decyzji polityki; nie wykonuje dowolnych poleceń z treści zgłoszeń |
+| Ochrona Integralności | sprawdza podpisy, manifesty i zgodność składników | raportuje wynik; nie modyfikuje samowolnie zaufanych kluczy |
+| Diagnostyka i Monitor Stanu | wykrywa błędy sprzętu, zasobów, usług i systemu plików | odczyt w zakresie przyznanych uprawnień; działania naprawcze osobno autoryzowane |
+| Ochrona Plików i Aplikacji | kontroluje uruchamianie, pliki, nośniki i zgłoszenia skanerów | brak prawa do bezwarunkowego kasowania danych |
+| Kontrola Sterowników i Urządzeń | sprawdza pochodzenie, zgodność i uprawnienia sterowników | decyzja o dopuszczeniu oparta na polityce i weryfikacji, nie na samej nazwie producenta |
+| Kontrola Sieci | stosuje zatwierdzone reguły ruchu i reaguje na naruszenia | reguły ograniczone; blokady powinny być możliwie odwracalne |
+| Menedżer Aktualizacji | weryfikuje pakiety, wersje, zależności i możliwość wycofania | nie instaluje pakietu bez sprawdzenia autentyczności i integralności |
+| System Odzyskiwania | uruchamia bezpieczne procedury naprawy i przywracania | nie może wyłączać zabezpieczeń ani nadpisywać danych bez wymaganej zgody |
+| Dziennik Zdarzeń | zapisuje decyzje, błędy, zmiany polityk i wyniki napraw | zapis chroniony przed zwykłymi aplikacjami; ograniczanie danych wrażliwych |
+
+## 4. Kto podejmuje decyzje
+
+Należy rozdzielić cztery role:
+
+- **Moduł wykrywający** – dostarcza obserwację, np. „plik ma nieprawidłowy podpis”.
+- **Silnik Polityki Bezpieczeństwa** – sprawdza obserwację względem reguł i określa dozwoloną reakcję.
+- **Kontrolowany wykonawca** – wykonuje wyłącznie konkretną, zatwierdzoną operację.
+- **Użytkownik lub administrator** – zatwierdza czynności wymagające zgody i może zapoznać się z uzasadnieniem.
+
+Żaden moduł wykrywający nie może sam nadać sobie uprawnień wykonawczych. Komunikaty, nazwy plików i dane pochodzące z niezaufanych źródeł są danymi, a nie poleceniami dla Opiekuna.
+
+## 5. Rola algorytmów inteligentnych i AI
+
+W przyszłości IOS może używać metod heurystycznych lub modeli AI do:
+- grupowania powiązanych zdarzeń;
+- wskazywania nietypowych zachowań;
+- porównywania symptomów awarii;
+- proponowania kolejności diagnostyki;
+- wyjaśniania użytkownikowi możliwych przyczyn i skutków.
+
+Wynik heurystyki lub AI jest **rekomendacją**, a nie uprawnieniem. Nie może samodzielnie:
+- zmienić kluczy zaufania;
+- zapisać do pamięci jądra lub rejestrów sterujących CPU;
+- wyłączyć ochrony integralności;
+- trwale usuwać plików użytkownika;
+- instalować niezweryfikowanego sterownika lub aktualizacji;
+- zmieniać polityki bezpieczeństwa poza zatwierdzonym procesem.
+
+Krytyczne decyzje muszą być sprawdzalne i oparte na deterministycznych regułach. Awaria lub niedostępność modelu AI nie może wyłączać podstawowej ochrony VGK. System nie może wymagać przesyłania prywatnych plików do zewnętrznej usługi, aby wykonać podstawową kontrolę.
+
+## 6. Poziomy reakcji
+
+| Poziom | Przykład | Docelowe zachowanie |
+|---|---|---|
+| Informacyjny | ostrzeżenie o wysokim użyciu pamięci | poinformować i zapisać zdarzenie |
+| Ograniczenie odwracalne | podejrzany proces lub połączenie | czasowo ograniczyć, zachować możliwość przywrócenia |
+| Blokada ochronna | nieprawidłowy podpis pliku startowego | odmówić użycia składnika; nie przechodzić po cichu w tryb niezabezpieczony |
+| Naprawa kontrolowana | uszkodzony plik systemowy | zweryfikować źródło, zabezpieczyć stan, wykonać minimalną naprawę i sprawdzić wynik |
+| Operacja wymagająca zgody | usunięcie danych, cofnięcie aktualizacji z ryzykiem utraty danych | przedstawić skutki i wymagać jawnej zgody |
+
+W sytuacji bezpośredniego zagrożenia IOS może natychmiast zastosować wcześniej zatwierdzoną, odwracalną blokadę. Nie może rozszerzać jej samodzielnie na trwałe działania destrukcyjne.
+
+## 7. Interfejs z jądrem
+
+Jądro pozostaje ostatecznym egzekutorem ochrony pamięci i operacji uprzywilejowanych. IOS nie może być „drugim jądrem” ani uzyskać nieograniczonego dostępu tylko dlatego, że jest komponentem zaufanym.
+
+Przyszły interfejs jądro–IOS powinien:
+- być mały, jawnie określony i wersjonowany;
+- weryfikować uprawnienia każdego żądania;
+- walidować wszystkie wskaźniki, długości, identyfikatory i zakresy;
+- nie przyjmować wskaźników do arbitralnego wykonywania kodu;
+- ograniczać częstotliwość i rozmiar żądań;
+- zapewniać bezpieczne zachowanie przy błędzie lub awarii IOS;
+- nie udostępniać aplikacjom zwykłym bezpośredniego kanału do funkcji uprzywilejowanych.
+
+Awaria IOS nie może powodować, że jądro automatycznie zezwoli na operacje wcześniej zabronione. Jądro musi zachować własne minimalne mechanizmy ochronne.
+
+## 8. Tryby działania
+
+Docelowo Opiekun powinien pracować w trybach:
+- **Normalny** – ciągły nadzór o małym koszcie zasobów.
+- **Diagnostyczny** – dokładniejsze zbieranie danych po wykryciu problemu lub na żądanie użytkownika.
+- **Ograniczony** – blokowanie ryzykownych operacji, gdy stan systemu nie pozwala na bezpieczną pracę.
+- **Odzyskiwania** – minimalne środowisko do weryfikacji i naprawy systemu.
+- **Konserwacji** – kontrolowane aktualizacje i czynności administracyjne.
+
+Przejście między trybami musi być jawne w dzienniku. Tryb ograniczony nie może być sposobem na trwałe ukrycie awarii.
+
+## 9. Wydajność i niezawodność
+
+- Nadzór podstawowy powinien być lekki i działać także na komputerach z 4–8 GB RAM.
+- Intensywne skanowanie powinno mieć limity pamięci, czasu i priorytetu.
+- Długie zadania powinny być dzielone na porcje i możliwe do wstrzymania.
+- IOS nie może blokować uruchomienia komputera bez uzasadnionej potrzeby; krytyczna kontrola startu jest jednak ważniejsza niż wygoda.
+- Moduły powinny być możliwie niezależne, aby awaria diagnostyki nie wyłączała kontroli podpisów.
+- Każda automatyczna naprawa musi mieć punkt kontroli wyniku i zdefiniowaną ścieżkę przerwania.
+
+## 10. Etapy wdrożenia
+
+1. **Kontrakt i granice zaufania** – role, interfejsy, uprawnienia, format zdarzeń i polityka decyzji.
+2. **Podstawowy dziennik i raport stanu** – tylko odczyt, bez automatycznych napraw.
+3. **Silnik Polityki Bezpieczeństwa** – deterministyczne reguły i testy decyzji na danych testowych.
+4. **Integracja ochrony integralności** – wykorzystanie istniejących modułów kryptograficznych po potwierdzeniu ich rzeczywistego podłączenia i testów.
+5. **Diagnostyka sprzętu i systemu** – bezpieczne, ograniczone odczyty i raportowanie.
+6. **Kontrolowane reakcje** – najpierw odwracalne blokady, potem wąsko określone naprawy.
+7. **Odzyskiwanie, aktualizacje i skanowanie** – dopiero po zapewnieniu wiarygodnego dziennika, uprawnień i testów awarii.
+8. **Metody heurystyczne/AI** – wyłącznie jako warstwa wspomagająca, po zabezpieczeniu podstawowych reguł.
+
+Każdy etap wymaga osobnego przeglądu kodu, testów negatywnych i oceny wpływu na dane użytkownika. Sam dokument nie oznacza wdrożenia żadnego z tych etapów.
+
+## 11. Minimalne kryteria akceptacji
+
+- Moduł wykrywający nie może wykonać operacji uprzywilejowanej bez decyzji polityki.
+- Zwykła aplikacja nie może podszyć się pod Opiekuna ani wywołać jego wewnętrznych funkcji.
+- Nieprawidłowy lub brakujący wynik weryfikacji nie może być interpretowany jako sukces.
+- AI/heurystyka nie może samodzielnie zatwierdzić operacji destrukcyjnej.
+- Dziennik musi rozróżniać obserwację, decyzję, wykonanie i rezultat.
+- Awaria jednego modułu nie może wyłączać niezależnych zabezpieczeń.
+- Naprawa musi być przerywalna i nie może po cichu nadpisywać danych użytkownika.
+- Podstawowe reguły muszą działać offline.
+- Testy muszą obejmować fałszywe alarmy, nadużycie uprawnień, błędne dane wejściowe, awarię modułu i przerwanie naprawy.
+
+## 12. Stan obecny
+
+Na dzień utworzenia tej propozycji IOS jest **koncepcją architektoniczną**, nie zaimplementowaną usługą systemową. Nie ma podstaw, aby twierdzić, że VGK posiada już działającego autonomicznego Opiekuna, aktywny antywirus, pełny mechanizm naprawczy lub AI zarządzające systemem.
+
+Dokument należy rozwijać wspólnie z modelem zagrożeń VGK, polityką zgodności oprogramowania ochronnego i głównymi założeniami systemowymi.
+
+
+## 13. Model autonomicznego Opiekuna – decyzja produktowa
+
+**Decyzja kierunkowa z 2026-11-22:** IOS ma być rzeczywistym opiekunem VGK, który samodzielnie odpowiada za codzienny nadzór, ochronę, konserwację, aktualizacje i naprawy w granicach zatwierdzonej polityki. Użytkownik nie powinien wykonywać pracy administratora ani podejmować technicznych decyzji, które może bezpiecznie podjąć system.
+
+### 13.1. Odpowiedzialność IOS
+
+Docelowo IOS sam:
+- obserwuje stan systemu i wykrywa usterki oraz zagrożenia;
+- ocenia je według sprawdzalnych reguł i poziomu pewności;
+- blokuje niebezpieczne uruchomienia i izoluje obiekty, których nie można jeszcze jednoznacznie sklasyfikować;
+- unieszkodliwia potwierdzone złośliwe składniki i usuwa je z aktywnego systemu w ramach ściśle określonej polityki;
+- wykonuje zweryfikowane naprawy i aktualizacje;
+- sprawdza, czy operacja rzeczywiście się powiodła;
+- zapisuje wynik w historii i informuje użytkownika prostym komunikatem.
+
+Nieznany plik nie jest automatycznie złośliwy. W razie niepewności pierwszą reakcją jest ograniczenie ryzyka, np. blokada uruchomienia lub kwarantanna, a nie nieodwracalne usunięcie.
+
+### 13.2. Użytkownik i interfejs
+
+Interfejs jest przede wszystkim odczytowy. Pokazuje ogólny stan, istotne komunikaty i historię działań. Nie udostępnia codziennych przycisków do zarządzania ochroną, sterownikami, procesami, aktualizacjami ani polityką. IOS nie powinien obciążać użytkownika rutynowymi pytaniami.
+
+Pytanie jest uzasadnione, gdy działanie przerywa pracę lub wymaga wyboru dotyczącego dostępności komputera. Przykład: prośba o zgodę na restart po aktualizacji, z możliwością odroczenia. Rutynowe, wcześniej zatwierdzone działania ochronne powinny odbywać się automatycznie.
+
+### 13.3. Granice autonomii
+
+Autonomia IOS nie oznacza nieograniczonych uprawnień. Jądro egzekwuje przyznane możliwości, polityka określa dozwolone reakcje, a moduły wykonawcze otrzymują wyłącznie konkretne zadania. Heurystyki i AI mogą wspierać analizę, ale nie mogą samodzielnie nadawać uprawnień ani wykonywać dowolnych poleceń uprzywilejowanych. Podstawowa ochrona działa lokalnie i nie zależy od Internetu.
+
+### 13.4. Raportowanie
+
+Użytkownik otrzymuje rezultat, nie listę technicznych kroków. Przykładowe komunikaty: „VGK działa prawidłowo”, „Szkodliwy plik został unieszkodliwiony”, „Naprawiono składnik systemu”, „Aktualizacja gotowa – wymagany restart” albo „Nie udało się potwierdzić naprawy; ochrona działa w trybie ograniczonym”. Każdy komunikat o sukcesie musi wynikać z potwierdzonego rezultatu i wpisu w dzienniku.
+
+Ten model zastępuje wcześniejsze założenie, że użytkownik ma na co dzień obsługiwać rozbudowany panel administracyjny IOS. Nie zastępuje wewnętrznej diagnostyki, testów bezpieczeństwa, dziennika ani kontrolowanego trybu serwisowego.

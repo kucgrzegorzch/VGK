@@ -6,7 +6,7 @@
 
 ## 1. Cel i sposób użycia modelu
 
-Model ma być podstawą projektowania VGK Guardian Security oraz Systemu Naprawczego. Każda nowa funkcja związana z bezpieczeństwem powinna zostać oceniona względem tego dokumentu przed implementacją.
+Model ma być podstawą projektowania Inteligentnego Opiekuna Systemu (IOS) oraz Systemu Naprawczego. Każda nowa funkcja związana z bezpieczeństwem powinna zostać oceniona względem tego dokumentu przed implementacją.
 
 Podstawowe cele:
 - zapobiegać uruchamianiu nieautoryzowanych lub zmodyfikowanych składników;
