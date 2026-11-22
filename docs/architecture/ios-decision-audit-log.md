@@ -215,3 +215,18 @@ Każdy etap wymaga osobnego przeglądu kodu i testów. Dokument nie stanowi zgod
 - Kontrakt uprawnień IOS: `docs/architecture/ios-authority-contract.md`.
 
 Dziennik jest warstwą audytu tych zasad, a nie alternatywnym źródłem autorytetu. W przypadku sprzeczności obowiązuje kontrakt uprawnień i polityka egzekwowana przez jądro.
+
+
+## 14. Potwierdzenia komunikatów i prezentacja zdarzeń
+
+Dziennik rozróżnia **potwierdzenie zapoznania się z komunikatem** od **zgody na operację**. Są to dwa różne typy zdarzeń i nie mogą być ze sobą utożsamiane.
+
+Jeżeli użytkownik naciśnie przycisk komunikatu („Zrozumiałem”, „Przyjąłem do wiadomości” albo „Dobrze”), dziennik może zapisać:
+- identyfikator komunikatu i powiązanego zdarzenia;
+- fakt zapoznania się z komunikatem;
+- czas potwierdzenia, jeśli zegar jest wiarygodny;
+- wybraną etykietę przycisku.
+
+Wpis taki nie jest zgodą, nie zmienia decyzji polityki i nie upoważnia do rozpoczęcia ani kontynuowania operacji. Brak potwierdzenia nie jest odmową ani zgodą. Zgody administratora nadal są rejestrowane odrębnym typem zdarzenia, z zakresem i uwierzytelnioną tożsamością zatwierdzającego zgodnie z sekcją 10.
+
+Dziennik przechowuje fakty i wyniki; kolor jest wyłącznie warstwą prezentacji interfejsu. Widok codzienny może oznaczać żółtym zwykłe awarie i ostrzeżenia, a czerwonym awarie krytyczne oraz wiarygodnie potwierdzone zagrożenia. Kolor nie zmienia klasy uprawnień ani decyzji polityki. Komunikat o naprawie lub usunięciu jest dopuszczalny dopiero po potwierdzeniu rezultatu.
