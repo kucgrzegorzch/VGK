@@ -270,3 +270,16 @@ Docelowy interfejs powinien być uproszczony do:
 Diagnostyka, polityka, konfiguracja modułów i naprawy są odpowiedzialnością IOS, a nie codziennymi narzędziami użytkownika. Nie oznacza to usunięcia wewnętrznych mechanizmów diagnostycznych ani kontrolowanego trybu serwisowego.
 
 Ten kierunek ma pierwszeństwo przed wcześniejszymi propozycjami rozbudowanej nawigacji, ekranów zgody dla rutynowych działań i ręcznego uruchamiania napraw. Nadal obowiązują wymagania prawdziwości statusu, audytowalności, prywatności i bezpiecznej obsługi błędów.
+
+
+### 16.3. Rozstrzygnięcie wcześniejszych propozycji nawigacji i zgód
+
+Sekcje 3, 6 i 7 opisują wcześniejszy, bardziej rozbudowany wariant projektu. Po decyzji z 2026-11-22 nie stanowią one domyślnego interfejsu codziennego użytkownika i należy je interpretować z następującymi ograniczeniami:
+
+- Codzienna nawigacja ma wyłącznie trzy pozycje: **Przegląd**, **Historia** i **Informacje o VGK**. Sekcje Ochrona, Diagnostyka, Odzyskiwanie i Ustawienia Opiekuna nie są osobnymi ekranami zwykłego użytkownika.
+- Szczegółowe dane diagnostyczne, konfiguracja polityki, narzędzia naprawcze i administracyjne należą do kontrolowanego trybu serwisowego, a nie do codziennego panelu.
+- Rozbudowany ekran zgody administratora nie może być używany do zatwierdzania rutynowych działań, które IOS ma wykonywać samodzielnie na podstawie wcześniej zatwierdzonej polityki.
+- Jeżeli wyjątkowa operacja wymaga osobistej decyzji użytkownika, interfejs pokazuje tylko konkretny skutek i wybór niezbędny do kontynuacji, np. restart teraz albo odroczenie. Operacje wymagające formalnej autoryzacji administratora pozostają w odrębnej, uwierzytelnionej procedurze serwisowej; nie wolno zastępować jej zwykłym przyciskiem w powiadomieniu.
+- Historia w codziennym widoku ma być zwięzła i czytelna. Zaawansowane filtrowanie, eksport oraz surowe dane audytowe mogą być dostępne wyłącznie w kontrolowanym trybie serwisowym.
+
+W razie rozbieżności między wcześniejszymi opisami ekranów a sekcją 16.2 i niniejszym doprecyzowaniem obowiązuje uproszczony model produktu. Nie zmienia to wymagań bezpieczeństwa, audytu ani granic uprawnień.
