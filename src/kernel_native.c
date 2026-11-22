@@ -11,6 +11,9 @@
 #include "vgk_interrupts.h"
 #include "vgk_idtr.h"
 #include "vgk_exception.h"
+#ifdef VGK_QEMU_PAGING_STATE_TEST
+#include "vgk_paging_state.h"
+#endif
 
 #define COM1_PORT 0x3F8U
 #define VGK_X86_64_LOW_CANONICAL_LIMIT (UINT64_C(1) << 47)
@@ -1100,6 +1103,49 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
     }
     serial_write("VGK: menedzer pamieci uruchomiony.\r\n");
     serial_write("VGK: etap diagnostyczny; sterowniki i uslugi nie sa jeszcze gotowe.\r\n");
+
+#ifdef VGK_QEMU_PAGING_STATE_TEST
+    {
+        VGK_PAGING_STATE first, second;
+        int identical;
+        if (vgk_paging_state_capture(&first) != VGK_PAGING_STATE_OK ||
+            vgk_paging_state_capture(&second) != VGK_PAGING_STATE_OK) {
+            serial_write("VGK: QEMU PAGING STATE CAPTURE FAIL\r\n");
+            for (;;) __asm__ volatile ("cli; hlt");
+        }
+        identical =
+            first.cr0 == second.cr0 && first.cr3 == second.cr3 &&
+            first.cr4 == second.cr4 && first.efer == second.efer &&
+            first.physical_address_bits == second.physical_address_bits &&
+            first.root_physical == second.root_physical &&
+            first.paging_active == second.paging_active &&
+            first.pcid_enabled == second.pcid_enabled &&
+            first.current_pcid == second.current_pcid &&
+            first.nx_enabled == second.nx_enabled &&
+            first.smep_enabled == second.smep_enabled &&
+            first.smap_enabled == second.smap_enabled &&
+            first.five_level_paging_active == second.five_level_paging_active;
+        serial_write("VGK: QEMU paging CR0="); serial_write_hex(first.cr0);
+        serial_write(" CR3="); serial_write_hex(first.cr3);
+        serial_write(" CR4="); serial_write_hex(first.cr4);
+        serial_write(" EFER="); serial_write_hex(first.efer);
+        serial_write(" root="); serial_write_hex(first.root_physical);
+        serial_write(" levels=");
+        serial_write(first.five_level_paging_active ? "5" : "4");
+        serial_write(" PCID=");
+        serial_write(first.pcid_enabled ? "ON" : "OFF");
+        serial_write(" NXE=");
+        serial_write(first.nx_enabled ? "ON" : "OFF");
+        serial_write("\r\n");
+        if (!identical || first.paging_active == 0U) {
+            serial_write("VGK: QEMU PAGING STATE STABILITY FAIL\r\n");
+            for (;;) __asm__ volatile ("cli; hlt");
+        }
+        serial_write("VGK: QEMU PAGING STATE CAPTURE PASS\r\n");
+        serial_write("VGK: QEMU PAGING STATE READ-ONLY STABILITY PASS\r\n");
+        for (;;) __asm__ volatile ("cli; hlt");
+    }
+#endif
 
 #ifdef VGK_QEMU_DOUBLE_FAULT_TEST
     vgk_qemu_trigger_double_fault();

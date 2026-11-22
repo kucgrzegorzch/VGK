@@ -134,15 +134,15 @@ disassembly = subprocess.run(
     check=True, capture_output=True, text=True
 ).stdout
 forbidden_instruction = re.compile(
-    r"\b(?:lgdt|ltr|lidt|wrmsr|sti)\b|\bmov[a-z]*\s+[^,\n]+,\s*%cr3\b",
+    r"\b(?:lgdt|ltr|lidt|wrmsr|sti|invlpg|invpcid)\b|\bmov[a-z]*\s+[^,\n]+,\s*%cr[034]\b",
     re.IGNORECASE,
 )
 for line in disassembly.splitlines():
     if forbidden_instruction.search(line):
         raise SystemExit(
-            "FAIL: privileged descriptor, MSR, interrupt or CR3 activation is not permitted yet: "
+            "FAIL: privileged descriptor, MSR write, interrupt, TLB invalidation or control-register write is not permitted yet: "
             + line.strip()
         )
 
 
-print(f"OK: native VGK ELF64 x86-64; entry=0x{entry:x}; PT_LOAD={len(loads)}; RX/R/RW separated; APIC planning linked; LGDT/LTR/LIDT/WRMSR/STI/CR3 activation absent")
+print(f"OK: native VGK ELF64 x86-64; entry=0x{entry:x}; PT_LOAD={len(loads)}; RX/R/RW separated; APIC planning linked; LGDT/LTR/LIDT/WRMSR/STI/INVLPG/INVPCID and CR0/CR3/CR4 writes absent")
