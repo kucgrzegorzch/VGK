@@ -11,7 +11,7 @@ UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machin
 CRYPTO_DIR := boot/crypto
 MONOCYPHER_DIR := $(CRYPTO_DIR)/monocypher
 
-.PHONY: all clean iso check-tools test paging-requirements-test gdt-test ist-stacks-test native-kernel native-kernel-test native-kernel-qemu-pf-test native-kernel-qemu-df-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test cpu-features-test interrupts-test gdt-idt-contract-test idtr-test exception-test framebuffer-test pci-test uefi-pci-test paging-test paging-ranges-test paging-ranges-compile-test paging-preflight-test acpi-test apic-mapping-test apic-mapping-compile-test uefi-page-table-pool-test
+.PHONY: all clean iso check-tools test paging-requirements-test gdt-test ist-stacks-test native-kernel native-kernel-test native-kernel-qemu-pf-test native-kernel-qemu-df-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test cpu-features-test interrupts-test gdt-idt-contract-test idtr-test exception-test framebuffer-test pci-test uefi-pci-test paging-test paging-ranges-test paging-ranges-compile-test paging-preflight-test acpi-test apic-mapping-test apic-mapping-compile-test uefi-page-table-pool-test paging-state-test
 all: build/vgk-kernel.elf
 
 test: build/vgk-kernel.elf
@@ -98,6 +98,9 @@ build/idtr_native.o: src/idtr.c include/vgk_idtr.h include/vgk_interrupts.h | bu
 build/ist_stacks_native.o: src/ist_stacks.c include/vgk_ist_stacks.h | build
 	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
 
+build/paging_state_native.o: src/paging_state.c include/vgk_paging_state.h | build
+	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
+
 ist-stacks-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/ist_stacks.c tests/test_ist_stacks.c -o build/test_ist_stacks
 	./build/test_ist_stacks
@@ -106,8 +109,8 @@ gdt-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/gdt.c tests/test_gdt.c -o build/test_gdt
 	./build/test_gdt
 
-build/vgk-kernel-native.elf: build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/interrupts_native.o build/idtr_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o build/apic_mapping_native.o linker-native.ld
-	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/interrupts_native.o build/idtr_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o build/apic_mapping_native.o
+build/vgk-kernel-native.elf: build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/interrupts_native.o build/idtr_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o build/apic_mapping_native.o build/paging_state_native.o linker-native.ld
+	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/interrupts_native.o build/idtr_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o build/apic_mapping_native.o build/paging_state_native.o
 
 native-kernel: build/vgk-kernel-native.elf
 
@@ -172,6 +175,10 @@ paging-test: | build
 cpu-features-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/cpu_features.c tests/test_cpu_features.c -o build/test_cpu_features
 	./build/test_cpu_features
+
+paging-state-test: | build
+	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/paging_state.c tests/test_paging_state.c -o build/test_paging_state
+	./build/test_paging_state
 
 idtr-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/idtr.c tests/test_idtr.c -o build/test_idtr
