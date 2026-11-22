@@ -25,6 +25,7 @@ VGK_PAGING_STATE_RESULT vgk_paging_state_decode(
     uint64_t cr4,
     uint64_t efer,
     uint8_t physical_address_bits,
+    uint8_t nx_supported,
     uint8_t pcid_supported,
     uint8_t invpcid_supported,
     uint8_t la57_supported,
@@ -43,7 +44,7 @@ VGK_PAGING_STATE_RESULT vgk_paging_state_decode(
     *state = (VGK_PAGING_STATE){0};
 
     if (physical_address_bits < 32U || physical_address_bits > 52U ||
-        pcid_supported > 1U || invpcid_supported > 1U ||
+        nx_supported > 1U || pcid_supported > 1U || invpcid_supported > 1U ||
         la57_supported > 1U || smep_supported > 1U || smap_supported > 1U)
         return VGK_PAGING_STATE_INVALID_ARGUMENT;
 
