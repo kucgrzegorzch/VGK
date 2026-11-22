@@ -21,6 +21,8 @@ typedef struct {
     uint8_t la57_supported;
     uint8_t smep_supported;
     uint8_t smap_supported;
+    uint8_t smep_enabled;
+    uint8_t smap_enabled;
     uint8_t paging_active;
     uint8_t write_protect_enabled;
     uint8_t nx_enabled;
