@@ -11,6 +11,7 @@ UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machin
 CRYPTO_DIR := boot/crypto
 MONOCYPHER_DIR := $(CRYPTO_DIR)/monocypher
 
+.PHONY: native-kernel-qemu-paging-state-test
 .PHONY: all clean iso check-tools test paging-requirements-test gdt-test ist-stacks-test native-kernel native-kernel-test native-kernel-qemu-pf-test native-kernel-qemu-df-test uefi uefi-test uefi-keyed-compile-test uefi-keyed-link-test uefi-qemu-image uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test boot-info-test uefi-memory-map-test uefi-elf-test uefi-elf-allocator-test memory-test cpu-features-test interrupts-test gdt-idt-contract-test idtr-test exception-test framebuffer-test pci-test uefi-pci-test paging-test paging-ranges-test paging-ranges-compile-test paging-preflight-test acpi-test apic-mapping-test apic-mapping-compile-test uefi-page-table-pool-test paging-state-test
 all: build/vgk-kernel.elf
 
@@ -35,6 +36,9 @@ build/entry_native.o: boot/entry_native.S | build
 
 build/exception_stubs_native.o: boot/exception_stubs.S | build
 	$(CC) -m64 -ffreestanding -fno-pic -fno-pie -c $< -o $@
+
+build/kernel_native_qemu_paging_state_test.o: src/kernel_native.c include/vgk_paging_state.h | build
+	$(CC) $(CFLAGS) -mcmodel=small -DVGK_QEMU_PAGING_STATE_TEST -c $< -o $@
 
 build/kernel_native.o: src/kernel_native.c include/vgk_boot_info.h include/vgk_framebuffer.h include/vgk_acpi.h include/vgk_apic_mapping.h include/vgk_memory.h include/vgk_cpu_features.h include/vgk_paging.h include/vgk_paging_preflight.h include/vgk_paging_ranges.h include/vgk_paging_requirements.h include/vgk_ist_stacks.h include/vgk_gdt.h include/vgk_interrupts.h include/vgk_idtr.h | build
 	$(CC) $(CFLAGS) -mcmodel=small -c $< -o $@
@@ -108,6 +112,12 @@ ist-stacks-test: | build
 gdt-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude src/gdt.c tests/test_gdt.c -o build/test_gdt
 	./build/test_gdt
+
+build/vgk-kernel-native-qemu-paging-state-test.elf: build/entry_native.o build/exception_stubs_native.o build/kernel_native_qemu_paging_state_test.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/interrupts_native.o build/idtr_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o build/apic_mapping_native.o build/paging_state_native.o linker-native.ld
+	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/exception_stubs_native.o build/kernel_native_qemu_paging_state_test.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/interrupts_native.o build/idtr_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o build/apic_mapping_native.o build/paging_state_native.o
+
+native-kernel-qemu-paging-state-test: build/vgk-kernel-native-qemu-paging-state-test.elf
+	python3 tests/check_native_kernel.py build/vgk-kernel-native-qemu-paging-state-test.elf
 
 build/vgk-kernel-native.elf: build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/interrupts_native.o build/idtr_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o build/apic_mapping_native.o build/paging_state_native.o linker-native.ld
 	$(LD) -nostdlib -z max-page-size=0x1000 -T linker-native.ld -o $@ build/entry_native.o build/exception_stubs_native.o build/kernel_native.o build/memory_native.o build/acpi_native.o build/cpu_features_native.o build/paging_native.o build/paging_requirements_native.o build/gdt_native.o build/interrupts_native.o build/idtr_native.o build/ist_stacks_native.o build/paging_ranges_native.o build/paging_preflight_native.o build/apic_mapping_native.o build/paging_state_native.o
