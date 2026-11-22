@@ -44,7 +44,20 @@ The activation routine must receive an immutable, validated activation descripto
    - PCID, LA57, SMEP, SMAP, and global-page behavior must not be assumed from defaults. The activation design must either preserve compatible current settings or explicitly configure and validate them in a separately reviewed step.
    - The implementation must preserve the required CR0 paging/write-protect invariants and must not clear unrelated firmware-established control bits without an explicit policy.
 
-5. **Memory ownership and cache policy**
+5. **Paging-mode compatibility**
+   - The current VGK page-table builder creates four-level paging structures and validates 48-bit canonical virtual addresses. Its root must not be loaded while CR4.LA57 indicates five-level paging is active.
+   - The activation preflight must explicitly verify the active paging mode. If the current environment uses five-level paging, activation must be rejected until VGK has a separately designed, implemented, and tested five-level builder and transition path.
+   - LA57 must not be toggled as part of this transition while paging is enabled. Changing paging depth requires a separate architecture-level transition design; it is not an ordinary CR3 update.
+   - Required long-mode state, including CR0.PG, EFER.LME, and CR4.PAE, must remain valid throughout the transition. The routine must not attempt to leave or re-enter long mode implicitly.
+
+6. **CR3 encoding and TLB policy**
+   - The CR3 value must be constructed from the validated physical root and the explicitly detected current CR4.PCIDE state; it must not be formed by blindly OR-ing arbitrary low bits into the root address.
+   - When PCID is disabled, reserved CR3 bits must be zero and the defined PWT/PCD fields must follow an explicit cache policy. When PCID is enabled, the PCID field and the no-flush bit must be handled according to a separately validated policy.
+   - The initial activation must not request the CR3 no-flush behavior unless the implementation proves that the selected PCID context and all retained translations are valid for the new root.
+   - The transition must define and test how stale non-global translations are invalidated. It must also account for global translations: a CR3 write alone must not be assumed to remove global TLB entries while CR4.PGE is enabled.
+   - The implementation must use a documented, CPU-supported invalidation strategy or reject activation when it cannot guarantee that translations from the old environment cannot affect execution under the new root. INVPCID and any PGE changes must be feature-checked and reviewed rather than assumed.
+
+7. **Memory ownership and cache policy**
    - The page-table pool is reserved and must not overlap the kernel, boot information, memory map, framebuffer, or any other live object.
    - Every MMIO mapping has passed the existing firmware-range and CPU physical-width checks.
    - MMIO mappings use the approved uncached memory type and NX permissions. No APIC register is accessed merely because its virtual mapping was prepared.
@@ -58,7 +71,7 @@ The future implementation must make the transition small, auditable, and prefera
 2. Validate the complete activation descriptor and all invariants above while the old root is still active.
 3. Disable maskable interrupts for the transition. This does not replace correct exception handling; NMI and machine-check behavior must be considered separately.
 4. Ensure the transition stub, its stack, descriptor tables, and required data are mapped under both roots at identical virtual addresses.
-5. Load the new CR3 root using an architecture-specific, reviewed primitive.
+5. Load the new CR3 root using an architecture-specific, reviewed primitive and the validated CR3/TLB policy.
 6. Execute only instructions and access only data whose mappings and permissions have been proven valid under the new root.
 7. Verify the active root and required post-transition invariants before enabling any future interrupt or device path.
 
@@ -80,10 +93,13 @@ At minimum, add tests for:
 - missing mappings for the transition instruction, stack, GDT, IDT, TSS, IST stacks, boot data, and page-table metadata;
 - segment permission enforcement, W^X, and page-boundary collisions;
 - NX and optional control-register feature combinations;
+- four-level versus five-level paging-mode rejection;
+- CR3 field construction with PCID enabled and disabled, including rejection of unsupported or unsafe no-flush requests;
+- invalidation of non-global translations and handling of global translations when PGE is enabled;
 - MMIO memory-type and NX policy;
 - pool exhaustion and all pre-activation failure paths leaving the old root untouched.
 
-Then add controlled QEMU/OVMF tests that actually execute the transition and verify continued execution, exception handling, and memory permissions. QEMU success is necessary but not sufficient: a physical-machine test is still required before enabling the feature in a public release.
+Then add controlled QEMU/OVMF tests that actually execute the transition and verify continued execution, exception handling, TLB invalidation, and memory permissions. QEMU success is necessary but not sufficient: a physical-machine test is still required before enabling the feature in a public release.
 
 ## 6. Explicit non-goals for the current stage
 
