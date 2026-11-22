@@ -283,3 +283,60 @@ Sekcje 3, 6 i 7 opisują wcześniejszy, bardziej rozbudowany wariant projektu. P
 - Historia w codziennym widoku ma być zwięzła i czytelna. Zaawansowane filtrowanie, eksport oraz surowe dane audytowe mogą być dostępne wyłącznie w kontrolowanym trybie serwisowym.
 
 W razie rozbieżności między wcześniejszymi opisami ekranów a sekcją 16.2 i niniejszym doprecyzowaniem obowiązuje uproszczony model produktu. Nie zmienia to wymagań bezpieczeństwa, audytu ani granic uprawnień.
+
+
+## 17. Ustalony model komunikatów i widoku historii
+
+**Decyzja produktu z 2026-11-23:** codzienny interfejs IOS pozostaje prosty, spokojny i przede wszystkim tylko do odczytu. Główny widok składa się z górnego paska z nazwą VGK / Inteligentny Opiekun Systemu oraz chronologicznej historii istotnych zdarzeń. Nie dodaje się codziennego panelu administracyjnego ani ręcznych przycisków naprawy.
+
+### 17.1. Historia i oznaczenia
+
+Historia jest centralnym elementem widoku. Zawiera krótkie wpisy o diagnostyce, awariach, zagrożeniach i istotnych działaniach IOS. Wpisy są oznaczane jednocześnie kolorem i tekstem:
+- **żółty** – zwykła awaria lub ostrzeżenie, które nie jest sklasyfikowane jako krytyczne;
+- **czerwony** – awaria krytyczna albo wiarygodnie potwierdzone zagrożenie bezpieczeństwa;
+- zdarzenia informacyjne mogą pozostać neutralne.
+
+Kolor nigdy nie jest jedynym nośnikiem znaczenia. Wpis zawiera także czytelną nazwę i opis. Przykłady: żółty „Awaria mikrofonu”; czerwony „Awaria wentylatora procesora”; czerwony „Szkodliwy plik usunięty z aktywnego systemu”.
+
+Główny widok historii jest tylko do odczytu. Użytkownik nie otrzymuje w nim przycisków do ręcznego naprawiania sprzętu, usuwania plików, zarządzania sterownikami ani zmieniania polityki IOS.
+
+### 17.2. Okno komunikatu i potwierdzenie zapoznania się
+
+Gdy IOS ma ważną informację dla użytkownika, wyświetla krótkie okno komunikatu z jednym głównym przyciskiem potwierdzenia. Nie używa się etykiety „OK”. Użytkownik może wybrać preferowane brzmienie tego jednego przycisku:
+- „Zrozumiałem”;
+- „Przyjąłem do wiadomości”;
+- „Dobrze”.
+
+W samym oknie widoczny jest tylko aktualnie wybrany tekst. Mała ikona zębatki umieszczona w oknie komunikatu służy wyłącznie do wyboru jednego z tych trzech sformułowań. Nie otwiera ogólnych ustawień systemu i nie tworzy dodatkowego panelu administracyjnego.
+
+Naciśnięcie przycisku oznacza wyłącznie, że użytkownik zapoznał się z komunikatem. Nie jest zgodą na operację, nie zatwierdza uprawnień, nie anuluje działania ochronnego i nie zmienia decyzji IOS. Brak naciśnięcia również nie wstrzymuje ani nie odwraca działania, które IOS ma obowiązek wykonać na podstawie zatwierdzonej polityki.
+
+### 17.3. Przykładowe komunikaty
+
+**Zwykła awaria – mikrofon**
+
+„Wykryłem awarię mikrofonu. Próba naprawy zakończyła się niepowodzeniem. Mikrofon wymaga fizycznej wymiany.”
+
+Komunikat jest oznaczony jako zwykła awaria (żółty wpis w historii). IOS informuje o wyniku; nie przerzuca na użytkownika technicznej procedury naprawy.
+
+**Awaria krytyczna – wentylator procesora**
+
+„Wykryto awarię wentylatora. Próba naprawy zakończyła się niepowodzeniem. Wentylator wymaga fizycznej wymiany. Komputer zostanie automatycznie wyłączony przed osiągnięciem przez procesor krytycznej temperatury. Przewidywany czas do wyłączenia: około 2 minuty i 50 sekund.”
+
+Komunikat jest krytyczny (czerwony wpis). Wyłączenie jest sterowane rzeczywistym pomiarem temperatury i bezpiecznymi progami, a nie sztywnym odliczaniem. Podany czas jest prognozą i może się skrócić, jeśli temperatura rośnie szybciej. Potwierdzenie komunikatu ani jego brak nie wpływają na decyzję i termin bezpiecznego wyłączenia.
+
+**Potwierdzone zagrożenie – szkodliwy plik**
+
+„Wykryto plik wykonujący szkodliwe działania w plikach systemowych. Plik został unieszkodliwiony i usunięty z aktywnego systemu.”
+
+Komunikat i czerwony wpis w historii mogą stwierdzać usunięcie dopiero po wiarygodnym potwierdzeniu wykonania oraz weryfikacji wyniku. Jeżeli plik został tylko zablokowany albo poddany kwarantannie, komunikat musi opisywać dokładnie ten stan, a nie deklarować usunięcia.
+
+### 17.4. Zasady prawdziwości komunikatów
+
+- IOS odróżnia wykrycie, próbę naprawy, wynik naprawy i potwierdzenie stanu końcowego.
+- Nie wolno twierdzić, że coś naprawiono lub usunięto, jeżeli rezultat nie został zweryfikowany.
+- Plik nieznany lub podejrzany nie jest automatycznie uznawany za złośliwy; w razie niepewności stosuje się odwracalną blokadę lub kwarantannę.
+- Komunikat o koniecznej fizycznej wymianie podzespołu może być pokazany, gdy diagnostyka wiarygodnie wskazuje usterkę sprzętową i próba naprawy programowej nie powiodła się.
+- Komunikat nie może sugerować, że kliknięcie użytkownika jest warunkiem wykonania działania ochronnego.
+
+Te zasady doprecyzowują wcześniejsze sekcje dokumentu i mają pierwszeństwo w razie sprzeczności dotyczącej codziennego widoku, okien komunikatów i potwierdzania zapoznania się.
