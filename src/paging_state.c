@@ -12,6 +12,7 @@
 #define EFER_LME (UINT64_C(1) << 8)
 #define EFER_LMA (UINT64_C(1) << 10)
 #define EFER_NXE (UINT64_C(1) << 11)
+#define CPUID_NX (UINT32_C(1) << 20)
 #define CPUID_PCID (UINT32_C(1) << 17)
 #define CPUID_INVPCID (UINT32_C(1) << 10)
 #define CPUID_LA57 (UINT32_C(1) << 16)
@@ -54,6 +55,9 @@ VGK_PAGING_STATE_RESULT vgk_paging_state_decode(
         (efer & (EFER_LME | EFER_LMA)) != (EFER_LME | EFER_LMA))
         return VGK_PAGING_STATE_INCONSISTENT;
 
+    if ((efer & EFER_NXE) != 0U && nx_supported == 0U)
+        return VGK_PAGING_STATE_UNSUPPORTED;
+
     if ((pcide != 0U && pcid_supported == 0U) ||
         (la57 != 0U && la57_supported == 0U) ||
         (invpcid_supported != 0U && pcid_supported == 0U) ||
@@ -73,6 +77,7 @@ VGK_PAGING_STATE_RESULT vgk_paging_state_decode(
     state->cr4 = cr4;
     state->efer = efer;
     state->physical_address_bits = physical_address_bits;
+    state->nx_supported = nx_supported;
     state->pcid_supported = pcid_supported;
     state->invpcid_supported = invpcid_supported;
     state->la57_supported = la57_supported;
@@ -112,7 +117,7 @@ static void vgk_paging_state_cpuid(
 VGK_PAGING_STATE_RESULT vgk_paging_state_capture(VGK_PAGING_STATE *state)
 {
     uint64_t cr0, cr3, cr4, efer;
-    uint32_t max_basic, max_extended, address_size = 0U;
+    uint32_t max_basic, max_extended, address_size = 0U, extended_edx = 0U;
     uint32_t leaf1_ecx = 0U, leaf7_ebx = 0U, leaf7_ecx = 0U;
     uint8_t physical_bits;
     uint32_t low, high;
@@ -131,6 +136,7 @@ VGK_PAGING_STATE_RESULT vgk_paging_state_capture(VGK_PAGING_STATE *state)
     if (max_extended < UINT32_C(0x80000008))
         return VGK_PAGING_STATE_UNSUPPORTED;
     vgk_paging_state_cpuid(UINT32_C(0x80000008), 0U, &address_size, 0, 0, 0);
+    vgk_paging_state_cpuid(UINT32_C(0x80000001), 0U, 0, 0, 0, &extended_edx);
     physical_bits = (uint8_t)(address_size & UINT32_C(0xFF));
     if (max_basic >= 1U)
         vgk_paging_state_cpuid(1U, 0U, 0, 0, &leaf1_ecx, 0);
@@ -139,6 +145,7 @@ VGK_PAGING_STATE_RESULT vgk_paging_state_capture(VGK_PAGING_STATE *state)
 
     return vgk_paging_state_decode(
         cr0, cr3, cr4, efer, physical_bits,
+        (uint8_t)((extended_edx & CPUID_NX) != 0U),
         (uint8_t)((leaf1_ecx & CPUID_PCID) != 0U),
         (uint8_t)((leaf7_ebx & CPUID_INVPCID) != 0U),
         (uint8_t)((leaf7_ecx & CPUID_LA57) != 0U),
