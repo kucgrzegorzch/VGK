@@ -173,3 +173,41 @@ Zalecana kolejność:
 7. dopiero później rozważać ograniczone naprawy i operacje wymagające zgody.
 
 Nie należy implementować szerokich uprawnień IOS przed istnieniem testowalnego interfejsu, dziennika i polityki egzekwowanej przez jądro.
+
+
+## 13. Kierunek produktu: autonomiczny Opiekun systemu
+
+**Decyzja kierunkowa z 2026-11-22:** użytkownik VGK nie powinien być zmuszony do codziennego administrowania ochroną, sterownikami, aktualizacjami ani naprawami. IOS ma wykonywać te obowiązki samodzielnie w granicach zaufanej, wersjonowanej polityki systemowej. Interfejs użytkownika jest odczytowy; nie jest panelem nadawania uprawnień ani ręcznego sterowania modułami.
+
+### 13.1. Uprawnienia systemowe IOS
+
+IOS jest projektowany jako zaufana usługa systemowa z wąskimi, jawnymi uprawnieniami do zarządzania VGK. Oznacza to więcej możliwości niż zwykła aplikacja użytkownika, ale nie nieograniczony dostęp. Jądro nadal egzekwuje granice pamięci, izolacji i operacji uprzywilejowanych. Uprawnienia IOS wynikają z roli i polityki VGK, a nie z decyzji modelu AI ani dowolnego polecenia tekstowego.
+
+### 13.2. Automatyczne działania bez angażowania użytkownika
+
+Po wdrożeniu i przetestowaniu odpowiednich mechanizmów IOS powinien samodzielnie:
+- blokować uruchomienie składnika, którego integralność lub zaufanie nie zostały potwierdzone;
+- izolować podejrzany plik lub proces, gdy istnieje wiarygodna podstawa i bezpieczna procedura;
+- unieszkodliwiać potwierdzone złośliwe składniki;
+- usuwać potwierdzone złośliwe składniki z aktywnego systemu po sprawdzeniu ich tożsamości, zakresu i skutków;
+- wykonywać zatwierdzone naprawy plików systemowych i konserwację;
+- instalować zweryfikowane aktualizacje w kontrolowanym trybie;
+- sprawdzać rezultat każdej operacji i zapisywać go w Dzienniku Decyzji.
+
+Dla ochrony przed fałszywym alarmem plik jedynie nieznany lub podejrzany nie może być automatycznie uznany za potwierdzone malware. Wątpliwy obiekt należy najpierw zablokować lub poddać kwarantannie. Kwarantanna ma zachowywać możliwość bezpiecznego odzyskania obiektu, jeżeli późniejsza weryfikacja wykaże pomyłkę. Trwałe usunięcie ma dotyczyć potwierdzonego złośliwego obiektu i podlegać ścisłym testom zakresu oraz ochrony danych.
+
+### 13.3. Kiedy IOS pyta użytkownika
+
+Pytania powinny być rzadkie i dotyczyć przede wszystkim skutków dla pracy użytkownika, a nie technicznej obsługi systemu. Przykład: „Komputer wymaga ponownego uruchomienia, aby dokończyć aktualizację. Czy uruchomić go ponownie teraz?”. Użytkownik może odroczyć restart. IOS powinien przygotować operację, zapisać stan i wznowić ją w bezpiecznym momencie.
+
+IOS nie powinien pytać o rutynowe, wcześniej zatwierdzone działania ochronne. Nie może jednak samowolnie kasować prywatnych danych, formatować nośników ani wykonywać operacji o nieprzewidywalnych skutkach. W takich przypadkach ma zastosować bezpieczne ograniczenie, zachować dane i przejść do kontrolowanej ścieżki odzyskiwania lub serwisowej.
+
+### 13.4. Rola AI i automatyzacji
+
+AI może pomagać IOS łączyć zdarzenia, analizować symptomy, wybierać kolejność diagnostyki i objaśniać wyniki. Nie otrzymuje bezpośredniego, nieograniczonego dostępu do jądra ani możliwości wykonywania dowolnego kodu. Konkretne działanie wykonuje ograniczony moduł IOS na podstawie sprawdzalnej polityki i uprawnień egzekwowanych przez jądro. Podstawowa ochrona musi działać lokalnie, także bez Internetu i bez dostępności modelu AI.
+
+### 13.5. Historia zamiast panelu administracyjnego
+
+Użytkownik widzi zwięzły, odczytowy zapis rezultatów, np. „Szkodliwy plik został unieszkodliwiony i usunięty z aktywnego systemu”, „Naprawiono składnik VGK” albo „Aktualizacja gotowa – wymagany restart”. Historia musi rozróżniać wykrycie, decyzję, wykonanie i potwierdzony wynik. Nie wolno raportować sukcesu, jeśli wykonanie lub weryfikacja nie powiodły się.
+
+Ta decyzja zmienia domyślny model interakcji z użytkownikiem, ale nie znosi testów, audytu, ograniczeń uprawnień ani ochrony danych. Autonomia oznacza samodzielne wykonywanie zatwierdzonych obowiązków, a nie niekontrolowaną władzę.
