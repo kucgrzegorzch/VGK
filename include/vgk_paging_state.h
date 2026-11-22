@@ -16,6 +16,7 @@ typedef struct {
     uint64_t cr4;
     uint64_t efer;
     uint8_t physical_address_bits;
+    uint8_t nx_supported;
     uint8_t pcid_supported;
     uint8_t invpcid_supported;
     uint8_t la57_supported;
@@ -43,6 +44,7 @@ VGK_PAGING_STATE_RESULT vgk_paging_state_decode(
     uint64_t cr4,
     uint64_t efer,
     uint8_t physical_address_bits,
+    uint8_t nx_supported,
     uint8_t pcid_supported,
     uint8_t invpcid_supported,
     uint8_t la57_supported,
