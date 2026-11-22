@@ -30,6 +30,8 @@ int main(void)
     EXPECT(state.root_physical == UINT64_C(0x12345000));
     EXPECT(state.current_pcid == 0U);
     EXPECT(state.invpcid_supported == 1U);
+    EXPECT(state.smep_supported == 1U && state.smap_supported == 1U);
+    EXPECT(state.smep_enabled == 0U && state.smap_enabled == 0U);
 
     result = vgk_paging_state_decode(
         CR0_BASE, UINT64_C(0xABCDF123), CR4_BASE | (UINT64_C(1) << 17),
@@ -64,6 +66,13 @@ int main(void)
     EXPECT(vgk_paging_state_decode(
         CR0_BASE, 0x1001U, CR4_BASE, EFER_BASE, 48U,
         0U, 0U, 0U, 0U, 0U, &state) == VGK_PAGING_STATE_INCONSISTENT);
+    /* Enabling SMEP/SMAP without the corresponding CPUID bit is rejected. */
+    EXPECT(vgk_paging_state_decode(
+        CR0_BASE, 0x1000U, CR4_BASE | (UINT64_C(1) << 20), EFER_BASE,
+        48U, 0U, 0U, 0U, 0U, 0U, &state) == VGK_PAGING_STATE_UNSUPPORTED);
+    EXPECT(vgk_paging_state_decode(
+        CR0_BASE, 0x1000U, CR4_BASE | (UINT64_C(1) << 21), EFER_BASE,
+        48U, 0U, 0U, 0U, 1U, 0U, &state) == VGK_PAGING_STATE_UNSUPPORTED);
     /* A CR3 address outside the reported physical width is rejected. */
     EXPECT(vgk_paging_state_decode(
         CR0_BASE, UINT64_C(0x0001000000000000), CR4_BASE,
