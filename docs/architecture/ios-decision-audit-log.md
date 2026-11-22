@@ -97,6 +97,8 @@ Przykład jest opisem przyszłego formatu, a nie raportem z działania obecnego 
 - Zdarzenia z jednego przypadku łączy `correlation_id`; pojedyncza operacja może mieć wiele wpisów.
 - Czas monotoniczny służy do ustalania kolejności w obrębie uruchomienia. Czas ścienny służy do prezentacji i może być oznaczony jako niepewny.
 - Przed rozpoczęciem operacji chronionej musi zostać utrwalony wpis decyzji. Jeśli wymagany zapis nie powiedzie się, wykonawca nie może otrzymać autoryzacji.
+- Gdy decyzja wymaga zgody, wpis `decision` ma status `require_consent`; samo jego zapisanie nie autoryzuje wykonania. Dopiero po uwierzytelnionej zgodzie, sprawdzeniu jej zakresu i utrwaleniu wpisu `consent_granted` polityka może wydać osobny, ograniczony wpis autoryzujący wykonanie. Odmowa lub wygaśnięcie kończy tę ścieżkę bez uruchomienia wykonawcy.
+- Autoryzacja musi być związana z identyfikatorem operacji, zasobem, zakresem, wersją polityki i terminem ważności. Wykonawca sprawdza te powiązania; nie może użyć samego identyfikatora zgody jako ogólnego zezwolenia.
 - Po zakończeniu wykonania należy dopisać wynik. Jeżeli system ulegnie awarii pomiędzy rozpoczęciem a wynikiem, po kolejnym uruchomieniu przypadek otrzymuje status nierozstrzygnięty/przerwany, a nie sukces.
 - Zapis powinien używać bezpiecznego, odpornego na częściowy zapis formatu rekordów, z kontrolą długości, wersji i sum kontrolnych.
 - Grupowanie zapisów może poprawiać wydajność, ale nie może opóźniać wymaganego wpisu autoryzacyjnego poza granicę rozpoczęcia operacji.
@@ -104,6 +106,8 @@ Przykład jest opisem przyszłego formatu, a nie raportem z działania obecnego 
 ## 6. Integralność i granice zaufania
 
 Docelowo dziennik powinien łączyć wpisy łańcuchem skrótów: każdy wpis obejmuje skrót poprzedniego wpisu oraz własną kanoniczną zawartość. Pozwala to wykrywać usunięcie, zmianę lub przestawienie wpisów w zakresie objętym zweryfikowanym łańcuchem.
+
+Kanoniczna reprezentacja musi mieć jednoznacznie określoną serializację (kolejność pól, kodowanie tekstu, reprezentację liczb i wartości pustych). Obliczenie `entry_hash` obejmuje wersję schematu, identyfikator algorytmu, `previous_entry_hash` i kanoniczne pola wpisu, ale nie obejmuje samego pola `entry_hash`. Warto zastosować rozdzielenie domen dla skrótu wpisu i punktu kontrolnego, aby nie można było pomylić ich zastosowań. Algorytm i jego wersja muszą być jawne; zmiana algorytmu wymaga kontrolowanego przejścia między segmentami.
 
 Sam łańcuch skrótów **nie jest pełną ochroną przed atakującym, który może przepisać cały nośnik i ponownie obliczyć skróty**. Dlatego przyszła implementacja powinna rozważyć:
 - okresowe punkty kontrolne podpisywane kluczem niedostępnym zwykłym aplikacjom;
@@ -134,7 +138,7 @@ Przed implementacją należy ustalić jawne limity:
 - maksymalny czas i koszt zapisu;
 - zasady retencji i eksportu.
 
-Rotacja powinna tworzyć zamknięte segmenty z numerem sekwencji, zakresem czasu i punktem kontrolnym integralności. Nie może po cichu usuwać wpisów, które są potrzebne do wyjaśnienia nierozstrzygniętej operacji.
+Rotacja powinna tworzyć zamknięte segmenty z numerem sekwencji, zakresem czasu, skrótem ostatniego wpisu i punktem kontrolnym integralności. Pierwszy wpis nowego segmentu musi wskazywać punkt kontrolny poprzedniego segmentu. Nie może po cichu usuwać wpisów, które są potrzebne do wyjaśnienia nierozstrzygniętej operacji.
 
 Przy braku miejsca:
 1. można usuwać lub archiwizować najstarsze, zamknięte segmenty zgodnie z jawną polityką retencji;
