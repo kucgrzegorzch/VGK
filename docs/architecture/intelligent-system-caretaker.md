@@ -145,3 +145,28 @@ Każdy etap wymaga osobnego przeglądu kodu, testów negatywnych i oceny wpływu
 Na dzień utworzenia tej propozycji IOS jest **koncepcją architektoniczną**, nie zaimplementowaną usługą systemową. Nie ma podstaw, aby twierdzić, że VGK posiada już działającego autonomicznego Opiekuna, aktywny antywirus, pełny mechanizm naprawczy lub AI zarządzające systemem.
 
 Dokument należy rozwijać wspólnie z modelem zagrożeń VGK, polityką zgodności oprogramowania ochronnego i głównymi założeniami systemowymi.
+
+
+## 13. Reakcje na awarie krytyczne i komunikacja z użytkownikiem
+
+**Decyzja produktu z 2026-11-23:** IOS samodzielnie diagnozuje i obsługuje awarie w granicach zatwierdzonej polityki. Użytkownik otrzymuje zrozumiały komunikat o wykrytym problemie, podjętej próbie i rzeczywistym wyniku. Potwierdzenie przeczytania komunikatu nie jest zgodą na działanie i nie może sterować mechanizmem ochronnym.
+
+### 13.1. Awaria elementu krytycznego dla chłodzenia
+
+W przypadku wiarygodnie wykrytej awarii wentylatora procesora IOS powinien:
+1. zweryfikować sygnały awarii i odczyty temperatury, uwzględniając dostępność oraz wiarygodność czujników;
+2. wykonać dozwolone, bezpieczne próby diagnostyczne lub naprawcze;
+3. jeżeli awarii nie można usunąć, poinformować użytkownika o konieczności fizycznej wymiany wentylatora;
+4. doprowadzić do kontrolowanego wyłączenia komputera, zanim temperatura osiągnie niebezpieczny próg, zgodnie z zatwierdzonymi limitami sprzętu i procesora.
+
+Czas wyświetlany użytkownikowi, np. „około 2 minuty i 50 sekund”, jest jedynie prognozą opartą na bieżącej temperaturze i jej tempie zmian. Nie może być traktowany jako stały czas oczekiwania ani minimalne opóźnienie. Jeśli temperatura rośnie szybciej, wyłączenie następuje wcześniej. Jeśli czujnik lub dane są niewiarygodne, system wybiera bezpieczną reakcję przewidzianą dla stanu niepewnego; nie może zakładać, że chłodzenie działa prawidłowo.
+
+Naciśnięcie przycisku potwierdzenia komunikatu ani brak reakcji użytkownika nie zmieniają decyzji o wyłączeniu. Mechanizm ochrony termicznej musi działać niezależnie od interfejsu graficznego, a istniejące zabezpieczenia sprzętowe i firmware (np. mechanizmy termicznego odcięcia procesora) pozostają aktywne i nie mogą być zastępowane przez IOS.
+
+### 13.2. Granice automatycznej naprawy
+
+IOS może samodzielnie wykonywać wyłącznie działania objęte zatwierdzoną polityką i ograniczonymi uprawnieniami. Niepowodzenie naprawy sprzętowej nie upoważnia go do deklarowania naprawy ani do podejmowania niebezpiecznych prób obejścia zabezpieczeń. Jeżeli wymagane jest fizyczne serwisowanie, IOS informuje o tym wprost.
+
+### 13.3. Zależność od interfejsu
+
+Interfejs prezentuje stan i wynik, ale nie jest elementem krytycznej pętli ochronnej. Awaria, zawieszenie lub brak odpowiedzi interfejsu nie może blokować wyłączenia termicznego ani innych działań wymaganych przez politykę. Szczegóły potwierdzania komunikatów opisuje kontrakt interfejsu IOS.
