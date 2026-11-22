@@ -1107,20 +1107,24 @@ void vgk_kernel_main(const VGK_BOOT_INFO *boot_info)
 #ifdef VGK_QEMU_PAGING_STATE_TEST
     {
         VGK_PAGING_STATE first, second;
-        const unsigned char *a = (const unsigned char *)&first;
-        const unsigned char *b = (const unsigned char *)&second;
-        int identical = 1;
+        int identical;
         if (vgk_paging_state_capture(&first) != VGK_PAGING_STATE_OK ||
             vgk_paging_state_capture(&second) != VGK_PAGING_STATE_OK) {
             serial_write("VGK: QEMU PAGING STATE CAPTURE FAIL\r\n");
             for (;;) __asm__ volatile ("cli; hlt");
         }
-        for (size_t i = 0U; i < sizeof(first); ++i) {
-            if (a[i] != b[i]) {
-                identical = 0;
-                break;
-            }
-        }
+        identical =
+            first.cr0 == second.cr0 && first.cr3 == second.cr3 &&
+            first.cr4 == second.cr4 && first.efer == second.efer &&
+            first.physical_address_bits == second.physical_address_bits &&
+            first.root_physical == second.root_physical &&
+            first.paging_active == second.paging_active &&
+            first.pcid_enabled == second.pcid_enabled &&
+            first.current_pcid == second.current_pcid &&
+            first.nx_enabled == second.nx_enabled &&
+            first.smep_enabled == second.smep_enabled &&
+            first.smap_enabled == second.smap_enabled &&
+            first.five_level_paging_active == second.five_level_paging_active;
         serial_write("VGK: QEMU paging CR0="); serial_write_hex(first.cr0);
         serial_write(" CR3="); serial_write_hex(first.cr3);
         serial_write(" CR4="); serial_write_hex(first.cr4);
