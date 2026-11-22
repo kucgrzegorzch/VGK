@@ -35,6 +35,8 @@ jobs:
         run: make native-kernel-qemu-pf-test
       - name: Build isolated QEMU controlled double-fault test kernel
         run: make native-kernel-qemu-df-test
+      - name: Build isolated QEMU read-only paging-state test kernel
+        run: make native-kernel-qemu-paging-state-test
       - name: Diagnose native kernel instruction addresses
         run: |
           nm -n build/vgk-kernel-native.elf
@@ -88,6 +90,10 @@ jobs:
           cp build/BOOTX64-QEMU-TEST.EFI build/esp-df/EFI/BOOT/BOOTX64.EFI
           cp build/vgk-kernel-native-qemu-df-test.elf build/esp-df/boot/kernel.elf
           python3 tools/przygotuj_wydanie.py --root build/esp-df --release VGK-QEMU-DF-CI --private-key build/test-signing-key.pem --manifest build/esp-df/EFI/VGK/VGKM --signature build/esp-df/EFI/VGK/VGKM.sig boot/kernel.elf
+          mkdir -p build/esp-state/EFI/BOOT build/esp-state/EFI/VGK build/esp-state/boot
+          cp build/BOOTX64-QEMU-TEST.EFI build/esp-state/EFI/BOOT/BOOTX64.EFI
+          cp build/vgk-kernel-native-qemu-paging-state-test.elf build/esp-state/boot/kernel.elf
+          python3 tools/przygotuj_wydanie.py --root build/esp-state --release VGK-QEMU-PAGING-STATE-CI --private-key build/test-signing-key.pem --manifest build/esp-state/EFI/VGK/VGKM --signature build/esp-state/EFI/VGK/VGKM.sig boot/kernel.elf
       - name: Boot VGK kernel in QEMU with OVMF
         run: |
           set -eu
@@ -131,6 +137,41 @@ jobs:
           grep -aF "VGK: nieaktywne mapowania jadra, stosu, danych startowych i puli sa gotowe." build/qemu-serial.log
           grep -aF "VGK: framebuffer GOP zmapowany RW+NX; PCD+PWT zweryfikowane jako UC." build/qemu-serial.log
           grep -aF "VGK: menedzer pamieci uruchomiony." build/qemu-serial.log
+      - name: Capture CPU paging state read-only in QEMU
+        run: |
+          set -eu
+          if [ -f /usr/share/OVMF/OVMF_CODE.fd ]; then
+            OVMF_CODE=/usr/share/OVMF/OVMF_CODE.fd
+            OVMF_VARS=/usr/share/OVMF/OVMF_VARS.fd
+          else
+            OVMF_CODE=/usr/share/OVMF/OVMF_CODE_4M.fd
+            OVMF_VARS=/usr/share/OVMF/OVMF_VARS_4M.fd
+          fi
+          cp "$OVMF_VARS" build/OVMF_VARS_STATE.fd
+          set +e
+          timeout -k 3s 12s qemu-system-x86_64 \
+            -machine q35 -m 1024 -cpu qemu64 \
+            -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
+            -drive if=pflash,format=raw,file=build/OVMF_VARS_STATE.fd \
+            -device qemu-xhci,id=xhci \
+            -drive if=none,id=usbstick,format=raw,file=fat:rw:build/esp-state \
+            -device usb-storage,drive=usbstick,bootindex=1 \
+            -display none -monitor none -serial file:build/qemu-paging-state-serial.log \
+            -no-reboot
+          qemu_status=$?
+          set -e
+          if [ "$qemu_status" -ne 124 ] && [ "$qemu_status" -ne 0 ]; then
+            echo "QEMU paging-state test ended with status $qemu_status"
+            cat build/qemu-paging-state-serial.log || true
+            exit "$qemu_status"
+          fi
+          cat build/qemu-paging-state-serial.log
+          grep -aF "VGK: QEMU PAGING STATE CAPTURE PASS" build/qemu-paging-state-serial.log
+          grep -aF "VGK: QEMU PAGING STATE READ-ONLY STABILITY PASS" build/qemu-paging-state-serial.log
+          if grep -aF "VGK: QEMU PAGING STATE CAPTURE FAIL" build/qemu-paging-state-serial.log; then
+            echo "FAIL: read-only paging-state capture failed"
+            exit 1
+          fi
       - name: Trigger and verify a controlled page fault in QEMU
         run: |
           set -eu
