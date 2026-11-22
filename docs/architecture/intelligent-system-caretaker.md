@@ -145,3 +145,37 @@ Każdy etap wymaga osobnego przeglądu kodu, testów negatywnych i oceny wpływu
 Na dzień utworzenia tej propozycji IOS jest **koncepcją architektoniczną**, nie zaimplementowaną usługą systemową. Nie ma podstaw, aby twierdzić, że VGK posiada już działającego autonomicznego Opiekuna, aktywny antywirus, pełny mechanizm naprawczy lub AI zarządzające systemem.
 
 Dokument należy rozwijać wspólnie z modelem zagrożeń VGK, polityką zgodności oprogramowania ochronnego i głównymi założeniami systemowymi.
+
+
+## 13. Model autonomicznego Opiekuna – decyzja produktowa
+
+**Decyzja kierunkowa z 2026-11-22:** IOS ma być rzeczywistym opiekunem VGK, który samodzielnie odpowiada za codzienny nadzór, ochronę, konserwację, aktualizacje i naprawy w granicach zatwierdzonej polityki. Użytkownik nie powinien wykonywać pracy administratora ani podejmować technicznych decyzji, które może bezpiecznie podjąć system.
+
+### 13.1. Odpowiedzialność IOS
+
+Docelowo IOS sam:
+- obserwuje stan systemu i wykrywa usterki oraz zagrożenia;
+- ocenia je według sprawdzalnych reguł i poziomu pewności;
+- blokuje niebezpieczne uruchomienia i izoluje obiekty, których nie można jeszcze jednoznacznie sklasyfikować;
+- unieszkodliwia potwierdzone złośliwe składniki i usuwa je z aktywnego systemu w ramach ściśle określonej polityki;
+- wykonuje zweryfikowane naprawy i aktualizacje;
+- sprawdza, czy operacja rzeczywiście się powiodła;
+- zapisuje wynik w historii i informuje użytkownika prostym komunikatem.
+
+Nieznany plik nie jest automatycznie złośliwy. W razie niepewności pierwszą reakcją jest ograniczenie ryzyka, np. blokada uruchomienia lub kwarantanna, a nie nieodwracalne usunięcie.
+
+### 13.2. Użytkownik i interfejs
+
+Interfejs jest przede wszystkim odczytowy. Pokazuje ogólny stan, istotne komunikaty i historię działań. Nie udostępnia codziennych przycisków do zarządzania ochroną, sterownikami, procesami, aktualizacjami ani polityką. IOS nie powinien obciążać użytkownika rutynowymi pytaniami.
+
+Pytanie jest uzasadnione, gdy działanie przerywa pracę lub wymaga wyboru dotyczącego dostępności komputera. Przykład: prośba o zgodę na restart po aktualizacji, z możliwością odroczenia. Rutynowe, wcześniej zatwierdzone działania ochronne powinny odbywać się automatycznie.
+
+### 13.3. Granice autonomii
+
+Autonomia IOS nie oznacza nieograniczonych uprawnień. Jądro egzekwuje przyznane możliwości, polityka określa dozwolone reakcje, a moduły wykonawcze otrzymują wyłącznie konkretne zadania. Heurystyki i AI mogą wspierać analizę, ale nie mogą samodzielnie nadawać uprawnień ani wykonywać dowolnych poleceń uprzywilejowanych. Podstawowa ochrona działa lokalnie i nie zależy od Internetu.
+
+### 13.4. Raportowanie
+
+Użytkownik otrzymuje rezultat, nie listę technicznych kroków. Przykładowe komunikaty: „VGK działa prawidłowo”, „Szkodliwy plik został unieszkodliwiony”, „Naprawiono składnik systemu”, „Aktualizacja gotowa – wymagany restart” albo „Nie udało się potwierdzić naprawy; ochrona działa w trybie ograniczonym”. Każdy komunikat o sukcesie musi wynikać z potwierdzonego rezultatu i wpisu w dzienniku.
+
+Ten model zastępuje wcześniejsze założenie, że użytkownik ma na co dzień obsługiwać rozbudowany panel administracyjny IOS. Nie zastępuje wewnętrznej diagnostyki, testów bezpieczeństwa, dziennika ani kontrolowanego trybu serwisowego.
