@@ -54,6 +54,27 @@ class EventCollectorTests(unittest.TestCase):
             self.registry, capacity=2, dedup_capacity=4, clock=self.clock
         )
 
+    def test_collector_rejects_non_integer_or_non_positive_capacities(self):
+        for capacity, dedup_capacity in (
+            (0, 1), (-1, 1), (True, 1), (1.5, 1), (1, False), (1, 0),
+        ):
+            with self.subTest(capacity=capacity, dedup_capacity=dedup_capacity):
+                with self.assertRaises(ValueError):
+                    EventCollector(self.registry, capacity, dedup_capacity)
+
+    def test_memory_sink_rejects_non_integer_or_non_positive_capacity(self):
+        for capacity in (0, -1, True, 1.5):
+            with self.subTest(capacity=capacity):
+                with self.assertRaises(ValueError):
+                    MemorySink(max_records=capacity)
+
+    def test_flush_limit_must_be_a_non_negative_integer(self):
+        for limit in (-1, True, 1.5):
+            with self.subTest(limit=limit):
+                with self.assertRaises(ValueError):
+                    self.collector.flush_to(MemorySink(), limit=limit)
+        self.assertEqual(self.collector.flush_to(MemorySink(), limit=0), 0)
+
     def test_accepts_registered_event_and_assigns_canonical_sequence(self):
         self.assertTrue(self.collector.submit(self.handle, make_message()))
         sink = MemorySink()
