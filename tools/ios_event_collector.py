@@ -117,8 +117,12 @@ class MemorySink:
     """Bounded, volatile test receiver; records disappear when the process exits."""
 
     def __init__(self, max_records: int = 1024) -> None:
-        if max_records < 1:
-            raise ValueError("max_records must be positive")
+        if (
+            not isinstance(max_records, int)
+            or isinstance(max_records, bool)
+            or max_records < 1
+        ):
+            raise ValueError("max_records must be a positive integer")
         self._records: list[dict] = []
         self._max_records = max_records
 
@@ -168,8 +172,15 @@ class EventCollector:
         dedup_capacity: int = 256,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        if capacity < 1 or dedup_capacity < 1:
-            raise ValueError("capacities must be positive")
+        if (
+            not isinstance(capacity, int)
+            or isinstance(capacity, bool)
+            or capacity < 1
+            or not isinstance(dedup_capacity, int)
+            or isinstance(dedup_capacity, bool)
+            or dedup_capacity < 1
+        ):
+            raise ValueError("capacities must be positive integers")
         self._registry = registry
         self._queue: Deque[dict] = deque()
         self._capacity = capacity
@@ -293,6 +304,10 @@ class EventCollector:
 
     def flush_to(self, sink: MemorySink, limit: int | None = None) -> int:
         """Transfer records in order; retain the head record if the sink rejects it."""
+        if limit is not None and (
+            not isinstance(limit, int) or isinstance(limit, bool) or limit < 0
+        ):
+            raise ValueError("limit must be a non-negative integer or None")
         transferred = 0
         while self._queue and (limit is None or transferred < limit):
             record = self._queue[0]
