@@ -145,6 +145,23 @@ class EventCollectorTests(unittest.TestCase):
             "source_sequence_reused",
         )
 
+    def test_distinct_source_sequences_with_same_content_are_not_content_matches(self):
+        self.assertTrue(self.collector.submit(
+            self.handle, make_message(source_sequence=10)
+        ))
+        self.assertTrue(self.collector.submit(
+            self.handle, make_message(source_sequence=11)
+        ))
+        sink = MemorySink()
+        self.collector.flush_to(sink)
+        self.assertEqual(len(sink.records), 2)
+        self.assertEqual(
+            sink.records[1]["duplicate_detection"]["status"], "first_seen"
+        )
+        self.assertIsNone(
+            sink.records[1]["duplicate_detection"]["possible_match_event_id"]
+        )
+
     def test_unsequenced_exact_content_match_is_flagged_but_preserved(self):
         message = make_message(source_sequence=None)
         self.assertTrue(self.collector.submit(self.handle, message))
