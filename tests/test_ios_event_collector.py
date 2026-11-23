@@ -119,6 +119,12 @@ class EventCollectorTests(unittest.TestCase):
         self.assertEqual(self.collector.queue_size, 1)
         self.assertEqual(self.collector.next_sequence, 2)
 
+    def test_events_without_source_sequence_are_not_claimed_as_deduplicated(self):
+        message = make_message(source_sequence=None)
+        self.assertTrue(self.collector.submit(self.handle, message))
+        self.assertTrue(self.collector.submit(self.handle, message))
+        self.assertEqual(self.collector.queue_size, 2)
+
     def test_same_source_sequence_with_different_event_code_is_not_deduplicated(self):
         self.assertTrue(self.collector.submit(self.handle, make_message()))
         recovery = make_message(
