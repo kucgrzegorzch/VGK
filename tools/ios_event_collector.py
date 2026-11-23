@@ -284,7 +284,7 @@ class EventCollector:
         detection_status = "first_seen"
         if prior_event_id is not None:
             detection_status = "source_sequence_reused"
-        else:
+        elif source_sequence is None:
             prior_event_id = self._dedup_index.get(content_key)
             if prior_event_id is not None:
                 detection_status = "content_match"
@@ -330,9 +330,10 @@ class EventCollector:
         self._rate_state[policy.source_id] = (window_start, count + 1)
         # Index both forms, but retain every accepted observation. The bounded
         # index only limits how far back a possible match can be found.
-        keys_to_remember = [content_key]
-        if sequence_key is not None:
-            keys_to_remember.append(sequence_key)
+        # Use exactly one index key per accepted event. Sequenced sources are
+        # compared by their sequence; content matching is reserved for sources
+        # that do not provide a source sequence.
+        keys_to_remember = [sequence_key] if sequence_key is not None else [content_key]
         for key in keys_to_remember:
             if key not in self._dedup_index:
                 self._dedup_index[key] = record["event_id"]
