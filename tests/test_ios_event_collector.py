@@ -140,6 +140,25 @@ class EventCollectorTests(unittest.TestCase):
         self.assertEqual(self.collector.flush_to(sink), 1)
         self.assertEqual(sink.records[0]["sequence"], 1)
 
+    def test_schema_version_rejects_boolean_and_float_aliases(self):
+        with self.assertRaises(InvalidEvent):
+            self.collector.submit(self.handle, make_message(schema_version=True))
+        with self.assertRaises(InvalidEvent):
+            self.collector.submit(self.handle, make_message(schema_version=1.0))
+
+    def test_registered_policy_is_not_changed_by_caller_mapping_mutation(self):
+        registry = SourceRegistry()
+        codes = {"PING": "info"}
+        handle = registry.register(SourcePolicy("immutable.source", "1", codes))
+        codes["PING"] = "critical"
+        collector = EventCollector(registry, clock=self.clock)
+        message = {
+            "schema_version": 1, "event_code": "PING", "category": "service",
+            "severity": "critical", "confidence": "confirmed", "payload": {},
+        }
+        with self.assertRaises(InvalidEvent):
+            collector.submit(handle, message)
+
     def test_records_are_flushed_in_sequence_order(self):
         self.collector.submit(self.handle, make_message(source_sequence=1))
         self.collector.submit(self.handle, make_message(source_sequence=2))
