@@ -1,0 +1,22 @@
+name: IOS P0.2 Collector Tests
+
+on:
+  push:
+    branches:
+      - prototype/ios-event-collector-p02
+  workflow_dispatch:
+
+jobs:
+  ios-monitor-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Run IOS collector unit tests
+        run: make ios-monitor-test
