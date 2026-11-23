@@ -44,7 +44,7 @@ class EventCollectorTests(unittest.TestCase):
             SourcePolicy(
                 source_id="test.memory",
                 source_version="1",
-                event_codes={"MEMORY_PRESSURE": "warning"},
+                event_codes={"MEMORY_PRESSURE": "warning", "MEMORY_RECOVERY": "info"},
                 max_payload_bytes=128,
                 max_events_per_window=10,
                 rate_window_seconds=1.0,
@@ -62,7 +62,9 @@ class EventCollectorTests(unittest.TestCase):
         self.assertEqual(record["sequence"], 1)
         self.assertEqual(record["event_type"], "observation")
         self.assertEqual(record["source"]["source_id"], "test.memory")
-        self.assertEqual(record["time_status"], "monotonic_only")
+        self.assertIsNone(record["timestamp"])
+        self.assertEqual(record["time_status"], "unavailable")
+        self.assertIsInstance(record["monotonic_time"], float)
 
     def test_rejects_unregistered_handle(self):
         foreign = self.registry.register(
@@ -95,6 +97,32 @@ class EventCollectorTests(unittest.TestCase):
         self.assertFalse(self.collector.submit(self.handle, make_message()))
         self.assertEqual(self.collector.queue_size, 1)
         self.assertEqual(self.collector.next_sequence, 2)
+
+    def test_same_source_sequence_with_different_event_code_is_not_deduplicated(self):
+        self.assertTrue(self.collector.submit(self.handle, make_message()))
+        recovery = make_message(
+            event_code="MEMORY_RECOVERY",
+            severity="info",
+            source_sequence=1,
+        )
+        self.assertTrue(self.collector.submit(self.handle, recovery))
+        self.assertEqual(self.collector.queue_size, 2)
+
+    def test_same_event_from_different_source_is_not_deduplicated(self):
+        other_handle = self.registry.register(
+            SourcePolicy("test.memory.secondary", "1", {"MEMORY_PRESSURE": "warning"})
+        )
+        self.assertTrue(self.collector.submit(self.handle, make_message()))
+        self.assertTrue(self.collector.submit(other_handle, make_message()))
+        self.assertEqual(self.collector.queue_size, 2)
+
+    def test_new_boot_session_has_an_independent_deduplication_scope(self):
+        self.assertTrue(self.collector.submit(self.handle, make_message()))
+        next_session = EventCollector(self.registry, capacity=2, clock=self.clock)
+        self.assertTrue(next_session.submit(self.handle, make_message()))
+        self.assertNotEqual(
+            self.collector._boot_session_id, next_session._boot_session_id
+        )
 
     def test_bounded_queue_reports_overflow_without_growing(self):
         self.collector.submit(self.handle, make_message(source_sequence=1))
