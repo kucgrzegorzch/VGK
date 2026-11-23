@@ -65,7 +65,9 @@ Historia interfejsu i narzędzia serwisowe mogą odczytywać zapisane zdarzenia.
 
 ## 4. Źródła zdarzeń i ich rejestracja
 
-Źródło musi mieć jawny identyfikator, wersję kontraktu i określony zakres obserwacji. Kolektor nie może automatycznie ufać każdemu modułowi, który próbuje zgłosić zdarzenie.
+Źródło musi mieć jawny identyfikator, wersję kontraktu i określony zakres obserwacji. Kolektor nie może automatycznie ufać każdemu modułowi, który próbuje zgłosić zdarzenie. Samo wpisanie `source_id` do komunikatu nie uwierzytelnia źródła.
+
+Tożsamość źródła musi wynikać z kontrolowanego kanału komunikacji lub rejestru źródeł utrzymywanego przez zaufaną część systemu, a nie z deklaracji nadawcy. Rejestr przypisuje źródłu dozwolone kategorie, kody zdarzeń, maksymalną ważność, limity częstotliwości i zakres danych. Kolektor odrzuca próbę podszycia się pod inne źródło oraz zdarzenie spoza przyznanego katalogu. Jeżeli obecna platforma nie potrafi jeszcze wiarygodnie uwierzytelnić źródła, rekord musi zostać oznaczony jako niezaufany/niezweryfikowany i nie może stanowić podstawy automatycznej decyzji ochronnej.
 
 Docelowe kategorie źródeł:
 - jądro i start systemu;
@@ -87,7 +89,7 @@ Każde źródło powinno określać:
 - sposób wykrywania niedostępności;
 - pola, których źródło nie potrafi wiarygodnie ustalić.
 
-Źródło nie może samodzielnie oznaczać pliku jako potwierdzonego malware ani przedstawiać podejrzenia jako faktu. Może zgłosić obserwację wraz z kodem i poziomem pewności.
+Źródło nie może samodzielnie podwyższyć swojej klasy ważności ani wybrać dowolnego poziomu pewności. Dozwolone wartości są ograniczone rejestrem źródeł i katalogiem kodów. Źródło nie może samodzielnie oznaczać pliku jako potwierdzonego malware ani przedstawiać podejrzenia jako faktu. Może zgłosić obserwację wraz z kodem i poziomem pewności mieszczącym się w przyznanym zakresie; kolektor sprawdza tę zgodność.
 
 ## 5. Minimalny kontrakt zdarzenia wejściowego
 
@@ -197,7 +199,8 @@ Kolejność może zostać zmieniona wyłącznie po udokumentowaniu zależności 
 - Nie powstaje drugi, niezależny Dziennik Zdarzeń ani równoległy schemat numeracji.
 - Obserwacja nie jest decyzją polityki ani poleceniem wykonawczym.
 - Ważność jest odróżniona od pewności.
-- Format wejściowy, limity i wersjonowanie są określone.
+- Format wejściowy, limity, wersjonowanie i sposób uwierzytelniania źródeł są określone.
+- Nadawca nie może podszyć się pod inne źródło ani samodzielnie podwyższyć ważności zdarzenia.
 - Przepełnienie, utrata, błędny komunikat i niedostępność dziennika mają jawne zachowanie.
 - Nie ma obietnicy trwałości ani odporności kryptograficznej bez implementacji i testów.
 - Nie ma automatycznych napraw ani zmian stanu systemu.
