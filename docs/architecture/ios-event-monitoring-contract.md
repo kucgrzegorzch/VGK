@@ -53,9 +53,11 @@ Kolektor:
 
 Kolektor nie uruchamia napraw, nie zmienia polityki i nie wydaje poleceń wykonawczych.
 
-### Dziennik Zdarzeń
+### Dziennik Decyzji IOS – wspólny dziennik audytowy
 
-Dziennik przyjmuje wyłącznie rekordy zatwierdzone przez kolektor. Jest przeznaczony do dopisywania i późniejszego odczytu. Jego kontrakt audytowy pozostaje zgodny z dokumentem `ios-decision-audit-log.md`.
+W VGK nie projektujemy dwóch niezależnych magazynów: osobnego Dziennika Zdarzeń i osobnego Dziennika Decyzji. Istniejący **Dziennik Decyzji IOS** jest jednym, wspólnym dziennikiem audytowym. Obejmuje zarówno obserwacje i wyniki monitorowania, jak i późniejsze walidacje, decyzje, zgody, wykonania oraz weryfikacje. Określenie „zdarzenia IOS” opisuje zawartość i strumień wejściowy, a nie drugi plik, bazę ani niezależny mechanizm zapisu.
+
+Kolektor przekazuje zatwierdzone rekordy do wspólnego dziennika zgodnie z `ios-decision-audit-log.md`. Ten dokument określa wyłącznie warstwę przyjmowania i przygotowania zdarzeń; nie tworzy alternatywnego formatu audytu ani nie zmienia zasad zapisu decyzji przed wykonaniem operacji.
 
 ### Odbiorcy odczytu
 
@@ -107,7 +109,7 @@ Każde zgłoszenie powinno zawierać lub jednoznacznie mapować następujące po
 | `correlation_id` | powiązanie z innymi zdarzeniami, jeśli dotyczy |
 | `payload` | małe, typowane dane właściwe dla kodu zdarzenia |
 
-Kolektor dodaje własne pola: `event_id`, `journal_sequence`, `boot_session_id` oraz czas przyjęcia, jeśli dostępny. Brakującego czasu nie wolno zastępować wymyśloną datą.
+Kolektor uzupełnia rekord o pola wspólnego schematu Dziennika Decyzji: `event_id`, rosnące `sequence`, `boot_session_id`, `event_type` oraz `timestamp` i `monotonic_time` zgodnie z ich dostępnością. Nie wprowadzamy osobnego pola `journal_sequence` – obowiązuje kanoniczne pole `sequence` z `ios-decision-audit-log.md`. `event_type` określa etap audytu (np. `observation` lub `validation`), natomiast `event_code` jest stabilnym kodem konkretnego rodzaju obserwacji. `category`, `severity` i `confidence` są dodatkowymi polami opisującymi zdarzenie. `correlation_id` i `source` zachowują znaczenie z istniejącego schematu. Brakującego czasu nie wolno zastępować wymyśloną datą.
 
 Wartości tekstowe i identyfikatory mają limity długości. Nieznane pola nie mogą zmieniać uprawnień ani zachowania systemu. Niezgodna wersja schematu jest odrzucana lub kierowana do jawnego stanu nieobsługiwanej wersji; nie może być interpretowana częściowo jako zaufane polecenie.
 
@@ -123,7 +125,7 @@ Kolory żółty i czerwony należą do warstwy prezentacji opisanej w kontrakcie
 
 ## 7. Kolejność, duplikaty i utrata zdarzeń
 
-- Kolektor nadaje rosnący `journal_sequence` w obrębie dziennika.
+- Kolektor nadaje rosnące `sequence` zgodnie ze wspólnym schematem Dziennika Decyzji; nie prowadzi równoległej numeracji dziennika zdarzeń.
 - `source_sequence`, jeśli istnieje, pomaga wykrywać luki lub duplikaty po stronie danego źródła.
 - `monotonic_time` może porządkować zdarzenia w obrębie jednej sesji startowej; czas ścienny służy wyłącznie prezentacji i może być niepewny.
 - Powtórzony komunikat nie może po cichu tworzyć fałszywego nowego przypadku. Reguła deduplikacji musi uwzględniać źródło, sesję i kod zdarzenia; oryginalne obserwacje nie mogą być bezpowrotnie gubione.
@@ -134,7 +136,7 @@ Dla ograniczenia zasobów kanał wejściowy ma stałą, określoną pojemność.
 
 ## 8. Dziennik i trwałość zapisu
 
-Kontrakt docelowego dziennika jest doprecyzowaniem, a nie zastępstwem `ios-decision-audit-log.md`.
+Kontrakt trwałego zapisu jest doprecyzowaniem, a nie zastępstwem `ios-decision-audit-log.md`. Istnieje jeden wspólny dziennik i jedna kanoniczna numeracja.
 
 Wymagania:
 - rekordy są dopisywane; zwykły odbiorca nie może ich edytować ani usuwać;
@@ -191,7 +193,8 @@ Kolejność może zostać zmieniona wyłącznie po udokumentowaniu zależności 
 
 ## 12. Kryteria akceptacji P0.1
 
-- Dokument jednoznacznie oddziela źródła, kanał, kolektor, dziennik i odbiorców odczytu.
+- Dokument jednoznacznie oddziela źródła, kanał, kolektor, wspólny Dziennik Decyzji i odbiorców odczytu.
+- Nie powstaje drugi, niezależny Dziennik Zdarzeń ani równoległy schemat numeracji.
 - Obserwacja nie jest decyzją polityki ani poleceniem wykonawczym.
 - Ważność jest odróżniona od pewności.
 - Format wejściowy, limity i wersjonowanie są określone.
@@ -203,6 +206,7 @@ Kolejność może zostać zmieniona wyłącznie po udokumentowaniu zależności 
 
 ## 13. Powiązane dokumenty
 
+- Dziennik Decyzji IOS: `docs/architecture/ios-decision-audit-log.md`.
 - Architektura IOS: `docs/architecture/intelligent-system-caretaker.md`.
 - Kontrakt uprawnień IOS: `docs/architecture/ios-authority-contract.md`.
 - Dziennik Decyzji IOS: `docs/architecture/ios-decision-audit-log.md`.
