@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass
 import json
+import math
 import time
 from types import MappingProxyType
 import copy
@@ -63,20 +64,33 @@ class SourceRegistry:
         self._policies: dict[SourceHandle, SourcePolicy] = {}
 
     def register(self, policy: SourcePolicy) -> SourceHandle:
-        if not policy.source_id or len(policy.source_id) > 64:
+        if not isinstance(policy.source_id, str) or not policy.source_id or len(policy.source_id) > 64:
             raise ValueError("source_id must contain 1..64 characters")
-        if not policy.source_version or len(policy.source_version) > 32:
+        if not isinstance(policy.source_version, str) or not policy.source_version or len(policy.source_version) > 32:
             raise ValueError("source_version must contain 1..32 characters")
-        if not policy.event_codes:
+        if not isinstance(policy.event_codes, Mapping) or not policy.event_codes:
             raise ValueError("at least one event code must be registered")
-        if policy.max_payload_bytes < 1 or policy.max_payload_bytes > 4096:
+        if (
+            not isinstance(policy.max_payload_bytes, int)
+            or isinstance(policy.max_payload_bytes, bool)
+            or not 1 <= policy.max_payload_bytes <= 4096
+        ):
             raise ValueError("max_payload_bytes must be between 1 and 4096")
-        if policy.max_events_per_window < 1:
+        if (
+            not isinstance(policy.max_events_per_window, int)
+            or isinstance(policy.max_events_per_window, bool)
+            or policy.max_events_per_window < 1
+        ):
             raise ValueError("max_events_per_window must be positive")
-        if policy.rate_window_seconds <= 0:
-            raise ValueError("rate_window_seconds must be positive")
+        if (
+            not isinstance(policy.rate_window_seconds, (int, float))
+            or isinstance(policy.rate_window_seconds, bool)
+            or not math.isfinite(policy.rate_window_seconds)
+            or policy.rate_window_seconds <= 0
+        ):
+            raise ValueError("rate_window_seconds must be finite and positive")
         for code, severity in policy.event_codes.items():
-            if not isinstance(code, str) or not code or len(code) > 64 or severity not in _ALLOWED_SEVERITY:
+            if not isinstance(code, str) or not code or len(code) > 64 or not isinstance(severity, str) or severity not in _ALLOWED_SEVERITY:
                 raise ValueError("invalid event code or maximum severity")
         if any(existing.source_id == policy.source_id for existing in self._policies.values()):
             raise ValueError("source_id is already registered")
@@ -190,7 +204,8 @@ class EventCollector:
         }
         if set(message) - allowed_fields:
             raise InvalidEvent("event contains unknown fields")
-        if message.get("schema_version") != 1:
+        schema_version = message.get("schema_version")
+        if not isinstance(schema_version, int) or isinstance(schema_version, bool) or schema_version != 1:
             raise InvalidEvent("unsupported schema_version")
         code = message.get("event_code")
         category = message.get("category")
