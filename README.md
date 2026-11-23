@@ -2,6 +2,10 @@
 
 VGK jest eksperymentalnym projektem niezależnego systemu operacyjnego. Ten etap zawiera własny, freestanding kernel ELF64. Historyczny prototyp 0.1 był uruchamiany przez bootloader zgodny z Multiboot2; docelowy mechanizm uruchamiania VGK jest rozwijany niezależnie. Nie jest to jeszcze kompletny system operacyjny.
 
+## Nadrzędne zasady projektu
+
+Wszystkie prace i aktualizacje VGK podlegają [Polityce nadrzędności Głównych założeń systemowych VGK](docs/governance/foundational-assumptions-update-policy.md). Aktualizacja wymaga pozytywnej kontroli technicznej oraz osobnego zatwierdzenia i podpisu właściciela projektu. Brak któregokolwiek zatwierdzenia lub niezgodność z choć jednym założeniem oznacza odmowę. Polityka obowiązuje w procesie rozwoju; jej pełne egzekwowanie przez mechanizm aktualizacji systemu pozostaje zadaniem implementacyjnym.
+
 ## Stan funkcji
 
 - [x] Własny punkt wejścia jądra i przejście do trybu 64-bitowego
