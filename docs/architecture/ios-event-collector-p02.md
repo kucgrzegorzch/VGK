@@ -32,7 +32,8 @@ Test jest niezależny od kompilacji jądra. Nie jest uruchamiany przez domyślne
 
 1. **Brak integracji z jądrem.** Moduł działa wyłącznie jako kod Pythona uruchamiany na hoście.
 2. **Brak uprawnień systemowych.** Prototyp nie otwiera urządzeń, nie odczytuje pamięci jądra i nie zmienia plików systemowych.
-3. **Model wykonania jest jednowątkowy.** Prototyp nie implementuje synchronizacji współbieżnego dostępu; testy wywołują kolektor sekwencyjnie.\n4. **Rejestr źródeł jest symulacją.** Uchwyt obiektu działa wyłącznie w obrębie procesu testowego. Python nie zapewnia tu izolacji przed złośliwym kodem w tym samym procesie. Nie jest to uwierzytelnianie procesów, sterowników ani sprzętu.
+3. **Model wykonania jest jednowątkowy.** Prototyp nie implementuje synchronizacji współbieżnego dostępu; testy wywołują kolektor sekwencyjnie.
+4. **Rejestr źródeł jest symulacją.** Uchwyt obiektu działa wyłącznie w obrębie procesu testowego. Python nie zapewnia tu izolacji przed złośliwym kodem w tym samym procesie. Nie jest to uwierzytelnianie procesów, sterowników ani sprzętu.
 5. **Odbiornik jest ulotny.** Odbiornik pamięciowy przechowuje rekordy wyłącznie w pamięci i nie zapewnia trwałości po zakończeniu procesu lub restarcie.
 6. **Deduplikacja ma ograniczone okno.** Klucz obejmuje źródło, sesję uruchomienia, kod zdarzenia i numer źródłowy. Pamięć zbioru jest ograniczona; po usunięciu najstarszych identyfikatorów bardzo stary duplikat może zostać przyjęty ponownie.
 7. **Czas ścienny jest niedostępny.** Prototyp zapisuje `timestamp: null` i `time_status: unavailable`; osobno zachowuje `monotonic_time` do porządkowania zdarzeń w obrębie sesji. Nie deklaruje wiarygodnego czasu ściennego.
