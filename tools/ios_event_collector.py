@@ -10,6 +10,8 @@ from collections import deque
 from dataclasses import dataclass
 import json
 import time
+from types import MappingProxyType
+import copy
 import uuid
 from typing import Callable, Deque, Mapping
 
@@ -74,10 +76,20 @@ class SourceRegistry:
         if policy.rate_window_seconds <= 0:
             raise ValueError("rate_window_seconds must be positive")
         for code, severity in policy.event_codes.items():
-            if not code or len(code) > 64 or severity not in _ALLOWED_SEVERITY:
+            if not isinstance(code, str) or not code or len(code) > 64 or severity not in _ALLOWED_SEVERITY:
                 raise ValueError("invalid event code or maximum severity")
+        if any(existing.source_id == policy.source_id for existing in self._policies.values()):
+            raise ValueError("source_id is already registered")
+        frozen_policy = SourcePolicy(
+            source_id=policy.source_id,
+            source_version=policy.source_version,
+            event_codes=MappingProxyType(dict(policy.event_codes)),
+            max_payload_bytes=policy.max_payload_bytes,
+            max_events_per_window=policy.max_events_per_window,
+            rate_window_seconds=policy.rate_window_seconds,
+        )
         handle = SourceHandle(object())
-        self._policies[handle] = policy
+        self._policies[handle] = frozen_policy
         return handle
 
     def policy_for(self, handle: SourceHandle) -> SourcePolicy:
@@ -98,12 +110,12 @@ class MemorySink:
 
     @property
     def records(self) -> tuple[dict, ...]:
-        return tuple(self._records)
+        return tuple(copy.deepcopy(self._records))
 
     def append(self, record: dict) -> None:
         if len(self._records) >= self._max_records:
             raise SinkFull("memory sink capacity reached")
-        self._records.append(record)
+        self._records.append(copy.deepcopy(record))
 
 
 def _validate_payload(value: object, depth: int = 0) -> object:
