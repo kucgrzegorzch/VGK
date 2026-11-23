@@ -10,7 +10,7 @@ Sprawdzić podstawowe zachowanie kolektora przed podłączeniem jakichkolwiek rz
 - ograniczenie rozmiaru i częstotliwości komunikatów;
 - kolejkę o stałej pojemności;
 - numerację kanoniczną nadawaną przez kolektor;
-- ograniczone wykrywanie duplikatów według źródła, sesji uruchomienia, kodu zdarzenia i numeru źródłowego;
+- ograniczone oznaczanie możliwych powtórzeń na podstawie numeru źródłowego lub odcisku treści;
 - jawne liczenie odrzuceń spowodowanych limitem;
 - przekazywanie rekordów do odbiornika pamięciowego bez utraty wpisu, gdy odbiornik odmawia zapisu.
 
@@ -35,13 +35,13 @@ Test jest niezależny od kompilacji jądra. Nie jest uruchamiany przez domyślne
 3. **Model wykonania jest jednowątkowy.** Prototyp nie implementuje synchronizacji współbieżnego dostępu; testy wywołują kolektor sekwencyjnie.
 4. **Rejestr źródeł jest symulacją.** Uchwyt obiektu działa wyłącznie w obrębie procesu testowego. Python nie zapewnia tu izolacji przed złośliwym kodem w tym samym procesie. Nie jest to uwierzytelnianie procesów, sterowników ani sprzętu.
 5. **Odbiornik jest ulotny.** Odbiornik pamięciowy przechowuje rekordy wyłącznie w pamięci i nie zapewnia trwałości po zakończeniu procesu lub restarcie.
-6. **Deduplikacja ma ograniczone okno i wymaga numeru źródłowego.** Gdy `source_sequence` jest dostępny, klucz obejmuje źródło, sesję uruchomienia, kod zdarzenia i numer źródłowy. Bez numeru źródłowego prototyp nie udaje, że potrafi bezpiecznie rozpoznać duplikat; powtórzone zgłoszenie może zostać przyjęte. Pamięć zbioru jest ograniczona, więc po usunięciu najstarszych identyfikatorów bardzo stary duplikat również może zostać przyjęty ponownie.
+6. **Wykrywanie możliwych powtórzeń nie usuwa zdarzeń.** Przy obecnym `source_sequence` prototyp oznacza ponowne użycie numeru w obrębie źródła, sesji i kodu zdarzenia. Gdy numeru brak, porównuje SHA-256 kanonicznej treści (wersja źródła, kod, kategoria, ważność, pewność i payload). Odcisk jest wyłącznie wskazówką: identyczna treść nie dowodzi, że chodzi o to samo zdarzenie. Każde poprawne zgłoszenie otrzymuje własny numer odbioru i trafia do kolejki, również wtedy, gdy wygląda na powtórzenie. Pole `duplicate_detection` zawiera status, identyfikator wcześniejszego możliwego dopasowania i odcisk. Indeks jest ograniczony pamięciowo, więc bardzo stare powtórzenie może nie zostać skojarzone. Nie ma automatycznego odrzucania na podstawie podobieństwa ani ponownego użycia numeru źródłowego.
 7. **Czas ścienny jest niedostępny.** Prototyp zapisuje `timestamp: null` i `time_status: unavailable`; osobno zachowuje `monotonic_time` do porządkowania zdarzeń w obrębie sesji. Nie deklaruje wiarygodnego czasu ściennego.
 8. **Przepełnienie nie jest ukrywane.** Kolejka pozostaje ograniczona; odrzucone zdarzenia zwiększają licznik `dropped_count`. Prototyp nie udaje, że utracone zdarzenia zostały zapisane do dziennika.
 9. **Brak działań ochronnych.** Moduł nie podejmuje decyzji polityki, nie blokuje, nie kwarantannuje, nie naprawia i nie usuwa żadnych danych.
 
 ## Kryteria P0.2
 
-P0.2 może zostać oceniony dopiero po uruchomieniu testów w kontrolowanym środowisku. Testy obejmują poprawne przyjęcie zdarzenia, obcy uchwyt źródła, próbę podwyższenia ważności, nieznane pola i kody, duplikaty, przepełnienie kolejki, limit danych, limit częstotliwości, błąd odbiornika i zachowanie kolejności.
+P0.2 może zostać oceniony dopiero po uruchomieniu testów w kontrolowanym środowisku. Testy obejmują poprawne przyjęcie zdarzenia, obcy uchwyt źródła, próbę podwyższenia ważności, nieznane pola i kody, oznaczanie możliwych powtórzeń bez utraty zdarzeń, przepełnienie kolejki, limit danych, limit częstotliwości, błąd odbiornika i zachowanie kolejności.
 
 Pomyślne testy host-side nie dowodzą bezpieczeństwa mechanizmu w jądrze ani nie upoważniają do podłączenia rzeczywistych źródeł. Następny etap wymaga osobnego przeglądu kodu, wyników testów i decyzji o dalszym zakresie.
