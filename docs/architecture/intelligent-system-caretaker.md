@@ -36,7 +36,9 @@ IOS powinien być logicznie podzielony na następujące części. Nie przesądza
 | Kontrola Sieci | stosuje zatwierdzone reguły ruchu i reaguje na naruszenia | reguły ograniczone; blokady powinny być możliwie odwracalne |
 | Menedżer Aktualizacji | weryfikuje pakiety, wersje, zależności i możliwość wycofania | nie instaluje pakietu bez sprawdzenia autentyczności i integralności |
 | System Odzyskiwania | uruchamia bezpieczne procedury naprawy i przywracania | nie może wyłączać zabezpieczeń ani nadpisywać danych bez wymaganej zgody |
-| Dziennik Zdarzeń | zapisuje decyzje, błędy, zmiany polityk i wyniki napraw | zapis chroniony przed zwykłymi aplikacjami; ograniczanie danych wrażliwych |
+| Dziennik Decyzji IOS | jeden wspólny, dopisywany dziennik audytowy: obserwacje, walidacje, decyzje, zgody, wykonania i wyniki | zapis chroniony przed zwykłymi aplikacjami; ograniczanie danych wrażliwych |
+
+**Ujednolicenie dziennika:** obserwacje zbierane przez monitor nie tworzą osobnego magazynu. Są zapisywane jako odpowiednie typy wpisów w jednym Dzienniku Decyzji IOS, zgodnie z `ios-decision-audit-log.md`. Strumień zdarzeń i kolektor są warstwą wejściową, a nie odrębnym dziennikiem.
 
 ## 4. Kto podejmuje decyzje
 
