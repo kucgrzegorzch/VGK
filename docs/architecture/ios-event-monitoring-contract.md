@@ -1,6 +1,6 @@
 # Kontrakt monitorowania zdarzeń IOS
 
-**Status:** propozycja architektoniczna P0.1. Dokument określa granice i przepływ przyszłego mechanizmu monitorowania. Nie oznacza, że IOS, kolektor zdarzeń ani trwały Dziennik Zdarzeń są już zaimplementowane.
+**Status:** propozycja architektoniczna P0.1. Dokument określa granice i przepływ przyszłego mechanizmu monitorowania. Nie oznacza, że IOS, kolektor zdarzeń ani trwały Dziennik Decyzji IOS są już zaimplementowane.
 
 ## 1. Cel i zakres
 
@@ -10,7 +10,7 @@ P0.1 definiuje:
 - źródła i format obserwacji;
 - przepływ zdarzenia od źródła do kolektora;
 - walidację, klasyfikację i ograniczenia zasobów;
-- przekazywanie poprawnych zdarzeń do Dziennika Zdarzeń;
+- przekazywanie poprawnych zdarzeń do wspólnego Dziennika Decyzji IOS;
 - zachowanie przy utracie danych, błędzie źródła lub niedostępności dziennika;
 - kryteria testów i kolejność późniejszego wdrażania.
 
@@ -31,7 +31,7 @@ P0.1 nie implementuje usługi systemowej, sterowników, trwałego magazynu ani i
 
 Przepływ logiczny:
 
-`Źródło` → `ograniczony kanał zdarzeń` → `Kolektor IOS` → `walidacja i klasyfikacja` → `Dziennik Zdarzeń` → `odczyt historii`
+`Źródło` → `ograniczony kanał zdarzeń` → `Kolektor IOS` → `walidacja i klasyfikacja` → `Dziennik Decyzji IOS` → `odczyt historii`
 
 ### Źródło zdarzenia
 
@@ -196,7 +196,7 @@ Kolejność może zostać zmieniona wyłącznie po udokumentowaniu zależności 
 ## 12. Kryteria akceptacji P0.1
 
 - Dokument jednoznacznie oddziela źródła, kanał, kolektor, wspólny Dziennik Decyzji i odbiorców odczytu.
-- Nie powstaje drugi, niezależny Dziennik Zdarzeń ani równoległy schemat numeracji.
+- Nie powstaje drugi, niezależny Dziennik Decyzji IOS ani równoległy schemat numeracji.
 - Obserwacja nie jest decyzją polityki ani poleceniem wykonawczym.
 - Ważność jest odróżniona od pewności.
 - Format wejściowy, limity, wersjonowanie i sposób uwierzytelniania źródeł są określone.
@@ -209,10 +209,8 @@ Kolejność może zostać zmieniona wyłącznie po udokumentowaniu zależności 
 
 ## 13. Powiązane dokumenty
 
-- Dziennik Decyzji IOS: `docs/architecture/ios-decision-audit-log.md`.
 - Architektura IOS: `docs/architecture/intelligent-system-caretaker.md`.
 - Kontrakt uprawnień IOS: `docs/architecture/ios-authority-contract.md`.
-- Dziennik Decyzji IOS: `docs/architecture/ios-decision-audit-log.md`.
 - Kontrakt interfejsu IOS: `docs/architecture/ios-user-interface-contract.md`.
 - Model zagrożeń VGK: `docs/architecture/threat-model.md`.
 
