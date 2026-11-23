@@ -85,6 +85,9 @@ class EventCollectorTests(unittest.TestCase):
         self.assertEqual(record["source"]["source_id"], "test.memory")
         self.assertIsNone(record["timestamp"])
         self.assertEqual(record["time_status"], "unavailable")
+        self.assertEqual(record["duplicate_detection"]["status"], "first_seen")
+        self.assertIsInstance(record["duplicate_detection"]["fingerprint"], str)
+        self.assertEqual(len(record["duplicate_detection"]["fingerprint"]), 64)
         self.assertIsInstance(record["monotonic_time"], float)
 
     def test_rejects_unregistered_handle(self):
@@ -113,17 +116,62 @@ class EventCollectorTests(unittest.TestCase):
         with self.assertRaises(InvalidEvent):
             self.collector.submit(self.handle, make_message(event_code="NOT_ALLOWED"))
 
-    def test_duplicate_source_sequence_is_ignored(self):
+    def test_repeated_source_sequence_is_flagged_but_never_discarded(self):
         self.assertTrue(self.collector.submit(self.handle, make_message()))
-        self.assertFalse(self.collector.submit(self.handle, make_message()))
-        self.assertEqual(self.collector.queue_size, 1)
-        self.assertEqual(self.collector.next_sequence, 2)
+        self.assertTrue(self.collector.submit(self.handle, make_message()))
+        self.assertEqual(self.collector.queue_size, 2)
+        sink = MemorySink()
+        self.assertEqual(self.collector.flush_to(sink), 2)
+        first, second = sink.records
+        self.assertEqual(first["duplicate_detection"]["status"], "first_seen")
+        self.assertEqual(
+            second["duplicate_detection"]["status"], "source_sequence_reused"
+        )
+        self.assertEqual(
+            second["duplicate_detection"]["possible_match_event_id"],
+            first["event_id"],
+        )
+        self.assertEqual(self.collector.next_sequence, 3)
 
-    def test_events_without_source_sequence_are_not_claimed_as_deduplicated(self):
+    def test_same_source_sequence_with_different_content_is_preserved_and_flagged(self):
+        self.collector.submit(self.handle, make_message())
+        changed = make_message(payload={"free_pages": 99})
+        self.assertTrue(self.collector.submit(self.handle, changed))
+        sink = MemorySink()
+        self.collector.flush_to(sink)
+        self.assertEqual(len(sink.records), 2)
+        self.assertEqual(
+            sink.records[1]["duplicate_detection"]["status"],
+            "source_sequence_reused",
+        )
+
+    def test_unsequenced_exact_content_match_is_flagged_but_preserved(self):
         message = make_message(source_sequence=None)
         self.assertTrue(self.collector.submit(self.handle, message))
         self.assertTrue(self.collector.submit(self.handle, message))
         self.assertEqual(self.collector.queue_size, 2)
+        sink = MemorySink()
+        self.collector.flush_to(sink)
+        self.assertEqual(
+            sink.records[1]["duplicate_detection"]["status"], "content_match"
+        )
+        self.assertEqual(
+            sink.records[1]["duplicate_detection"]["possible_match_event_id"],
+            sink.records[0]["event_id"],
+        )
+
+    def test_unsequenced_different_content_is_not_flagged_as_match(self):
+        self.collector.submit(
+            self.handle, make_message(source_sequence=None, payload={"free_pages": 12})
+        )
+        self.collector.submit(
+            self.handle, make_message(source_sequence=None, payload={"free_pages": 11})
+        )
+        sink = MemorySink()
+        self.collector.flush_to(sink)
+        self.assertEqual(
+            sink.records[1]["duplicate_detection"]["status"], "first_seen"
+        )
 
     def test_same_source_sequence_with_different_event_code_is_not_deduplicated(self):
         self.assertTrue(self.collector.submit(self.handle, make_message()))
