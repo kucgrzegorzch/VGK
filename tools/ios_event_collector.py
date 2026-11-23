@@ -174,8 +174,8 @@ class EventCollector:
         self._queue: Deque[dict] = deque()
         self._capacity = capacity
         self._dedup_capacity = dedup_capacity
-        self._seen: set[tuple[str, int]] = set()
-        self._seen_order: Deque[tuple[str, int]] = deque()
+        self._seen: set[tuple[str, str, str, int]] = set()
+        self._seen_order: Deque[tuple[str, str, str, int]] = deque()
         self._clock = clock
         self._rate_state: dict[str, tuple[float, int]] = {}
         self._sequence = 0
@@ -242,7 +242,10 @@ class EventCollector:
         if len(encoded_payload) > policy.max_payload_bytes:
             raise InvalidEvent("payload exceeds the source byte limit")
 
-        dedup_key = (policy.source_id, source_sequence) if source_sequence is not None else None
+        dedup_key = (
+            (policy.source_id, self._boot_session_id, code, source_sequence)
+            if source_sequence is not None else None
+        )
         if dedup_key is not None and dedup_key in self._seen:
             return False
 
@@ -273,8 +276,9 @@ class EventCollector:
             "category": category,
             "severity": severity,
             "confidence": confidence,
+            "timestamp": None,
             "monotonic_time": self._clock(),
-            "time_status": "monotonic_only",
+            "time_status": "unavailable",
             "payload": payload,
         }
         self._queue.append(record)
