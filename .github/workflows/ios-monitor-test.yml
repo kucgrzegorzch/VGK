@@ -1,6 +1,14 @@
 name: IOS P0.2 Collector Tests
 
 on:
+  pull_request:
+    branches:
+      - design/ios-event-monitoring-contract
+    paths:
+      - '.github/workflows/ios-monitor-test.yml'
+      - 'tools/ios_event_collector.py'
+      - 'tests/test_ios_event_collector.py'
+      - 'Makefile'
   push:
     branches:
       - prototype/ios-event-collector-p02
