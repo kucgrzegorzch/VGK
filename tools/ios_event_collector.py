@@ -13,6 +13,7 @@ import math
 import time
 from types import MappingProxyType
 import copy
+import hashlib
 import uuid
 from typing import Callable, Deque, Mapping
 
@@ -185,8 +186,8 @@ class EventCollector:
         self._queue: Deque[dict] = deque()
         self._capacity = capacity
         self._dedup_capacity = dedup_capacity
-        self._seen: set[tuple[str, str, str, int]] = set()
-        self._seen_order: Deque[tuple[str, str, str, int]] = deque()
+        self._dedup_index: dict[tuple[str, ...], str] = {}
+        self._dedup_order: Deque[tuple[str, ...]] = deque()
         self._clock = clock
         self._rate_state: dict[str, tuple[float, int]] = {}
         self._sequence = 0
@@ -253,12 +254,40 @@ class EventCollector:
         if len(encoded_payload) > policy.max_payload_bytes:
             raise InvalidEvent("payload exceeds the source byte limit")
 
-        dedup_key = (
-            (policy.source_id, self._boot_session_id, code, source_sequence)
-            if source_sequence is not None else None
+        # A fingerprint is only a hint for review, never a reason to discard
+        # an observation. Include all validated event content, but not local
+        # receipt sequence/time or the optional source sequence.
+        fingerprint_input = {
+            "source_version": policy.source_version,
+            "event_code": code,
+            "category": category,
+            "severity": severity,
+            "confidence": confidence,
+            "payload": payload,
+        }
+        canonical = json.dumps(
+            fingerprint_input, ensure_ascii=False, sort_keys=True,
+            separators=(",", ":"), allow_nan=False,
+        ).encode("utf-8")
+        fingerprint = hashlib.sha256(canonical).hexdigest()
+        content_key = (
+            "content", policy.source_id, self._boot_session_id, fingerprint
         )
-        if dedup_key is not None and dedup_key in self._seen:
-            return False
+        sequence_key = (
+            "sequence", policy.source_id, self._boot_session_id, code,
+            str(source_sequence),
+        ) if source_sequence is not None else None
+
+        prior_event_id = (
+            self._dedup_index.get(sequence_key) if sequence_key is not None else None
+        )
+        detection_status = "first_seen"
+        if prior_event_id is not None:
+            detection_status = "source_sequence_reused"
+        else:
+            prior_event_id = self._dedup_index.get(content_key)
+            if prior_event_id is not None:
+                detection_status = "content_match"
 
         now = self._clock()
         window_start, count = self._rate_state.get(policy.source_id, (now, 0))
@@ -283,6 +312,11 @@ class EventCollector:
                 "source_version": policy.source_version,
             },
             "source_sequence": source_sequence,
+            "duplicate_detection": {
+                "status": detection_status,
+                "possible_match_event_id": prior_event_id,
+                "fingerprint": fingerprint,
+            },
             "event_code": code,
             "category": category,
             "severity": severity,
@@ -294,12 +328,18 @@ class EventCollector:
         }
         self._queue.append(record)
         self._rate_state[policy.source_id] = (window_start, count + 1)
-        if dedup_key is not None:
-            self._seen.add(dedup_key)
-            self._seen_order.append(dedup_key)
-            if len(self._seen_order) > self._dedup_capacity:
-                expired = self._seen_order.popleft()
-                self._seen.discard(expired)
+        # Index both forms, but retain every accepted observation. The bounded
+        # index only limits how far back a possible match can be found.
+        keys_to_remember = [content_key]
+        if sequence_key is not None:
+            keys_to_remember.append(sequence_key)
+        for key in keys_to_remember:
+            if key not in self._dedup_index:
+                self._dedup_index[key] = record["event_id"]
+                self._dedup_order.append(key)
+                if len(self._dedup_order) > self._dedup_capacity:
+                    expired = self._dedup_order.popleft()
+                    self._dedup_index.pop(expired, None)
         return True
 
     def flush_to(self, sink: MemorySink, limit: int | None = None) -> int:
