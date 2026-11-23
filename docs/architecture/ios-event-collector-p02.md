@@ -10,7 +10,7 @@ Sprawdzić podstawowe zachowanie kolektora przed podłączeniem jakichkolwiek rz
 - ograniczenie rozmiaru i częstotliwości komunikatów;
 - kolejkę o stałej pojemności;
 - numerację kanoniczną nadawaną przez kolektor;
-- ograniczone wykrywanie duplikatów według pary źródło/numer źródłowy;
+- ograniczone wykrywanie duplikatów według źródła, sesji uruchomienia, kodu zdarzenia i numeru źródłowego;
 - jawne liczenie odrzuceń spowodowanych limitem;
 - przekazywanie rekordów do odbiornika pamięciowego bez utraty wpisu, gdy odbiornik odmawia zapisu.
 
@@ -34,8 +34,8 @@ Test jest niezależny od kompilacji jądra. Nie jest uruchamiany przez domyślne
 2. **Brak uprawnień systemowych.** Prototyp nie otwiera urządzeń, nie odczytuje pamięci jądra i nie zmienia plików systemowych.
 3. **Model wykonania jest jednowątkowy.** Prototyp nie implementuje synchronizacji współbieżnego dostępu; testy wywołują kolektor sekwencyjnie.\n4. **Rejestr źródeł jest symulacją.** Uchwyt obiektu działa wyłącznie w obrębie procesu testowego. Python nie zapewnia tu izolacji przed złośliwym kodem w tym samym procesie. Nie jest to uwierzytelnianie procesów, sterowników ani sprzętu.
 5. **Odbiornik jest ulotny.** Odbiornik pamięciowy przechowuje rekordy wyłącznie w pamięci i nie zapewnia trwałości po zakończeniu procesu lub restarcie.
-6. **Deduplikacja ma ograniczone okno.** Pamięć zbioru identyfikatorów jest ograniczona; po usunięciu najstarszych identyfikatorów bardzo stary duplikat może zostać przyjęty ponownie.
-7. **Czas jest monotoniczny.** Prototyp nie ustala wiarygodnego czasu ściennego i oznacza rekord jako `monotonic_only`.
+6. **Deduplikacja ma ograniczone okno.** Klucz obejmuje źródło, sesję uruchomienia, kod zdarzenia i numer źródłowy. Pamięć zbioru jest ograniczona; po usunięciu najstarszych identyfikatorów bardzo stary duplikat może zostać przyjęty ponownie.
+7. **Czas ścienny jest niedostępny.** Prototyp zapisuje `timestamp: null` i `time_status: unavailable`; osobno zachowuje `monotonic_time` do porządkowania zdarzeń w obrębie sesji. Nie deklaruje wiarygodnego czasu ściennego.
 8. **Przepełnienie nie jest ukrywane.** Kolejka pozostaje ograniczona; odrzucone zdarzenia zwiększają licznik `dropped_count`. Prototyp nie udaje, że utracone zdarzenia zostały zapisane do dziennika.
 9. **Brak działań ochronnych.** Moduł nie podejmuje decyzji polityki, nie blokuje, nie kwarantannuje, nie naprawia i nie usuwa żadnych danych.
 
