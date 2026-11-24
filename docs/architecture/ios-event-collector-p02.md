@@ -14,7 +14,7 @@ Sprawdzić podstawowe zachowanie kolektora przed podłączeniem jakichkolwiek rz
 - numerację kanoniczną nadawaną przez kolektor;
 - ograniczone oznaczanie możliwych powtórzeń na podstawie numeru źródłowego lub odcisku treści;
 - jawne liczenie odrzuceń spowodowanych limitem;
-- przekazywanie rekordów do odbiornika pamięciowego bez utraty wpisu, gdy odbiornik odmawia zapisu.
+- przekazywanie rekordów do odbiornika pamięciowego w kolejności FIFO; rekord jest usuwany z kolejki dopiero po przyjęciu przez odbiornik, a błąd przy częściowym opróżnianiu pozostawia pozostałe rekordy w kolejce do ponowienia.
 
 ## Pliki
 
