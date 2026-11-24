@@ -167,6 +167,42 @@ class SourceRegistry:
             raise InvalidEvent("source handle is not registered") from None
 
 
+def _preflight_sink_value(value: object, depth: int, budget: list[int]) -> None:
+    """Bound generic JSON structure before serialization can allocate a large buffer."""
+    budget[1] -= 1
+    if budget[1] < 0 or depth > 8:
+        raise ValueError("sink record exceeds structural limits")
+    if isinstance(value, dict):
+        if len(value) > 32:
+            raise ValueError("sink record exceeds structural limits")
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise ValueError("sink record must contain finite JSON data")
+            budget[0] -= len(key.encode("utf-8"))
+            if budget[0] < 0:
+                raise ValueError(f"sink record exceeds {_MAX_RECORD_BYTES} bytes")
+            _preflight_sink_value(item, depth + 1, budget)
+    elif isinstance(value, list):
+        if len(value) > 32:
+            raise ValueError("sink record exceeds structural limits")
+        for item in value:
+            _preflight_sink_value(item, depth + 1, budget)
+    elif isinstance(value, str):
+        budget[0] -= len(value.encode("utf-8"))
+        if budget[0] < 0:
+            raise ValueError(f"sink record exceeds {_MAX_RECORD_BYTES} bytes")
+    elif value is None or isinstance(value, bool):
+        return
+    elif isinstance(value, int):
+        if value.bit_length() > 64:
+            raise ValueError("sink record integer exceeds 64-bit range")
+    elif isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError("sink record must contain finite JSON data")
+    else:
+        raise ValueError("sink record must contain finite JSON data")
+
+
 class MemorySink:
     """Bounded, volatile test receiver; records disappear when the process exits."""
 
@@ -191,6 +227,9 @@ class MemorySink:
             raise SinkFull("memory sink capacity reached")
         if not isinstance(record, dict):
             raise ValueError("sink record must be a dictionary")
+        # Preflight bounds strings, containers, nesting and scalar types
+        # before JSON serialization allocates its temporary output buffer.
+        _preflight_sink_value(record, 0, [_MAX_RECORD_BYTES, 256])
         try:
             encoded = json.dumps(
                 record, ensure_ascii=False, separators=(",", ":"), allow_nan=False
