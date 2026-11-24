@@ -184,6 +184,13 @@ class EventCollectorTests(unittest.TestCase):
             "payload": {},
         }))
 
+    def test_oversized_top_level_mapping_is_rejected_before_key_scan(self):
+        message = make_message()
+        message.update({f"extra_{index}": index for index in range(10000)})
+        with self.assertRaisesRegex(InvalidEvent, "too many fields"):
+            self.collector.submit(self.handle, message)
+        self.assertEqual(self.collector.queue_size, 0)
+
     def test_source_cannot_escalate_severity(self):
         with self.assertRaises(InvalidEvent):
             self.collector.submit(self.handle, make_message(severity="critical"))
