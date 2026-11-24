@@ -172,3 +172,36 @@ IOS może samodzielnie wykonywać wyłącznie działania objęte zatwierdzoną p
 ### 13.3. Zależność od interfejsu
 
 Interfejs prezentuje stan i wynik, ale nie jest elementem krytycznej pętli ochronnej. Awaria, zawieszenie lub brak odpowiedzi interfejsu nie może blokować wyłączenia termicznego ani innych działań wymaganych przez politykę. Szczegóły potwierdzania komunikatów opisuje kontrakt interfejsu IOS.
+
+
+## 14. Diagnostyka kondycji podzespołów i komunikowanie awarii
+
+**Decyzja produktu z 2026-11-25:** IOS musi wyraźnie odróżniać awarię urządzenia od pogorszenia kondycji podzespołu, który nadal działa.
+
+### 14.1. Awaria lub niesprawność urządzenia
+
+Jeżeli urządzenie przestaje działać albo występuje rzeczywista usterka wymagająca uwagi użytkownika (np. mikrofon przestaje działać), IOS wyświetla krótki komunikat. Komunikat opisuje wykryty problem, podjęte próby oraz ich rzeczywisty, zweryfikowany wynik. Zdarzenie pozostaje zapisane w Historii, również po zakończeniu naprawy.
+
+Sama niekrytyczna klasyfikacja awarii nie oznacza, że IOS ma przemilczeć fakt, iż urządzenie przestało działać. Kolor wpisu w Historii i decyzja o wyświetleniu komunikatu są odrębnymi kwestiami.
+
+### 14.2. Pogorszenie kondycji działającego podzespołu
+
+Jeżeli podzespół nadal działa, ale diagnostyka wykrywa pogarszającą się kondycję (np. dysk wykazuje oznaki zużycia), IOS:
+- nie przerywa pracy użytkownika wyskakującym komunikatem wyłącznie z powodu takiego wyniku;
+- umieszcza żółty status w Historii diagnostyki;
+- udostępnia w szczegółach przyczynę, wynik i wiarygodność diagnostyki, możliwe skutki oraz zalecane postępowanie;
+- aktualizuje wpis na podstawie kolejnych okresowych kontroli diagnostycznych.
+
+Żółty status jest wystarczającą sygnalizacją takiego niekrytycznego pogorszenia kondycji. Użytkownik sam otwiera Historię, kiedy chce zapoznać się ze szczegółami. IOS nie powinien wielokrotnie wyświetlać komunikatów o niezmienionym, niekrytycznym stanie.
+
+### 14.3. Propozycja zabezpieczenia danych
+
+Jeżeli pogorszenie kondycji dotyczy podzespołu przechowującego dane, IOS może w szczegółach diagnostyki zaproponować ich zabezpieczenie. Dopóki nie występuje bezpośrednie zagrożenie wymagające natychmiastowej reakcji ochronnej, IOS nie rozpoczyna samodzielnie kopiowania ani przenoszenia danych. Użytkownik może zabezpieczyć je samodzielnie albo wyraźnie zlecić tę czynność IOS. Po otrzymaniu polecenia IOS wykonuje wyłącznie zatwierdzony zakres działania i sprawdza wynik; nie może deklarować powodzenia bez weryfikacji.
+
+### 14.4. Znaczenie statusów
+
+- **Zielony** – diagnostyka potwierdza prawidłowy stan w zakresie wykonanych i wiarygodnych kontroli.
+- **Żółty** – wykryto niekrytyczną nieprawidłowość lub pogorszenie kondycji; szczegóły są dostępne w Historii diagnostyki. Sam żółty status nie uruchamia wyskakującego komunikatu.
+- **Czerwony** – stan krytyczny lub bezpośrednie zagrożenie; IOS podejmuje niezbędne działania ochronne zgodnie z zatwierdzoną polityką.
+
+Kolor nie zastępuje opisu tekstowego ani symbolu. Brak danych lub brak możliwości wykonania kontroli nie może być przedstawiany jako zielony stan prawidłowy.
