@@ -78,6 +78,12 @@ class SourceRegistry:
         limits = (max_sources, max_event_codes, max_event_codes_per_source)
         if any(not isinstance(v, int) or isinstance(v, bool) or v < 1 for v in limits):
             raise ValueError("registry limits must be positive integers")
+        if (
+            max_sources > _DEFAULT_MAX_SOURCES
+            or max_event_codes > _DEFAULT_MAX_EVENT_CODES
+            or max_event_codes_per_source > _DEFAULT_MAX_EVENT_CODES_PER_SOURCE
+        ):
+            raise ValueError("registry limits may be lowered but not raised")
         if max_event_codes_per_source > max_event_codes:
             raise ValueError("per-source event-code limit cannot exceed total limit")
         self._max_sources = max_sources
