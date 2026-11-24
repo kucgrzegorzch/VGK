@@ -9,6 +9,7 @@ Sprawdzić podstawowe zachowanie kolektora przed podłączeniem jakichkolwiek rz
 - walidację wersji, pól, kategorii, ważności, pewności i danych payload;
 - odrzucanie wiadomości z więcej niż siedmioma polami na najwyższym poziomie przed iteracją po kluczach;
 - ograniczenie rozmiaru i częstotliwości komunikatów;
+- wstępne ograniczenie struktury i rozmiaru danych odbiornika przed serializacją JSON;
 - kolejkę o stałej pojemności;
 - numerację kanoniczną nadawaną przez kolektor;
 - ograniczone oznaczanie możliwych powtórzeń na podstawie numeru źródłowego lub odcisku treści;
