@@ -25,6 +25,12 @@ _MAX_UINT64 = (1 << 64) - 1
 _DEFAULT_MAX_SOURCES = 64
 _DEFAULT_MAX_EVENT_CODES = 4096
 _DEFAULT_MAX_EVENT_CODES_PER_SOURCE = 128
+_MAX_QUEUE_CAPACITY = 4096
+_MAX_DEDUP_CAPACITY = 8192
+_MAX_SINK_RECORDS = 4096
+_MAX_RECORD_BYTES = 8192
+_MAX_EVENTS_PER_WINDOW = 10000
+_MAX_RATE_WINDOW_SECONDS = 3600.0
 
 
 class CollectorError(Exception):
@@ -122,16 +128,20 @@ class SourceRegistry:
         if (
             not isinstance(policy.max_events_per_window, int)
             or isinstance(policy.max_events_per_window, bool)
-            or policy.max_events_per_window < 1
+            or not 1 <= policy.max_events_per_window <= _MAX_EVENTS_PER_WINDOW
         ):
-            raise ValueError("max_events_per_window must be positive")
+            raise ValueError(
+                f"max_events_per_window must be between 1 and {_MAX_EVENTS_PER_WINDOW}"
+            )
         if (
             not isinstance(policy.rate_window_seconds, (int, float))
             or isinstance(policy.rate_window_seconds, bool)
             or not math.isfinite(policy.rate_window_seconds)
-            or policy.rate_window_seconds <= 0
+            or not 0 < policy.rate_window_seconds <= _MAX_RATE_WINDOW_SECONDS
         ):
-            raise ValueError("rate_window_seconds must be finite and positive")
+            raise ValueError(
+                f"rate_window_seconds must be finite and at most {_MAX_RATE_WINDOW_SECONDS}"
+            )
         for code, severity in policy.event_codes.items():
             if not isinstance(code, str) or not code or len(code) > 64 or not isinstance(severity, str) or severity not in _ALLOWED_SEVERITY:
                 raise ValueError("invalid event code or maximum severity")
@@ -167,6 +177,8 @@ class MemorySink:
             or max_records < 1
         ):
             raise ValueError("max_records must be a positive integer")
+        if max_records > _MAX_SINK_RECORDS:
+            raise ValueError(f"max_records cannot exceed {_MAX_SINK_RECORDS}")
         self._records: list[dict] = []
         self._max_records = max_records
 
@@ -177,6 +189,16 @@ class MemorySink:
     def append(self, record: dict) -> None:
         if len(self._records) >= self._max_records:
             raise SinkFull("memory sink capacity reached")
+        if not isinstance(record, dict):
+            raise ValueError("sink record must be a dictionary")
+        try:
+            encoded = json.dumps(
+                record, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+            ).encode("utf-8")
+        except (TypeError, ValueError):
+            raise ValueError("sink record must contain finite JSON data") from None
+        if len(encoded) > _MAX_RECORD_BYTES:
+            raise ValueError(f"sink record exceeds {_MAX_RECORD_BYTES} bytes")
         self._records.append(copy.deepcopy(record))
 
 
@@ -225,6 +247,10 @@ class EventCollector:
             or dedup_capacity < 1
         ):
             raise ValueError("capacities must be positive integers")
+        if capacity > _MAX_QUEUE_CAPACITY:
+            raise ValueError(f"queue capacity cannot exceed {_MAX_QUEUE_CAPACITY}")
+        if dedup_capacity > _MAX_DEDUP_CAPACITY:
+            raise ValueError(f"dedup capacity cannot exceed {_MAX_DEDUP_CAPACITY}")
         self._registry = registry
         self._queue: Deque[dict] = deque()
         self._capacity = capacity
@@ -338,10 +364,10 @@ class EventCollector:
         if now - window_start >= policy.rate_window_seconds:
             window_start, count = now, 0
         if count >= policy.max_events_per_window:
-            self._dropped += 1
+            self._dropped = min(self._dropped + 1, _MAX_UINT64)
             raise QueueFull("source rate limit reached")
         if len(self._queue) >= self._capacity:
-            self._dropped += 1
+            self._dropped = min(self._dropped + 1, _MAX_UINT64)
             raise QueueFull("collector queue capacity reached")
 
         if self._sequence >= _MAX_UINT64:
