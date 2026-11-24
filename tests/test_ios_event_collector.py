@@ -108,6 +108,12 @@ class EventCollectorTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     EventCollector(self.registry, capacity, dedup_capacity)
 
+    def test_configured_resource_capacities_accept_hard_maxima(self):
+        collector = EventCollector(self.registry, capacity=4096, dedup_capacity=8192)
+        sink = MemorySink(max_records=4096)
+        self.assertEqual(collector.queue_size, 0)
+        self.assertEqual(sink.records, ())
+
     def test_memory_sink_rejects_non_integer_or_non_positive_capacity(self):
         for capacity in (0, -1, True, 1.5, 4097):
             with self.subTest(capacity=capacity):
