@@ -5,6 +5,7 @@ from tools.ios_event_collector import (
     InvalidEvent,
     MemorySink,
     QueueFull,
+    SequenceExhausted,
     SinkFull,
     SourcePolicy,
     SourceRegistry,
@@ -34,6 +35,48 @@ def make_message(**overrides):
     }
     message.update(overrides)
     return message
+
+
+class SourceRegistryLimitTests(unittest.TestCase):
+    def test_registry_limits_are_validated(self):
+        for limits in ((0, 1, 1), (1, 0, 1), (1, 1, 0), (1, 1, 2),
+                       (True, 1, 1), (1, 1.5, 1)):
+            with self.subTest(limits=limits):
+                with self.assertRaises(ValueError):
+                    SourceRegistry(*limits)
+
+    def test_source_count_limit_accepts_boundary_and_rejects_next_source(self):
+        registry = SourceRegistry(max_sources=2, max_event_codes=4,
+                                  max_event_codes_per_source=2)
+        registry.register(SourcePolicy("source.one", "1", {"A": "info"}))
+        registry.register(SourcePolicy("source.two", "1", {"B": "info"}))
+        with self.assertRaisesRegex(ValueError, "source registry capacity"):
+            registry.register(SourcePolicy("source.three", "1", {"C": "info"}))
+        self.assertEqual(registry.source_count, 2)
+        self.assertEqual(registry.event_code_count, 2)
+
+    def test_per_source_event_code_limit_accepts_boundary_and_rejects_next(self):
+        registry = SourceRegistry(max_sources=2, max_event_codes=4,
+                                  max_event_codes_per_source=2)
+        registry.register(SourcePolicy("source.one", "1",
+                                        {"A": "info", "B": "warning"}))
+        with self.assertRaisesRegex(ValueError, "event-code limit"):
+            registry.register(SourcePolicy("source.two", "1",
+                                            {"C": "info", "D": "warning",
+                                             "E": "error"}))
+        self.assertEqual(registry.source_count, 1)
+        self.assertEqual(registry.event_code_count, 2)
+
+    def test_total_event_code_catalogue_limit_is_enforced(self):
+        registry = SourceRegistry(max_sources=3, max_event_codes=3,
+                                  max_event_codes_per_source=2)
+        registry.register(SourcePolicy("source.one", "1",
+                                        {"A": "info", "B": "warning"}))
+        registry.register(SourcePolicy("source.two", "1", {"C": "info"}))
+        with self.assertRaisesRegex(ValueError, "catalogue capacity"):
+            registry.register(SourcePolicy("source.three", "1", {"D": "info"}))
+        self.assertEqual(registry.source_count, 2)
+        self.assertEqual(registry.event_code_count, 3)
 
 
 class EventCollectorTests(unittest.TestCase):
@@ -223,6 +266,24 @@ class EventCollectorTests(unittest.TestCase):
             self.collector.submit(self.handle, make_message(source_sequence=3))
         self.assertEqual(self.collector.queue_size, 2)
         self.assertEqual(self.collector.dropped_count, 1)
+
+    def test_source_sequence_is_limited_to_unsigned_64_bit_range(self):
+        self.assertTrue(self.collector.submit(
+            self.handle, make_message(source_sequence=(1 << 64) - 1)
+        ))
+        for invalid in (-1, 1 << 64, True):
+            with self.subTest(source_sequence=invalid):
+                with self.assertRaises(InvalidEvent):
+                    self.collector.submit(
+                        self.handle, make_message(source_sequence=invalid)
+                    )
+
+    def test_collector_receipt_sequence_does_not_wrap(self):
+        self.collector._sequence = (1 << 64) - 1
+        with self.assertRaises(SequenceExhausted):
+            self.collector.submit(self.handle, make_message())
+        self.assertEqual(self.collector.queue_size, 0)
+        self.assertEqual(self.collector.next_sequence, 1 << 64)
 
     def test_payload_size_is_bounded(self):
         with self.assertRaises(InvalidEvent):
