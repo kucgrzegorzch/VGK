@@ -167,6 +167,15 @@ class SourceRegistry:
             raise InvalidEvent("source handle is not registered") from None
 
 
+def _consume_utf8_budget(value: str, budget: list[int]) -> None:
+    """Count UTF-8 bytes without allocating an encoded copy of untrusted text."""
+    for character in value:
+        codepoint = ord(character)
+        budget[0] -= 1 if codepoint <= 0x7F else 2 if codepoint <= 0x7FF else 3 if codepoint <= 0xFFFF else 4
+        if budget[0] < 0:
+            raise ValueError(f"sink record exceeds {_MAX_RECORD_BYTES} bytes")
+
+
 def _preflight_sink_value(value: object, depth: int, budget: list[int]) -> None:
     """Bound generic JSON structure before serialization can allocate a large buffer."""
     budget[1] -= 1
