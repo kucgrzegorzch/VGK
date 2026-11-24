@@ -283,6 +283,11 @@ class EventCollector:
             "schema_version", "source_sequence", "event_code", "category",
             "severity", "confidence", "payload",
         }
+        # Reject oversized mappings before iterating their keys. The schema
+        # has only seven permitted top-level fields, so no valid event can
+        # require a larger mapping.
+        if len(message) > len(allowed_fields):
+            raise InvalidEvent("event contains too many fields")
         if set(message) - allowed_fields:
             raise InvalidEvent("event contains unknown fields")
         schema_version = message.get("schema_version")
