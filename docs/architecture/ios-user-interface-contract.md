@@ -294,11 +294,11 @@ W razie rozbieżności między wcześniejszymi opisami ekranów a sekcją 16.2 i
 ### 17.1. Historia i oznaczenia
 
 Historia jest centralnym elementem widoku. Zawiera krótkie wpisy o diagnostyce, awariach, zagrożeniach i istotnych działaniach IOS. Wpisy są oznaczane jednocześnie kolorem i tekstem:
-- **żółty** – zwykła awaria lub ostrzeżenie, które nie jest sklasyfikowane jako krytyczne;
+- **żółty** – niekrytyczna nieprawidłowość lub pogorszenie kondycji podzespołu; przy działającym nadal urządzeniu sam żółty status nie powoduje wyskakującego komunikatu;
 - **czerwony** – awaria krytyczna albo wiarygodnie potwierdzone zagrożenie bezpieczeństwa;
 - zdarzenia informacyjne mogą pozostać neutralne.
 
-Kolor nigdy nie jest jedynym nośnikiem znaczenia. Wpis zawiera także czytelną nazwę i opis. Przykłady: żółty „Awaria mikrofonu”; czerwony „Awaria wentylatora procesora”; czerwony „Szkodliwy plik usunięty z aktywnego systemu”.
+Kolor nigdy nie jest jedynym nośnikiem znaczenia. Wpis zawiera także czytelną nazwę i opis. Przykłady: żółty wpis „Awaria mikrofonu” (użytkownik otrzymuje również komunikat o awarii); żółty wpis diagnostyczny „Dysk wykazuje pogorszenie kondycji” (bez wyskakującego komunikatu, jeśli dysk nadal działa i nie ma zagrożenia krytycznego); czerwony „Awaria wentylatora procesora”; czerwony „Szkodliwy plik usunięty z aktywnego systemu”. Kolor wpisu i decyzja o wyświetleniu komunikatu są odrębnymi elementami.
 
 Główny widok historii jest tylko do odczytu. Użytkownik nie otrzymuje w nim przycisków do ręcznego naprawiania sprzętu, usuwania plików, zarządzania sterownikami ani zmieniania polityki IOS.
 
@@ -342,3 +342,16 @@ Komunikat i czerwony wpis w historii mogą stwierdzać usunięcie dopiero po wia
 - Komunikat nie może sugerować, że kliknięcie użytkownika jest warunkiem wykonania działania ochronnego.
 
 Te zasady doprecyzowują wcześniejsze sekcje dokumentu i mają pierwszeństwo w razie sprzeczności dotyczącej codziennego widoku, okien komunikatów i potwierdzania zapoznania się.
+
+
+### 17.5. Rozróżnienie awarii i pogorszenia kondycji
+
+**Decyzja produktu z 2026-11-25:** IOS nie może traktować każdego żółtego wpisu jako powodu do przerwania pracy użytkownika. O wyświetleniu komunikatu decyduje rodzaj zdarzenia, a nie sam kolor.
+
+- **Urządzenie przestało działać lub uległo awarii** (np. mikrofon przestał działać): IOS wyświetla krótki komunikat o problemie, podjętych działaniach i zweryfikowanym wyniku. Wpis pozostaje w Historii także po zakończeniu naprawy. Zwykła, niekrytyczna awaria może mieć żółty wpis w Historii, ale nadal wymaga poinformowania użytkownika.
+- **Podzespół nadal działa, lecz pogarsza się jego kondycja** (np. zużywający się dysk): IOS nie wyświetla wyskakującego komunikatu wyłącznie z tego powodu. Umieszcza żółty status w Historii diagnostyki. Użytkownik sam otwiera wpis, aby poznać przyczynę, szczegóły, możliwe skutki i zalecenia.
+- **Stan krytyczny lub bezpośrednie zagrożenie:** IOS oznacza wpis na czerwono i podejmuje wymagane działania ochronne bez oczekiwania na potwierdzenie komunikatu. Komunikat krytyczny jest wyświetlany, jeśli sprzęt i stan systemu na to pozwalają, ale nie może opóźniać ochrony.
+
+Diagnostyka okresowo sprawdza kondycję podzespołów i aktualizuje ich wpisy zgodnie z rzeczywistymi wynikami kolejnych kontroli. Nie jest do tego potrzebny osobny mechanizm poza samą diagnostyką.
+
+Jeżeli pogorszenie kondycji dotyczy dysku lub innego podzespołu przechowującego dane, szczegóły żółtego wpisu mogą zawierać propozycję: **„Zalecane zabezpieczenie danych”**. IOS nie rozpoczyna samodzielnie kopiowania danych tylko dlatego, że wykrył pogorszenie kondycji. Użytkownik może zabezpieczyć dane samodzielnie albo wyraźnie zlecić tę czynność IOS. Po wykonaniu IOS sprawdza i zapisuje rzeczywisty wynik.
