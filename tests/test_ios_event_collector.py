@@ -40,7 +40,9 @@ def make_message(**overrides):
 class SourceRegistryLimitTests(unittest.TestCase):
     def test_registry_limits_are_validated(self):
         for limits in ((0, 1, 1), (1, 0, 1), (1, 1, 0), (1, 1, 2),
-                       (True, 1, 1), (1, 1.5, 1)):
+                       (True, 1, 1), (1, 1.5, 1),
+                       (65, 4096, 128), (64, 4097, 128),
+                       (64, 4096, 129)):
             with self.subTest(limits=limits):
                 with self.assertRaises(ValueError):
                     SourceRegistry(*limits)
