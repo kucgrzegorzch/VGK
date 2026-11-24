@@ -128,6 +128,14 @@ class EventCollectorTests(unittest.TestCase):
             sink.append({"value": float("nan")})
         self.assertEqual(len(sink.records), 0)
 
+    def test_sink_preflights_nested_data_before_json_serialization(self):
+        sink = MemorySink()
+        with self.assertRaisesRegex(ValueError, "structural limits"):
+            sink.append({"payload": [[[[[[[[[0]]]]]]]]]})
+        with self.assertRaisesRegex(ValueError, "8192 bytes"):
+            sink.append({"payload": "x" * 9000})
+        self.assertEqual(sink.records, ())
+
     def test_source_rate_limits_have_hard_upper_bounds(self):
         for max_events, window in (
             (10001, 1.0), (1, 3600.1), (1, float("inf")),
