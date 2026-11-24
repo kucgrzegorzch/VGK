@@ -233,3 +233,23 @@ Jeżeli użytkownik naciśnie przycisk komunikatu („Zrozumiałem”, „Przyj�
 Wpis taki nie jest zgodą, nie zmienia decyzji polityki i nie upoważnia do rozpoczęcia ani kontynuowania operacji. Brak potwierdzenia nie jest odmową ani zgodą. Zgody administratora nadal są rejestrowane odrębnym typem zdarzenia, z zakresem i uwierzytelnioną tożsamością zatwierdzającego zgodnie z sekcją 10.
 
 Dziennik przechowuje fakty i wyniki; kolor jest wyłącznie warstwą prezentacji interfejsu. Widok codzienny może oznaczać żółtym zwykłe awarie i ostrzeżenia, a czerwonym awarie krytyczne oraz wiarygodnie potwierdzone zagrożenia. Kolor nie zmienia klasy uprawnień ani decyzji polityki. Komunikat o naprawie lub usunięciu jest dopuszczalny dopiero po potwierdzeniu rezultatu.
+
+
+## 15. Zapis diagnostyki kondycji i zaleceń dotyczących danych
+
+**Decyzja produktu z 2026-11-25:** wspólny Dziennik Decyzji IOS przechowuje wyniki diagnostyki kondycji podzespołów oraz powiązane zalecenia. Nie tworzy się osobnego dziennika diagnostycznego.
+
+Wpis diagnostyczny powinien umożliwiać ustalenie:
+- którego podzespołu dotyczy kontrola;
+- kiedy i przez jakie źródło została wykonana;
+- jaki był wynik oraz poziom pewności;
+- czy podzespół przestał działać, czy nadal działa, ale jego kondycja się pogarsza;
+- jaki status prezentacyjny przypisano wynikowi;
+- jakie zalecenie przedstawiono użytkownikowi;
+- jak zmieniały się wyniki kolejnych kontroli.
+
+**Sam żółty status pogorszonej kondycji działającego podzespołu nie jest zdarzeniem wymagającym wyskakującego komunikatu.** Szczegóły, przyczyna i zalecenia są dostępne w Historii diagnostyki. Jeżeli urządzenie rzeczywiście przestaje działać lub ulega awarii, IOS rejestruje awarię i może powiązać z nią komunikat dla użytkownika. Kolor wpisu nie jest samodzielną regułą wyzwalającą powiadomienie.
+
+Jeżeli diagnostyka zaleca zabezpieczenie danych, dziennik zapisuje przedstawienie zalecenia. Nie oznacza ono zgody na kopiowanie ani rozpoczęcia tej operacji. Gdy użytkownik samodzielnie zleci IOS zabezpieczenie danych, należy odrębnie zapisać polecenie i jego zakres, rozpoczęcie wykonania, wynik oraz niezależną weryfikację. IOS nie może zapisać powodzenia bez sprawdzenia rezultatu.
+
+Kolejne kontrole aktualizują obraz kondycji na podstawie rzeczywistych wyników. Wpisy historyczne nie mogą być po cichu nadpisywane ani usuwane; zmiana stanu powinna być możliwa do odtworzenia z kolejnych zapisów.
