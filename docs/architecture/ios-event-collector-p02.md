@@ -7,6 +7,7 @@
 Sprawdzić podstawowe zachowanie kolektora przed podłączeniem jakichkolwiek rzeczywistych źródeł VGK:
 - rejestrację dozwolonych źródeł i kodów zdarzeń;
 - walidację wersji, pól, kategorii, ważności, pewności i danych payload;
+- odrzucanie wiadomości z więcej niż siedmioma polami na najwyższym poziomie przed iteracją po kluczach;
 - ograniczenie rozmiaru i częstotliwości komunikatów;
 - kolejkę o stałej pojemności;
 - numerację kanoniczną nadawaną przez kolektor;
