@@ -138,6 +138,27 @@ class EventCollectorTests(unittest.TestCase):
             sink.append({"payload": "x" * 10_000_000})
         self.assertEqual(sink.records, ())
 
+    def test_sink_preflight_counts_large_keys_without_encoding_copy(self):
+        sink = MemorySink()
+        with self.assertRaisesRegex(ValueError, "8192 bytes"):
+            sink.append({"k" * 10_000_000: True})
+        self.assertEqual(sink.records, ())
+
+    def test_flush_keeps_remaining_records_after_partial_sink_failure(self):
+        self.collector.submit(self.handle, make_message(source_sequence=1))
+        self.collector.submit(self.handle, make_message(source_sequence=2))
+        sink = MemorySink(max_records=1)
+        self.assertEqual(self.collector.flush_to(sink, limit=1), 1)
+        self.assertEqual(self.collector.queue_size, 1)
+        with self.assertRaises(SinkFull):
+            self.collector.flush_to(sink)
+        self.assertEqual(self.collector.queue_size, 1)
+        self.assertEqual([r["sequence"] for r in sink.records], [1])
+        retry_sink = MemorySink()
+        self.assertEqual(self.collector.flush_to(retry_sink), 1)
+        self.assertEqual([r["sequence"] for r in retry_sink.records], [2])
+        self.assertEqual(self.collector.queue_size, 0)
+
     def test_source_rate_limits_have_hard_upper_bounds(self):
         for max_events, window in (
             (10001, 1.0), (1, 3600.1), (1, float("inf")),
