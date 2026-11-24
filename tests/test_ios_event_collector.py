@@ -102,16 +102,44 @@ class EventCollectorTests(unittest.TestCase):
     def test_collector_rejects_non_integer_or_non_positive_capacities(self):
         for capacity, dedup_capacity in (
             (0, 1), (-1, 1), (True, 1), (1.5, 1), (1, False), (1, 0),
+            (4097, 1), (1, 8193),
         ):
             with self.subTest(capacity=capacity, dedup_capacity=dedup_capacity):
                 with self.assertRaises(ValueError):
                     EventCollector(self.registry, capacity, dedup_capacity)
 
     def test_memory_sink_rejects_non_integer_or_non_positive_capacity(self):
-        for capacity in (0, -1, True, 1.5):
+        for capacity in (0, -1, True, 1.5, 4097):
             with self.subTest(capacity=capacity):
                 with self.assertRaises(ValueError):
                     MemorySink(max_records=capacity)
+
+    def test_sink_rejects_oversized_or_non_json_records(self):
+        sink = MemorySink()
+        with self.assertRaisesRegex(ValueError, "exceeds 8192 bytes"):
+            sink.append({"payload": "x" * 9000})
+        with self.assertRaisesRegex(ValueError, "finite JSON"):
+            sink.append({"value": float("nan")})
+        self.assertEqual(len(sink.records), 0)
+
+    def test_source_rate_limits_have_hard_upper_bounds(self):
+        for max_events, window in (
+            (10001, 1.0), (1, 3600.1), (1, float("inf")),
+        ):
+            with self.subTest(max_events=max_events, window=window):
+                with self.assertRaises(ValueError):
+                    SourceRegistry().register(SourcePolicy(
+                        "rate.boundary", "1", {"PING": "info"},
+                        max_events_per_window=max_events,
+                        rate_window_seconds=window,
+                    ))
+
+    def test_source_rate_limits_accept_maximum_boundary(self):
+        handle = SourceRegistry().register(SourcePolicy(
+            "rate.boundary", "1", {"PING": "info"},
+            max_events_per_window=10000, rate_window_seconds=3600.0,
+        ))
+        self.assertIsNotNone(handle)
 
     def test_flush_limit_must_be_a_non_negative_integer(self):
         for limit in (-1, True, 1.5):
