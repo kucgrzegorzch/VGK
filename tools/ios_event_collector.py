@@ -21,6 +21,10 @@ from typing import Callable, Deque, Mapping
 _ALLOWED_SEVERITY = ("info", "warning", "error", "critical")
 _ALLOWED_CONFIDENCE = ("confirmed", "suspected", "unknown")
 _ALLOWED_PAYLOAD_TYPES = (str, int, float, bool, type(None))
+_MAX_UINT64 = (1 << 64) - 1
+_DEFAULT_MAX_SOURCES = 64
+_DEFAULT_MAX_EVENT_CODES = 4096
+_DEFAULT_MAX_EVENT_CODES_PER_SOURCE = 128
 
 
 class CollectorError(Exception):
@@ -37,6 +41,10 @@ class QueueFull(CollectorError):
 
 class SinkFull(CollectorError):
     """The memory-only test sink cannot accept another record."""
+
+
+class SequenceExhausted(CollectorError):
+    """The collector's unsigned 64-bit receipt sequence is exhausted."""
 
 
 @dataclass(frozen=True)
@@ -61,8 +69,30 @@ class SourceHandle:
 class SourceRegistry:
     """Process-local allow-list; intentionally not a production authenticator."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        max_sources: int = _DEFAULT_MAX_SOURCES,
+        max_event_codes: int = _DEFAULT_MAX_EVENT_CODES,
+        max_event_codes_per_source: int = _DEFAULT_MAX_EVENT_CODES_PER_SOURCE,
+    ) -> None:
+        limits = (max_sources, max_event_codes, max_event_codes_per_source)
+        if any(not isinstance(v, int) or isinstance(v, bool) or v < 1 for v in limits):
+            raise ValueError("registry limits must be positive integers")
+        if max_event_codes_per_source > max_event_codes:
+            raise ValueError("per-source event-code limit cannot exceed total limit")
+        self._max_sources = max_sources
+        self._max_event_codes = max_event_codes
+        self._max_event_codes_per_source = max_event_codes_per_source
+        self._event_code_count = 0
         self._policies: dict[SourceHandle, SourcePolicy] = {}
+
+    @property
+    def source_count(self) -> int:
+        return len(self._policies)
+
+    @property
+    def event_code_count(self) -> int:
+        return self._event_code_count
 
     def register(self, policy: SourcePolicy) -> SourceHandle:
         if not isinstance(policy.source_id, str) or not policy.source_id or len(policy.source_id) > 64:
@@ -71,6 +101,12 @@ class SourceRegistry:
             raise ValueError("source_version must contain 1..32 characters")
         if not isinstance(policy.event_codes, Mapping) or not policy.event_codes:
             raise ValueError("at least one event code must be registered")
+        if len(policy.event_codes) > self._max_event_codes_per_source:
+            raise ValueError("source exceeds the event-code limit")
+        if self.source_count >= self._max_sources:
+            raise ValueError("source registry capacity reached")
+        if self._event_code_count + len(policy.event_codes) > self._max_event_codes:
+            raise ValueError("event-code catalogue capacity reached")
         if (
             not isinstance(policy.max_payload_bytes, int)
             or isinstance(policy.max_payload_bytes, bool)
@@ -105,6 +141,7 @@ class SourceRegistry:
         )
         handle = SourceHandle(object())
         self._policies[handle] = frozen_policy
+        self._event_code_count += len(frozen_policy.event_codes)
         return handle
 
     def policy_for(self, handle: SourceHandle) -> SourcePolicy:
@@ -241,8 +278,9 @@ class EventCollector:
         if source_sequence is not None and (
             not isinstance(source_sequence, int) or isinstance(source_sequence, bool)
             or source_sequence < 0
+            or source_sequence > _MAX_UINT64
         ):
-            raise InvalidEvent("source_sequence must be a non-negative integer")
+            raise InvalidEvent("source_sequence must be an unsigned 64-bit integer")
 
         payload = _validate_payload(message.get("payload", {}))
         try:
@@ -300,6 +338,8 @@ class EventCollector:
             self._dropped += 1
             raise QueueFull("collector queue capacity reached")
 
+        if self._sequence >= _MAX_UINT64:
+            raise SequenceExhausted("collector receipt sequence exhausted")
         self._sequence += 1
         record = {
             "schema_version": 1,
