@@ -11,7 +11,7 @@ UEFI_LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machin
 CRYPTO_DIR := boot/crypto
 MONOCYPHER_DIR := $(CRYPTO_DIR)/monocypher
 
-.PHONY: all clean iso check-tools test uefi uefi-test uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test
+.PHONY: all clean iso check-tools test ios-monitor-test uefi uefi-test uefi-abi-test uefi-services-abi-test uefi-reader-test uefi-manifest-test security-test keygen-test vgkm-test sha256-test integrity-test ed25519-test manifest-test
 all: build/vgk-kernel.elf
 
 test: build/vgk-kernel.elf
@@ -79,6 +79,9 @@ uefi-reader-test: | build
 uefi-manifest-test: | build
 	$(CC) -std=c11 -O2 -Wall -Wextra -Werror -Iboot/uefi -Iboot/crypto -Iboot/crypto/monocypher boot/crypto/sha256.c boot/crypto/integrity.c boot/crypto/manifest.c boot/crypto/ed25519.c boot/crypto/monocypher/monocypher.c boot/crypto/monocypher/monocypher-ed25519.c boot/uefi/uefi_file_reader.c boot/uefi/uefi_release_verify.c tests/test_uefi_manifest_integration.c -o build/test_uefi_manifest_integration
 	./build/test_uefi_manifest_integration
+
+ios-monitor-test: | build
+	PYTHONPATH=. python3 -m unittest discover -s tests -p 'test_ios_event_collector.py' -v
 
 vgkm-test: | build
 	PYTHONPATH=tools python3 -m unittest discover -s tests -p 'test_vgkm.py' -v

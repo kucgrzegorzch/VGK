@@ -1,0 +1,30 @@
+name: IOS P0.2 Collector Tests
+
+on:
+  pull_request:
+    branches:
+      - design/ios-event-monitoring-contract
+    paths:
+      - '.github/workflows/ios-monitor-test.yml'
+      - 'tools/ios_event_collector.py'
+      - 'tests/test_ios_event_collector.py'
+      - 'Makefile'
+  push:
+    branches:
+      - prototype/ios-event-collector-p02
+  workflow_dispatch:
+
+jobs:
+  ios-monitor-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run IOS collector unit tests
+        run: make ios-monitor-test
