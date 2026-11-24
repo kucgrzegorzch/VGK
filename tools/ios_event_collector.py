@@ -187,9 +187,7 @@ def _preflight_sink_value(value: object, depth: int, budget: list[int]) -> None:
         for key, item in value.items():
             if not isinstance(key, str):
                 raise ValueError("sink record must contain finite JSON data")
-            budget[0] -= len(key.encode("utf-8"))
-            if budget[0] < 0:
-                raise ValueError(f"sink record exceeds {_MAX_RECORD_BYTES} bytes")
+            _consume_utf8_budget(key, budget)
             _preflight_sink_value(item, depth + 1, budget)
     elif isinstance(value, list):
         if len(value) > 32:
@@ -197,9 +195,7 @@ def _preflight_sink_value(value: object, depth: int, budget: list[int]) -> None:
         for item in value:
             _preflight_sink_value(item, depth + 1, budget)
     elif isinstance(value, str):
-        budget[0] -= len(value.encode("utf-8"))
-        if budget[0] < 0:
-            raise ValueError(f"sink record exceeds {_MAX_RECORD_BYTES} bytes")
+        _consume_utf8_budget(value, budget)
     elif value is None or isinstance(value, bool):
         return
     elif isinstance(value, int):
