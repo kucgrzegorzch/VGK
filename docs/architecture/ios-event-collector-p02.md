@@ -26,9 +26,14 @@ Domyślne granice prototypu P0.2:
 - maksymalnie 64 zarejestrowane źródła;
 - maksymalnie 128 kodów zdarzeń na jedno źródło;
 - maksymalnie 4096 kodów zdarzeń łącznie we wszystkich źródłach;
-- `source_sequence` oraz lokalny `sequence` odbioru mieszczą się w zakresie bez znaku 64-bitowego: `0..2^64-1`.
+- `source_sequence` oraz lokalny `sequence` odbioru mieszczą się w zakresie bez znaku 64-bitowego: `0..2^64-1`;
+- kolejka: maksymalnie 4096 rekordów;
+- indeks możliwych powtórzeń: maksymalnie 8192 klucze;
+- odbiornik pamięciowy: maksymalnie 4096 rekordów, każdy do 8192 bajtów JSON;
+- źródło: maksymalnie 10000 zdarzeń w oknie nie dłuższym niż 3600 sekund;
+- licznik odrzuceń nasyca się na wartości uint64 i nie rośnie bez ograniczeń.
 
-Limity rejestru i katalogu można obniżyć przy tworzeniu `SourceRegistry`, ale nie można ich podnieść ponad powyższe wartości maksymalne. Wartości nie-dodatnie, niecałkowite i logiczne są odrzucane. Przekroczenie limitu rejestracji jest jawnie odrzucane; istniejące wpisy nie są usuwane ani zastępowane. Po wyczerpaniu 64-bitowej numeracji kolektor zgłasza `SequenceExhausted` i nie zawija licznika.
+Wszystkie limity konfiguracyjne można obniżać, ale nie można ich podwyższać ponad powyższe wartości maksymalne. Wartości nie-dodatnie, niecałkowite i logiczne są odrzucane. Rekord odbiornika musi być skończonym JSON-em i mieścić się w limicie bajtowym. Przekroczenie limitu rejestracji jest jawnie odrzucane; istniejące wpisy nie są usuwane ani zastępowane. Po wyczerpaniu 64-bitowej numeracji kolektor zgłasza `SequenceExhausted` i nie zawija licznika.
 
 ## Uruchomienie testów
 
