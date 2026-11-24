@@ -134,6 +134,8 @@ class EventCollectorTests(unittest.TestCase):
             sink.append({"payload": [[[[[[[[[0]]]]]]]]]})
         with self.assertRaisesRegex(ValueError, "8192 bytes"):
             sink.append({"payload": "x" * 9000})
+        with self.assertRaisesRegex(ValueError, "8192 bytes"):
+            sink.append({"payload": "x" * 10_000_000})
         self.assertEqual(sink.records, ())
 
     def test_source_rate_limits_have_hard_upper_bounds(self):
