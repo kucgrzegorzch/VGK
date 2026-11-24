@@ -28,7 +28,7 @@ Domyślne granice prototypu P0.2:
 - maksymalnie 4096 kodów zdarzeń łącznie we wszystkich źródłach;
 - `source_sequence` oraz lokalny `sequence` odbioru mieszczą się w zakresie bez znaku 64-bitowego: `0..2^64-1`.
 
-Limity rejestru i katalogu można obniżyć przy tworzeniu `SourceRegistry`. Wartości nie-dodatnie, niecałkowite i logiczne są odrzucane. Przekroczenie limitu rejestracji jest jawnie odrzucane; istniejące wpisy nie są usuwane ani zastępowane. Po wyczerpaniu 64-bitowej numeracji kolektor zgłasza `SequenceExhausted` i nie zawija licznika.
+Limity rejestru i katalogu można obniżyć przy tworzeniu `SourceRegistry`, ale nie można ich podnieść ponad powyższe wartości maksymalne. Wartości nie-dodatnie, niecałkowite i logiczne są odrzucane. Przekroczenie limitu rejestracji jest jawnie odrzucane; istniejące wpisy nie są usuwane ani zastępowane. Po wyczerpaniu 64-bitowej numeracji kolektor zgłasza `SequenceExhausted` i nie zawija licznika.
 
 ## Uruchomienie testów
 
